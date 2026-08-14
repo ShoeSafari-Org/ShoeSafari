@@ -3,7 +3,6 @@ import Hero from "./(landingpage)/Hero";
 import Carousel from "./(landingpage)/Categories";
 import Catalogue from "./(landingpage)/Catalogue";
 import Catalogue2 from "./(landingpage)/Catalogue2";
-import Catalogue3 from "./(landingpage)/Catalogue3";
 import Stellar from "./(landingpage)/Stellar";
 import Features from "./(landingpage)/Features";
 import HowItWorks from "./(landingpage)/HowItWorks";
@@ -30,8 +29,7 @@ export default function FirstPage() {
       <Features />
       <HowItWorks />
 
-      {/* Our Story */}
-      <Catalogue3 />
+      {/* Product Showcase */}
       <Slider />
 
       {/* Social Proof */}
