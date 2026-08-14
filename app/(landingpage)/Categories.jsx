@@ -169,25 +169,6 @@ export default function ShopByCategory() {
           ))}
         </div>
 
-        {/* Stats Bar */}
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-900 rounded-2xl p-6 md:p-8">
-          <div className="text-center">
-            <p className="text-3xl md:text-4xl font-bold text-white">500+</p>
-            <p className="text-gray-400 text-sm mt-1">Products</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl md:text-4xl font-bold text-white">50+</p>
-            <p className="text-gray-400 text-sm mt-1">Brands</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl md:text-4xl font-bold text-white">10K+</p>
-            <p className="text-gray-400 text-sm mt-1">Happy Customers</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl md:text-4xl font-bold text-red-500">USDC</p>
-            <p className="text-gray-400 text-sm mt-1">Crypto Payments</p>
-          </div>
-        </div>
       </div>
     </section>
   );
