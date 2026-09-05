@@ -13,7 +13,7 @@ We take security seriously at ShoeSafari. If you discover a security vulnerabili
 ### How to Report
 
 1. **Do NOT** open a public GitHub issue for security vulnerabilities
-2. Email security concerns to: [your-security-email@domain.com]
+2. Report security concerns privately through the repository owner or GitHub Security Advisories. Do not disclose exploitable details in a public issue.
 3. Include a detailed description of the vulnerability
 4. Provide steps to reproduce if possible
 
@@ -149,6 +149,4 @@ Before mainnet deployment:
 
 ## Contact
 
-For security-related inquiries:
-- Email: [your-security-email@domain.com]
-- Response time: Within 48 hours
+For security-related inquiries, use a private GitHub Security Advisory or contact the repository maintainers directly. We aim to acknowledge reports within 48 hours.

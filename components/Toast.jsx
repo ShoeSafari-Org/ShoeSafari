@@ -18,7 +18,7 @@ const Toast = ({ message, show, onClose , time=3000}) => {
     } else {
       setVisible(false);
     }
-  }, [show, onClose]);
+  }, [show, onClose, time]);
 
   return (
     <div

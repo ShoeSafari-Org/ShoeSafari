@@ -30,36 +30,36 @@ const Stellar = () => {
             Crypto checkout, built in
           </div>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-white mb-4">
-            Pay With Stellar
+            The payment rail for open commerce
           </h2>
           <p className="text-white/90 text-lg leading-relaxed mb-8">
-            Pay for your order in USDC on the Stellar network — no card fees,
-            no bank delays, no middleman. This is a live demonstration of how
-            Stellar payments can power any e-commerce store: fast settlement,
-            verifiable receipts, and costs that traditional processors can't match.
+            Pay for your order in USDC on Stellar with a familiar checkout and
+            your own wallet. ShoeSafari demonstrates the complete integration:
+            wallet signing, pre-flight simulation, Soroban escrow, on-chain
+            receipts, merchant dispatch, and refunds.
           </p>
           <ul className="space-y-4 text-white/90 mb-8 text-left">
             <li className="flex items-start gap-3">
               <span className="mt-1.5 h-2 w-2 rounded-full bg-white flex-shrink-0" />
               <span>
-                <strong className="text-white">Settles in seconds</strong> —
-                transfers usually confirm almost instantly, not in days.
+                <strong className="text-white">Fast settlement</strong> —
+                payments confirm in seconds, so commerce does not have to wait for
+                traditional banking rails.
               </span>
             </li>
             <li className="flex items-start gap-3">
               <span className="mt-1.5 h-2 w-2 rounded-full bg-white flex-shrink-0" />
               <span>
-                <strong className="text-white">Fraction-of-a-cent fees</strong>{" "}
-                — send USDC anywhere for pennies, with no card network to slow
-                things down.
+                <strong className="text-white">Low-cost payments</strong> —
+                Stellar keeps transaction costs tiny and predictable.
               </span>
             </li>
             <li className="flex items-start gap-3">
               <span className="mt-1.5 h-2 w-2 rounded-full bg-white flex-shrink-0" />
               <span>
-                <strong className="text-white">Verified by smart contract</strong>{" "}
-                — the exact amount moves to our merchant wallet and a payment
-                event is recorded on the ledger.
+                <strong className="text-white">Escrow with proof</strong> —
+                Soroban holds the payment until dispatch or returns it through an
+                on-chain refund.
               </span>
             </li>
           </ul>
@@ -67,7 +67,7 @@ const Stellar = () => {
             href="/shop"
             className="inline-block bg-white text-red-700 font-semibold px-6 py-3 rounded-md hover:bg-white/90"
           >
-            Shop &amp; Pay with USDC
+            Try the testnet checkout
           </Link>
         </div>
 

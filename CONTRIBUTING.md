@@ -8,6 +8,12 @@ This project is **actively tracked for milestones and bounties on the GrantFox
 platform**. That means your work can be scoped, reviewed, and rewarded through
 GrantFox's native issue and milestone tracking — not just merged silently.
 
+ShoeSafari is also being prepared for the **Stellar Drips Wave** ecosystem. The
+goal is to make Stellar USDC useful in everyday commerce and to give builders a
+clear, working example they can fork. Contributions should improve one of three
+things: the shopper experience, the Stellar/Soroban integration, or the
+documentation that helps another merchant adopt it.
+
 Please take a minute to read this guide. It keeps contributions fast to review,
 easy to test, and consistent across the frontend and the Rust contract.
 
@@ -41,6 +47,13 @@ A common misconception: bounty work is not "first to merge wins." It is
 acceptance criteria wins over a faster, sloppier one.
 
 ## The 5-Step Contribution Pipeline
+
+### What is especially useful right now
+
+- End-to-end Stellar testnet checkout testing and better error recovery.
+- Product, cart, and order improvements that make the demo feel like real commerce.
+- Merchant tools for dispatching, refunding, and tracking escrow orders.
+- Security rules, accessibility, automated tests, and deployment documentation.
 
 ### Step 1 — Find an open issue in the repository
 

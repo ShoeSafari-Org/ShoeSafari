@@ -70,7 +70,7 @@ export default function AboutUs() {
               Our Story
             </span>
             <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
-              Where Quality Meets Innovation
+              A storefront built to open the door for builders
             </h2>
             <div className="space-y-4 text-gray-600 text-lg leading-relaxed">
               <p>
@@ -80,7 +80,9 @@ export default function AboutUs() {
                 We set out to build an e-commerce experience that combines premium footwear with the future of payments. Using Stellar&apos;s blockchain, every purchase settles in seconds with fees under a penny.
               </p>
               <p>
-                More than just a store, we&apos;re an open-source showcase proving that crypto payments can work for everyday commerce — transparent, instant, and accessible to everyone.
+                More than a store, ShoeSafari is a working reference implementation.
+                Developers and merchants can inspect the checkout, learn from the
+                Soroban contract, and adapt the pattern for their own businesses.
               </p>
             </div>
 
@@ -137,11 +139,12 @@ export default function AboutUs() {
             Open Source Project
           </div>
           <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Built in Public, for Everyone
+            Build the next checkout with us
           </h3>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto mb-8">
-            ShoeSafari is fully open source under the MIT license. Fork it, learn from it,
-            or contribute to make crypto payments accessible to more merchants worldwide.
+            ShoeSafari is MIT-licensed and built for contribution. Try the testnet
+            flow, open an issue, improve the integration, or adapt it for another
+            storefront.
           </p>
           <a
             href="https://github.com/ShoeSafari-Hub/ShoeSafari"

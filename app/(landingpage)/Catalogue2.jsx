@@ -3,23 +3,23 @@ import { FaCheckCircle, FaTag, FaUndoAlt, FaCreditCard } from "react-icons/fa";
 const features = [
   {
     icon: FaCheckCircle,
-    title: "Hand-picked quality",
-    text: "Every style is chosen from vetted makers and photographed exactly as it looks, so what you see is what lands at your door.",
+    title: "A familiar storefront",
+    text: "Browse products, add items to a cart, and reach a checkout designed to feel familiar to everyday shoppers.",
   },
   {
     icon: FaTag,
-    title: "Honest pricing",
-    text: "No phantom markdowns, no surprise fees. The price you see is the price you pay — always.",
+    title: "Clear payment flow",
+    text: "The checkout shows the cart total before you sign a Stellar transaction with your own wallet.",
   },
   {
     icon: FaUndoAlt,
     title: "Blockchain transparency",
-    text: "Every Stellar payment is recorded on-chain. You can verify your transaction on the public ledger anytime.",
+    text: "Successful Stellar payments produce a transaction hash and an on-chain event that can be verified publicly.",
   },
   {
     icon: FaCreditCard,
-    title: "Pay your way",
-    text: "Cards or USDC on Stellar — your choice. Crypto payments settle instantly with near-zero fees, no middlemen.",
+    title: "Open-source by design",
+    text: "The storefront, payment utilities, and Soroban checkout contract are available for developers to inspect and adapt.",
   },
 ];
 

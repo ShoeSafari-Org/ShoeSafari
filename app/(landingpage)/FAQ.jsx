@@ -13,23 +13,23 @@ const faqs = [
   },
   {
     question: "How do I get USDC for my wallet?",
-    answer: "You can buy USDC on exchanges like Coinbase, Binance, or Kraken, then send it to your Stellar wallet address. Some on-ramp services let you buy directly with a card. We recommend starting with a small amount to test.",
+    answer: "For the testnet demo, use a Stellar testnet account and testnet USDC from an appropriate faucet or funding flow. Testnet assets have no real-world value.",
   },
   {
     question: "Is my payment secure?",
-    answer: "Yes. Payments are processed through a smart contract that acts as escrow. Your funds are held securely until you confirm delivery. Every transaction is recorded on the public Stellar ledger for full transparency.",
+    answer: "Payments are processed through a Soroban contract that records the order and holds funds in escrow until the merchant dispatches or refunds the order. Always verify the contract and network before signing.",
   },
   {
     question: "What if I want a refund?",
-    answer: "Refunds are processed back to your Stellar wallet. Since we use escrow, if there's an issue before shipping, funds can be returned automatically. For returns after delivery, contact our support team.",
+    answer: "The merchant can call the contract refund flow while funds remain escrowed. The current reference implementation does not claim automatic post-delivery returns.",
   },
   {
     question: "Can I still pay with a credit card?",
-    answer: "Absolutely! Stellar payments are an option, not a requirement. We accept all major credit cards through our traditional checkout. Choose whatever works best for you.",
+    answer: "The storefront includes a traditional checkout interface as well as the Stellar option. Card processing is not connected to a live payment processor in this reference implementation.",
   },
   {
     question: "What are the fees for Stellar payments?",
-    answer: "Stellar transaction fees are typically 0.00001 XLM (a tiny fraction of a cent). Compare that to 2-3% credit card fees. You keep more of your money.",
+    answer: "Stellar network fees are designed to be very small, but the exact fee depends on the network and transaction. The checkout simulates the transaction and displays an estimated resource fee before signing.",
   },
   {
     question: "Is ShoeSafari open source?",
@@ -55,7 +55,7 @@ export default function FAQ() {
             Frequently asked questions
           </h2>
           <p className="text-gray-600">
-            Everything you need to know about shopping with Stellar payments.
+            Honest answers about the ShoeSafari demo and Stellar checkout.
           </p>
         </div>
 

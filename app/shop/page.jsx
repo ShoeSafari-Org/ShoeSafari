@@ -7,8 +7,8 @@ import { FaShoppingCart } from "react-icons/fa";
 import Cart from "../../components/Cart";
 import Modal from "../../components/Modal";
 import Toast from "../../components/Toast";
-import { storage } from "../../lib/firebaseConfig";
-import { ref, listAll, getDownloadURL } from "firebase/storage";
+import { db } from "../../lib/firebaseConfig";
+import { collection, getDocs } from "firebase/firestore";
 
 export default function Products() {
   const { itemCount, cartItems, addToCart, removeFromCart, totalPrice } =
@@ -22,21 +22,19 @@ export default function Products() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const productsRef = ref(storage, "/"); // Fetch from the root directory
-        const productList = await listAll(productsRef);
-        const productPromises = productList.items.map(async (itemRef) => {
-          const url = await getDownloadURL(itemRef);
-          return {
-            id: itemRef.name,
-            img: url,
-            name: itemRef.name.split(".")[0], // Assuming the name is the file name without extension
-            price: Math.floor(Math.random() * 100) + 1, // Random price for demo purposes
-          };
-        });
-        const productsArray = await Promise.all(productPromises);
-        setProducts(productsArray);
+        if (!db) {
+          throw new Error("Product catalog is not configured.");
+        }
+
+        const snapshot = await getDocs(collection(db, "ShoeSafariProducts"));
+        setProducts(
+          snapshot.docs.map((productDoc) => ({
+            id: productDoc.id,
+            ...productDoc.data(),
+          }))
+        );
       } catch (err) {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Could not load products.");
       }
     };
 

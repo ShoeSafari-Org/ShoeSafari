@@ -119,6 +119,14 @@ function Navbar() {
             >
               Blog
             </Link>
+            {user && (
+              <Link
+                href="/orders"
+                className="text-md font-light hover:font-normal text-black hover:text-red-500 transition-colors duration-200"
+              >
+                Orders
+              </Link>
+            )}
             <Link
               href="#contact"
               className="text-md font-light hover:font-normal text-black hover:text-red-500 transition-colors duration-200"
@@ -225,6 +233,16 @@ function Navbar() {
                 <span className="pl-2">Blog</span>
                 <TfiAngleRight size={20} />
               </Link>
+              {user && (
+                <Link
+                  href="/orders"
+                  className="text-md font-light hover:font-normal flex justify-between items-center text-black hover:text-red-500 transition-colors duration-200 py-2 w-full pr-4"
+                  onClick={closeNavOnClick}
+                >
+                  <span className="pl-2">Orders</span>
+                  <TfiAngleRight size={20} />
+                </Link>
+              )}
               <Link
                 href="#contact"
                 className="text-md font-light hover:font-normal flex justify-between items-center text-black hover:text-red-500 transition-colors duration-200 py-2 w-full pr-4"

@@ -421,6 +421,12 @@ export interface OrderEvent {
   timestamp: number;
   ledger: number;
   txHash: string;
+  commerce?: {
+    documentId: string;
+    customer?: { firstName?: string; lastName?: string; email?: string; address?: string };
+    items?: Array<{ name?: string; price?: number }>;
+    userId?: string | null;
+  };
 }
 
 /**

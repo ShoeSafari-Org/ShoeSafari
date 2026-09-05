@@ -25,8 +25,11 @@ import StellarCheckoutButton from "../../components/StellarCheckoutButton";
 import StellarWalletButton from "../../components/StellarWalletButton";
 import StellarOrderWatch from "../../components/StellarOrderWatch";
 import { SiStellar } from "react-icons/si";
+import { saveStellarOrder } from "../../lib/orderStore";
+import { useAuth } from "../../lib/AuthContext";
 
 const Checkout = () => {
+  const { user } = useAuth();
 
   const [otp, setOtp] = useState(Math.floor(Math.random() * 1000000) + 1);
   const [totalPrice, setTotalPrice] = useState(0);
@@ -55,12 +58,36 @@ const Checkout = () => {
     `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
   );
 
-  const handleStellarSuccess = (result: { amountUsd: number | string }) => {
+  const handleStellarSuccess = async (result: {
+    amountUsd: number | string;
+    amountRaw: bigint;
+    hash: string;
+    receipt: { ledger?: number; buyer?: string; token?: string; orderId?: string } | null;
+  }) => {
+    let orderSaved = true;
+    try {
+      const storedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
+      await saveStellarOrder({
+        orderId,
+        result,
+        customer: formData,
+        userId: user?.uid || null,
+        items: Array.isArray(storedItems) ? storedItems : [],
+      });
+    } catch (error) {
+      orderSaved = false;
+      console.error("Stellar payment succeeded but order persistence failed", error);
+    }
+
     showToast(
-      `USDC payment received ✓ $${Number(result.amountUsd).toFixed(2)} · order ${orderId}`
+      orderSaved
+        ? `USDC payment received ✓ $${Number(result.amountUsd).toFixed(2)} · order ${orderId}`
+        : `Payment received ✓, but we could not save the order record. Transaction: ${result.hash}`
     );
     setStage(3);
-    localStorage.clear();
+    localStorage.removeItem("totalPrice");
+    localStorage.removeItem("itemCount");
+    localStorage.removeItem("cartItems");
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

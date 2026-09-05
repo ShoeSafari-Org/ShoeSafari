@@ -6,7 +6,6 @@ const categories = [
     id: 1,
     name: "Men's Collection",
     description: "Bold styles for the modern man",
-    itemCount: 124,
     imageUrl: "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=800&q=80",
     color: "from-slate-900 to-slate-700",
     size: "large",
@@ -15,7 +14,6 @@ const categories = [
     id: 2,
     name: "Women's Collection",
     description: "Elegance meets comfort",
-    itemCount: 156,
     imageUrl: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&q=80",
     color: "from-rose-900 to-rose-700",
     size: "large",
@@ -24,7 +22,6 @@ const categories = [
     id: 3,
     name: "Running",
     description: "Performance footwear",
-    itemCount: 89,
     imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
     color: "from-red-700 to-red-500",
     size: "small",
@@ -33,7 +30,6 @@ const categories = [
     id: 4,
     name: "Casual",
     description: "Everyday essentials",
-    itemCount: 203,
     imageUrl: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600&q=80",
     color: "from-amber-700 to-amber-500",
     size: "small",
@@ -42,7 +38,6 @@ const categories = [
     id: 5,
     name: "Formal",
     description: "Business ready",
-    itemCount: 67,
     imageUrl: "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=600&q=80",
     color: "from-gray-900 to-gray-700",
     size: "small",
@@ -51,7 +46,6 @@ const categories = [
     id: 6,
     name: "Kids",
     description: "Fun & durable",
-    itemCount: 98,
     imageUrl: "https://images.unsplash.com/photo-1555274175-75f79b09d5b8?w=600&q=80",
     color: "from-blue-700 to-blue-500",
     size: "small",
@@ -110,7 +104,7 @@ export default function ShopByCategory() {
               <div className={`absolute inset-0 bg-gradient-to-t ${category.color} opacity-60 group-hover:opacity-70 transition-opacity`} />
               <div className="absolute inset-0 p-6 md:p-8 flex flex-col justify-end">
                 <span className="text-white/80 text-sm font-medium mb-1">
-                  {category.itemCount}+ styles
+                  Explore the collection
                 </span>
                 <h3 className="text-white text-2xl md:text-3xl font-bold mb-2">
                   {category.name}
@@ -150,7 +144,7 @@ export default function ShopByCategory() {
               <div className={`absolute inset-0 bg-gradient-to-t ${category.color} opacity-70 group-hover:opacity-80 transition-opacity`} />
               <div className="absolute inset-0 p-5 flex flex-col justify-end">
                 <span className="text-white/80 text-xs font-medium mb-1">
-                  {category.itemCount}+ styles
+                  Explore the collection
                 </span>
                 <h3 className="text-white text-xl font-bold mb-1">
                   {category.name}

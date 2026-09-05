@@ -28,7 +28,7 @@ const StellarWalletButton = ({ onConnect = null }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onConnect]);
 
   const handleConnect = async () => {
     setError("");

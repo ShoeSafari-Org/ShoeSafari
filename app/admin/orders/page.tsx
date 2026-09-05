@@ -22,6 +22,9 @@ import {
 } from "react-icons/md";
 import { SiStellar } from "react-icons/si";
 import Link from "next/link";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../../../lib/firebaseConfig";
+import { updateStellarOrderStatus } from "../../../lib/orderStore";
 
 // Status badge component
 const StatusBadge = ({ status }: { status: OrderStatus }) => {
@@ -106,6 +109,12 @@ const OrderRow = ({
         <div className="font-mono text-xs text-gray-600">
           {truncateAddress(order.orderId)}
         </div>
+        {order.commerce?.customer && (
+          <div className="mt-1 text-xs text-gray-500">
+            {order.commerce.customer.firstName} {order.commerce.customer.lastName}
+            {order.commerce.customer.email && <div>{order.commerce.customer.email}</div>}
+          </div>
+        )}
       </td>
       <td className="py-4 px-4">
         <div className="font-mono text-xs text-gray-600">
@@ -186,6 +195,28 @@ const OrdersManagementContent = () => {
     eventsSeen: number;
   }>({ running: false, eventsSeen: 0 });
 
+  const mergeCommerceOrders = useCallback(async () => {
+    if (!db) return;
+    const snapshot = await getDocs(collection(db, "ShoeSafariOrders"));
+    const commerceOrders = new Map(
+      snapshot.docs.map((orderDoc) => [orderDoc.data().orderId, {
+        documentId: orderDoc.id,
+        customer: orderDoc.data().customer,
+        items: orderDoc.data().items,
+        userId: orderDoc.data().userId,
+      }])
+    );
+
+    setOrders((previous) => {
+      const merged = new Map(previous);
+      for (const [orderId, commerce] of commerceOrders) {
+        const existing = merged.get(orderId);
+        if (existing) merged.set(orderId, { ...existing, commerce });
+      }
+      return merged;
+    });
+  }, []);
+
   // Initialize event indexer
   useEffect(() => {
     const indexer = new PaymentEventIndexer();
@@ -223,6 +254,12 @@ const OrdersManagementContent = () => {
       },
     });
 
+    void mergeCommerceOrders().catch((loadError) => {
+      // The chain remains authoritative; Firestore adds optional commerce
+      // context and should not hide on-chain orders if it is unavailable.
+      console.warn("Could not load commerce order details", loadError);
+    });
+
     // Stop after 2 seconds of loading to show UI
     const loadingTimeout = setTimeout(() => {
       setIsLoading(false);
@@ -232,7 +269,7 @@ const OrdersManagementContent = () => {
       indexer.stop();
       clearTimeout(loadingTimeout);
     };
-  }, []);
+  }, [mergeCommerceOrders]);
 
   // Handle dispatch order
   const handleDispatch = useCallback(async (orderId: string) => {
@@ -256,6 +293,12 @@ const OrdersManagementContent = () => {
           }
           return newMap;
         });
+        const commerce = orders.get(orderId)?.commerce;
+        if (commerce) {
+          void updateStellarOrderStatus(commerce.documentId, "Shipped").catch((statusError) =>
+            console.warn("Could not sync shipped status to Firestore", statusError)
+          );
+        }
       } else {
         setError(result.error || "Failed to dispatch order");
       }
@@ -264,7 +307,7 @@ const OrdersManagementContent = () => {
     } finally {
       setProcessingOrderId(null);
     }
-  }, []);
+  }, [orders]);
 
   // Handle refund order
   const handleRefund = useCallback(async (orderId: string) => {
@@ -288,6 +331,12 @@ const OrdersManagementContent = () => {
           }
           return newMap;
         });
+        const commerce = orders.get(orderId)?.commerce;
+        if (commerce) {
+          void updateStellarOrderStatus(commerce.documentId, "Refunded").catch((statusError) =>
+            console.warn("Could not sync refunded status to Firestore", statusError)
+          );
+        }
       } else {
         setError(result.error || "Failed to refund order");
       }
@@ -296,7 +345,7 @@ const OrdersManagementContent = () => {
     } finally {
       setProcessingOrderId(null);
     }
-  }, []);
+  }, [orders]);
 
   // Sort orders by timestamp (newest first)
   const sortedOrders = Array.from(orders.values()).sort(

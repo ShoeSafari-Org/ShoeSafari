@@ -278,7 +278,7 @@ Common issues and solutions for ShoeSafari development and production.
 
 If you can't resolve an issue:
 
-1. **Search existing issues:** [GitHub Issues](https://github.com/yourusername/shoesafari/issues)
+1. **Search existing issues:** [ShoeSafari GitHub Issues](https://github.com/ShoeSafari-Hub/ShoeSafari/issues)
 2. **Check Stellar docs:** [developers.stellar.org](https://developers.stellar.org)
 3. **Ask in Discord:** [Stellar Discord](https://discord.gg/stellar)
 4. **Open a new issue** with:

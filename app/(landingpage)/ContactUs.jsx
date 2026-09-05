@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { FaGithub, FaTwitter, FaDiscord } from "react-icons/fa";
+import { FaGithub } from "react-icons/fa";
 import { HiMail, HiLocationMarker, HiClock } from "react-icons/hi";
 import sendMail from "../../lib/sendmail";
 
@@ -11,38 +11,26 @@ const socialLinks = [
     href: "https://github.com/ShoeSafari-Hub/ShoeSafari",
     color: "bg-gray-900 hover:bg-gray-800",
   },
-  {
-    name: "Twitter",
-    icon: FaTwitter,
-    href: "https://twitter.com/shoesafari",
-    color: "bg-blue-500 hover:bg-blue-600",
-  },
-  {
-    name: "Discord",
-    icon: FaDiscord,
-    href: "https://discord.gg/shoesafari",
-    color: "bg-indigo-600 hover:bg-indigo-700",
-  },
 ];
 
 const contactInfo = [
   {
     icon: HiMail,
     title: "Email Us",
-    detail: "hello@shoesafari.store",
-    subtext: "We reply within 24 hours",
+    detail: "Use the GitHub repository",
+    subtext: "For issues, ideas, and contribution discussions",
   },
   {
     icon: HiLocationMarker,
     title: "Based In",
-    detail: "The Blockchain",
-    subtext: "Serving customers worldwide",
+    detail: "Open-source project",
+    subtext: "Built for the Stellar ecosystem",
   },
   {
     icon: HiClock,
     title: "Support Hours",
-    detail: "24/7 Community Support",
-    subtext: "Via Discord & GitHub",
+    detail: "Community-led",
+    subtext: "Response times are not guaranteed",
   },
 ];
 
