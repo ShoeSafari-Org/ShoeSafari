@@ -85,6 +85,7 @@ buyer ──pay──▶ contract (escrow) ──dispatch──▶ merchant
 - [Environment Variables Reference](#environment-variables-reference)
 - [Security Notes](#security-notes)
 - [Firestore deployment notes](docs/FIRESTORE.md)
+- [Drips Wave issue backlog](docs/WAVE_ISSUES.md)
 - [Contributing](#contributing)
 - [License](#license)
 

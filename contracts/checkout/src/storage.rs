@@ -38,7 +38,10 @@ pub fn set_admin(env: &Env, admin: &Address) {
 }
 
 pub fn get_order(env: &Env, order_id: &BytesN<32>) -> Option<Order> {
-    let order: Option<Order> = env.storage().persistent().get(&DataKey::Order(order_id.clone()));
+    let order: Option<Order> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::Order(order_id.clone()));
     if order.is_some() {
         extend_ttl(env, &DataKey::Order(order_id.clone()));
     }
@@ -46,7 +49,9 @@ pub fn get_order(env: &Env, order_id: &BytesN<32>) -> Option<Order> {
 }
 
 pub fn set_order(env: &Env, order_id: &BytesN<32>, order: &Order) {
-    env.storage().persistent().set(&DataKey::Order(order_id.clone()), order);
+    env.storage()
+        .persistent()
+        .set(&DataKey::Order(order_id.clone()), order);
     extend_ttl(env, &DataKey::Order(order_id.clone()));
 }
 

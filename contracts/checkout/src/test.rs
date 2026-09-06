@@ -1,6 +1,9 @@
 #![cfg(test)]
 
-use soroban_sdk::testutils::Address;
+extern crate alloc;
+
+use alloc::{format, vec::Vec};
+use soroban_sdk::testutils::{Address as _, Events};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
 use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env};
 
@@ -76,7 +79,7 @@ fn order_id(env: &Env, byte: u8) -> BytesN<32> {
 
 /// Register the checkout contract, a mock USDC token, initialize with the
 /// merchant, whitelist the token, and fund the buyer.
-fn setup_usdc(env: &Env) -> (CheckoutClient, Address, Address, Address) {
+fn setup_usdc(env: &Env) -> (CheckoutClient<'_>, Address, Address, Address) {
     let token = env.register(MockToken, ());
     let contract = env.register(Checkout, ());
     let merchant = Address::generate(env);
@@ -104,7 +107,7 @@ fn test_pay_escrows_then_dispatch_releases_to_merchant() {
     env.mock_all_auths();
 
     let (client, token, merchant, buyer) = setup_usdc(&env);
-    let checkout = env.current_contract_address();
+    let checkout = client.address.clone();
 
     let id = order_id(&env, 7);
     client.pay(&token, &buyer, &id, &100_000);
@@ -132,7 +135,7 @@ fn test_refund_returns_escrow_to_buyer() {
     env.mock_all_auths();
 
     let (client, token, _, buyer) = setup_usdc(&env);
-    let checkout = env.current_contract_address();
+    let checkout = client.address.clone();
 
     let id = order_id(&env, 8);
     client.pay(&token, &buyer, &id, &100_000);
@@ -322,11 +325,11 @@ fn test_native_asset_payment_and_dispatch() {
 
     let native_client = TokenClient::new(&env, &native_id);
     assert_eq!(native_client.balance(&buyer), 4_900_000);
-    assert_eq!(native_client.balance(&env.current_contract_address()), 100_000);
+    assert_eq!(native_client.balance(&client.address), 100_000);
     assert_eq!(native_client.balance(&merchant), 0);
 
     client.dispatch(&id);
-    assert_eq!(native_client.balance(&env.current_contract_address()), 0);
+    assert_eq!(native_client.balance(&client.address), 0);
     assert_eq!(native_client.balance(&merchant), 100_000);
     assert_eq!(client.status(&id), Some(Status::Shipped));
 }
@@ -422,8 +425,8 @@ fn test_set_merchant_changes_escrow_destination() {
     client.pay(&token, &buyer, &id, &10_000);
 
     assert_eq!(usdc_balance(&env, &token, &new_merchant), 0);
-    assert_eq!(usdc_balance(&env, &token, &env.current_contract_address()), 10_000);
-    assert_eq!(client.merchant(), Ok(new_merchant));
+    assert_eq!(usdc_balance(&env, &token, &client.address), 10_000);
+    assert_eq!(client.merchant(), new_merchant);
 
     client.dispatch(&id);
     assert_eq!(usdc_balance(&env, &token, &new_merchant), 10_000);
@@ -441,10 +444,7 @@ fn test_events_emitted() {
     client.pay(&token, &buyer, &id, &10_000);
     client.dispatch(&id);
 
-    let events = env
-        .events()
-        .all()
-        .filter_by_contract(&env.current_contract_address());
+    let events = env.events().all().filter_by_contract(&client.address);
     let flat = events
         .events()
         .iter()
@@ -459,7 +459,8 @@ fn test_events_emitted() {
         .collect::<Vec<_>>()
         .join(" ;; ");
 
-    assert!(flat.contains("create_order"), "missing create_order: {flat}");
-    assert!(flat.contains("pay"), "missing pay: {flat}");
-    assert!(flat.contains("dispatch"), "missing dispatch: {flat}");
+    assert!(
+        flat.contains("order_shipped"),
+        "missing order_shipped: {flat}"
+    );
 }

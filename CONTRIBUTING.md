@@ -17,6 +17,11 @@ documentation that helps another merchant adopt it.
 Please take a minute to read this guide. It keeps contributions fast to review,
 easy to test, and consistent across the frontend and the Rust contract.
 
+The current Wave-ready issue backlog is maintained in
+[docs/WAVE_ISSUES.md](docs/WAVE_ISSUES.md). Issues copied from that backlog must
+still be reviewed for current relevance and assigned an honest complexity level
+before they are added to a Wave.
+
 ---
 
 ## Table of Contents

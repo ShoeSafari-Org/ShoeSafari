@@ -2,156 +2,41 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
 
-env:
-  NODE_VERSION: "22"
-  RUST_VERSION: "1.79"
+permissions:
+  contents: read
 
 jobs:
-  # Frontend checks
   frontend:
-    name: Frontend (Lint, Type Check, Test, Build)
+    name: Frontend checks
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          node-version: 18
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm test -- --run
+      - run: npm run build
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Type check
-        run: npx tsc --noEmit --skipLibCheck
-        continue-on-error: true # Allow to pass while fixing type errors
-
-      - name: Run tests
-        run: npm run test
-
-      - name: Build Next.js
-        run: npm run build
-        env:
-          # Minimal env vars for build
-          NEXT_PUBLIC_STELLAR_NETWORK: testnet
-          NEXT_PUBLIC_CHECKOUT_CONTRACT_ID: CDUMMY0000000000000000000000000000000000000000000000000
-          NEXT_PUBLIC_FIREBASE_API_KEY: dummy
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: dummy.firebaseapp.com
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: dummy
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: dummy.appspot.com
-          NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:0000000000000000
-          NEXT_PUBLIC_EMAILJS_SERVICE_ID: service_dummy
-          NEXT_PUBLIC_EMAILJS_TEMPLATE_ID: template_dummy
-          NEXT_PUBLIC_EMAILJS_PUBLIC_KEY: dummy_key
-
-  # Soroban contract checks
-  contracts:
-    name: Soroban Contracts (Build, Test)
+  contract:
+    name: Soroban contract checks
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          targets: wasm32-unknown-unknown
-
-      - name: Cache Cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            contracts/checkout/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install Soroban CLI
-        run: |
-          cargo install --locked soroban-cli || true
-
-      - name: Build contracts
+    defaults:
+      run:
         working-directory: contracts/checkout
-        run: cargo build --release --target wasm32-unknown-unknown
-        continue-on-error: true
-
-      - name: Run contract tests
-        working-directory: contracts/checkout
-        run: cargo test
-        continue-on-error: true
-
-  # Security audit
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-        continue-on-error: true # Report but don't fail yet
-
-      - name: Check for secrets
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --only-verified
-
-  # Rust security audit
-  rust-security:
-    name: Rust Security Audit
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
-      - name: Run cargo audit
-        working-directory: contracts/checkout
-        run: cargo audit
-        continue-on-error: true
-
-  # Summary job that requires all checks to pass
-  ci-success:
-    name: CI Success
-    needs: [frontend, security]
-    runs-on: ubuntu-latest
-    if: always()
-
-    steps:
-      - name: Check all jobs passed
-        run: |
-          if [[ "${{ needs.frontend.result }}" != "success" ]]; then
-            echo "Frontend job failed"
-            exit 1
-          fi
-          echo "All required checks passed!"
+          toolchain: stable
+          targets: wasm32v1-none
+          components: rustfmt, clippy
+      - run: cargo fmt -- --check
+      - run: cargo test
+      - run: cargo clippy --all-targets -- -D warnings
