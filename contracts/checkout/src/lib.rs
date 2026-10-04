@@ -153,9 +153,13 @@ impl Checkout {
             return Err(Error::TokenNotAllowed);
         }
 
-        // A previous pay/refund cannot be superseded; a pending order can.
+        // Pending order terms are immutable once registered by the buyer.
         if let Some(existing) = get_order(&env, &order_id) {
-            if existing.status != Status::Pending {
+            if existing.status == Status::Pending {
+                if existing.buyer != buyer || existing.token != token || existing.amount != amount {
+                    return Err(Error::OrderTermsMismatch);
+                }
+            } else {
                 return Err(Error::OrderAlreadyPaid);
             }
         }

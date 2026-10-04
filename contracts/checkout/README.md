@@ -43,6 +43,9 @@ until the merchant dispatches the order — or refunded on-chain back to the buy
 - `amount` is in **raw token units** (USDC/XLM use 7 decimals, so `10.00 = 100_000_000`).
 - Transfers buyer → **contract** via the SEP-41 `transfer` host call (escrow).
 - The `token` must be on the merchant's whitelist (`add_token`).
+- If `create_order` registered the order first, payment must match its buyer,
+  token, and exact amount. Mismatches fail with `OrderTermsMismatch` before
+  funds move. Direct `pay` without a prior `create_order` remains supported.
 - Rejects amounts `<= 0`, unknown tokens, and duplicate payments (`OrderAlreadyPaid`).
 - Emits `PaymentReceived`:
 
@@ -71,6 +74,7 @@ data:   { amount }   (i128, raw units)
 | 5    | `TokenNotAllowed`    | token not on the merchant's whitelist    |
 | 6    | `OrderNotFound`      | no order for the given `order_id`        |
 | 7    | `InvalidOrderStatus` | order is not `Paid` for dispatch/refund  |
+| 8    | `OrderTermsMismatch` | payment buyer, token, or amount differs from the pending order |
 
 ## Build
 
@@ -92,6 +96,7 @@ cargo test
 Tests cover the full lifecycle with a self-contained mock SEP-41 token AND the
 real Stellar Asset Contract for native XLM
 (`env.register_stellar_asset_contract_v2`), so nothing needs to be deployed.
+They also verify pending order terms cannot be changed when the payment is made.
 
 ## Deploy (testnet)
 

@@ -212,6 +212,44 @@ fn test_create_order_then_pay_completes_it() {
 }
 
 #[test]
+fn test_pending_order_terms_cannot_be_changed_during_payment() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let id = order_id(&env, 18);
+    let amount = 50_000;
+    client.create_order(&buyer, &id, &token, &amount);
+
+    let other_buyer = Address::generate(&env);
+    MockTokenClient::new(&env, &token).mint(&other_buyer, &1_000_000);
+    let other_token = env.register(MockToken, ());
+    client.add_token(&other_token);
+    MockTokenClient::new(&env, &other_token).mint(&buyer, &1_000_000);
+
+    assert_eq!(
+        client.try_pay(&token, &other_buyer, &id, &amount),
+        Err(Ok(Error::OrderTermsMismatch))
+    );
+    assert_eq!(
+        client.try_pay(&other_token, &buyer, &id, &amount),
+        Err(Ok(Error::OrderTermsMismatch))
+    );
+    assert_eq!(
+        client.try_pay(&token, &buyer, &id, &(amount + 1)),
+        Err(Ok(Error::OrderTermsMismatch))
+    );
+
+    assert_eq!(client.status(&id), Some(Status::Pending));
+    assert_eq!(usdc_balance(&env, &token, &buyer), 1_000_000);
+    assert_eq!(usdc_balance(&env, &other_token, &buyer), 1_000_000);
+
+    client.pay(&token, &buyer, &id, &amount);
+    assert_eq!(client.status(&id), Some(Status::Paid));
+    assert_eq!(client.order(&id).unwrap().amount, amount);
+}
+
+#[test]
 fn test_create_order_duplicate_rejected() {
     let env = Env::default();
     env.mock_all_auths();
