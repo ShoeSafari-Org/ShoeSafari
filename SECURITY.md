@@ -37,14 +37,14 @@ cp .env.local.example .env.local
 
 ### Sensitive Data Handling
 
-| Data Type | Storage | Notes |
-|-----------|---------|-------|
-| API Keys | Environment variables | Never hardcode |
-| Firebase Config | Environment variables | Client-side safe but keep secure |
-| EmailJS Credentials | Environment variables | Required for email functionality |
-| Stellar Contract IDs | Environment variables | Public but environment-specific |
-| User Passwords | Firebase Auth | Handled by Firebase, never stored locally |
-| Payment Data | On-chain (Stellar) | Non-custodial, no card data stored |
+| Data Type            | Storage               | Notes                                     |
+| -------------------- | --------------------- | ----------------------------------------- |
+| API Keys             | Environment variables | Never hardcode                            |
+| Firebase Config      | Environment variables | Client-side safe but keep secure          |
+| EmailJS Credentials  | Environment variables | Required for email functionality          |
+| Stellar Contract IDs | Environment variables | Public but environment-specific           |
+| User Passwords       | Firebase Auth         | Handled by Firebase, never stored locally |
+| Payment Data         | On-chain (Stellar)    | Non-custodial, no card data stored        |
 
 ### Smart Contract Security
 
@@ -91,7 +91,10 @@ Before submitting a PR, ensure:
 
 ### Client-Side OTP Generation
 
-The current OTP implementation generates codes client-side for demonstration purposes. In production:
+The current email OTP flow generates and verifies codes in the browser, so it is
+not secure proof of identity. Do not rely on it for account security. A
+production-grade flow must generate and verify expiring codes on a trusted
+server and protect them from replay. In production:
 
 - Move OTP generation to a server-side API route
 - Implement rate limiting on OTP requests
@@ -114,6 +117,7 @@ Ensure your Firestore security rules restrict:
 - Data validation at the database level
 
 Example rules:
+
 ```javascript
 rules_version = '2';
 service cloud.firestore {

@@ -9,7 +9,8 @@ const features = [
   {
     icon: FaShieldAlt,
     title: "Secure & Trustless",
-    description: "Smart contracts handle escrow. Your funds are protected until delivery confirmation.",
+    description:
+      "Smart contracts handle escrow. Your funds are protected until delivery confirmation.",
   },
   {
     icon: FaGlobe,
@@ -39,14 +40,14 @@ export default function Features() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-14">
           <p className="text-sm uppercase tracking-widest text-red-400 font-semibold mb-3">
-            Why pay with Stellar
+            Real commerce on Stellar
           </p>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            The future of e-commerce payments
+            More than $10,000 USDC in product sales
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Traditional payment rails are slow and expensive. Stellar makes commerce
-            faster, cheaper, and more accessible for everyone.
+            Customers use Stellar USDC to pay for real footwear orders at ShoeSafari. Fast
+            settlement and on-chain records make each payment straightforward to verify.
           </p>
         </div>
 
@@ -59,12 +60,8 @@ export default function Features() {
               <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-red-600/20 text-red-400 mb-4">
                 <feature.icon size={24} />
               </span>
-              <h3 className="font-semibold text-white text-lg mb-2">
-                {feature.title}
-              </h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                {feature.description}
-              </p>
+              <h3 className="font-semibold text-white text-lg mb-2">{feature.title}</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>

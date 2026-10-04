@@ -1,12 +1,13 @@
 # Contributing to ShoeSafari
 
-First off — thank you for considering a contribution. ShoeSafari is an
-open-source, reference-architecture storefront on the Stellar network, and the
-project lives or dies by community contributions like yours.
+First off — thank you for considering a contribution. ShoeSafari is a live
+online footwear store that accepts USDC on Stellar and has processed more than
+$10,000 USDC in product sales. The codebase is open source, and contributions
+help improve both the customer experience and the payment infrastructure.
 
-This project is **actively tracked for milestones and bounties on the GrantFox
-platform**. That means your work can be scoped, reviewed, and rewarded through
-GrantFox's native issue and milestone tracking — not just merged silently.
+Because this project supports a live store, protect customer data and production
+funds. Do not test with production credentials or submit real payments while
+developing unless a maintainer explicitly asks you to do so.
 
 ShoeSafari is also being prepared for the **Stellar Drips Wave** ecosystem. The
 goal is to make Stellar USDC useful in everyday commerce and to give builders a
@@ -26,8 +27,8 @@ before they are added to a Wave.
 
 ## Table of Contents
 
-- [How Milestones & Issues Work on GrantFox](#how-milestones--issues-work-on-grantfox)
-- [The 5-Step Contribution Pipeline](#the-5-step-contribution-pipeline)
+- [Contribution Workflow](#contribution-workflow)
+- [The Contribution Pipeline](#the-contribution-pipeline)
 - [Code Formatting](#code-formatting)
 - [Testing Guidelines](#testing-guidelines)
 - [Commit Message Style](#commit-message-style)
@@ -36,44 +37,29 @@ before they are added to a Wave.
 
 ---
 
-## How Milestones & Issues Work on GrantFox
+## Contribution Workflow
 
-We track the roadmap, open issues, and funded bounties natively on the GrantFox
-platform:
+Use GitHub issues to report bugs, propose improvements, and discuss larger
+changes before investing in implementation. Check existing issues and pull
+requests first, and ask maintainers before taking on work that is already
+assigned.
 
-- **Issues** — scoped, actionable work items (bugs, improvements, new features).
-- **Milestones / Bounties** — funded deliverables tied to one or more issues,
-  with defined acceptance criteria and reward amounts.
-- **Proposals** — larger architectural ideas. Post one in the discussions if you
-  want to shape the roadmap before writing code.
-
-A common misconception: bounty work is not "first to merge wins." It is
-**reviewed on quality**, so a well-tested, well-documented PR that satisfies the
-acceptance criteria wins over a faster, sloppier one.
-
-## The 5-Step Contribution Pipeline
+## The Contribution Pipeline
 
 ### What is especially useful right now
 
 - End-to-end Stellar testnet checkout testing and better error recovery.
-- Product, cart, and order improvements that make the demo feel like real commerce.
+- Product, cart, and order improvements that make real commerce more reliable.
 - Merchant tools for dispatching, refunding, and tracking escrow orders.
 - Security rules, accessibility, automated tests, and deployment documentation.
 
 ### Step 1 — Find an open issue in the repository
 
-Browse the open issues on GitHub (and cross-referenced GrantFox milestones).
-Good first issues are usually labeled `good first issue`. If an issue is already
-assigned, respect the assignee — ask before picking it up.
+Browse the open GitHub issues. Good first issues are usually labeled `good first
+issue`. If an issue is already assigned, respect the assignee — ask before
+picking it up.
 
-### Step 2 — Apply for the corresponding bounty / milestone on GrantFox
-
-If the issue belongs to a funded milestone or bounty, **apply for it on
-GrantFox first**. Applying signals intent, links your identity to the work, and
-unlocks reward tracking. Don't start the implementation before your application
-is acknowledged for funded work.
-
-### Step 3 — Create a feature branch
+### Step 2 — Create a feature branch
 
 Branch from the latest `main`. Use a short, descriptive name that matches the
 work:
@@ -90,15 +76,15 @@ git checkout -b docs/stellar-contract-readme # documentation
 
 Branch naming conventions:
 
-| Prefix   | Use for                              | Example                         |
-| -------- | ------------------------------------ | ------------------------------- |
-| `feat/`  | New features                         | `feat/payment-retry`            |
-| `fix/`   | Bug fixes                            | `fix/wrong-total-on-mobile`     |
-| `docs/`  | Documentation only                   | `docs/soroban-deploy-guide`     |
-| `refactor/` | Code changes with no behavior change | `refactor/stellar-lib-modules`  |
-| `test/`  | Adding or updating tests             | `test/pay-dup-order-cases`      |
+| Prefix      | Use for                              | Example                        |
+| ----------- | ------------------------------------ | ------------------------------ |
+| `feat/`     | New features                         | `feat/payment-retry`           |
+| `fix/`      | Bug fixes                            | `fix/wrong-total-on-mobile`    |
+| `docs/`     | Documentation only                   | `docs/soroban-deploy-guide`    |
+| `refactor/` | Code changes with no behavior change | `refactor/stellar-lib-modules` |
+| `test/`     | Adding or updating tests             | `test/pay-dup-order-cases`     |
 
-### Step 4 — Write clean code with testing
+### Step 3 — Write clean code with testing
 
 - Follow the style and structure of the surrounding code.
 - Add tests that cover the behavior you changed — see
@@ -106,7 +92,7 @@ Branch naming conventions:
 - Run the local checks below before committing. If they pass, commit.
 - Never commit secrets, `.env` files, or `node_modules`.
 
-### Step 5 — Open a Pull Request (PR) for review
+### Step 4 — Open a Pull Request (PR) for review
 
 ```bash
 git push -u origin feat/payment-retry
@@ -116,13 +102,10 @@ Then open a PR against `main`:
 
 - **Title:** a short summary using a Conventional Commit prefix, e.g.
   `feat: add payment success alert`.
-- **Description:** link the issue/bounty, summarize the change, list how it was
+- **Description:** link the GitHub issue, summarize the change, list how it was
   tested, and note any acceptance criteria you satisfied.
-- Reference the GrantFox milestone/bounty id in the description so reviewers can
-  tie the PR back to the funded work.
 
-Once reviewers approve, maintainers merge. For funded milestones, completion is
-confirmed against the acceptance criteria on GrantFox.
+Once reviewers approve, maintainers merge the change.
 
 ---
 
@@ -197,11 +180,13 @@ npm run test:ui
 ```
 
 **Test file locations:**
+
 - Unit tests: `tests/lib/` for library functions
 - Component tests: `tests/components/` for React components
 - Tests should be named `*.test.ts` or `*.test.tsx`
 
 **What to test:**
+
 - Utility functions (validation, formatting, etc.)
 - Custom hooks
 - Component behavior (user interactions, state changes)
@@ -235,8 +220,9 @@ npm run build        # Production build must succeed
 ### Manual QA for Payment Changes
 
 If your PR touches the Stellar payment flow, describe in the PR how you tested
-it against testnet (Freighter + USDC faucet account). Follow the flow in the
-root [README](README.md#paying-with-usdc-testnet).
+it against testnet (Freighter + testnet USDC). Follow the flow in the root
+[README](README.md#paying-with-stellar-testnet). Never use production funds for
+testing.
 
 ## Commit Message Style
 
@@ -247,14 +233,14 @@ tooling detect releases automatically.
 <type>(<optional scope>): <short summary>
 ```
 
-| Type       | Meaning                                  |
-| ---------- | ---------------------------------------- |
-| `feat`     | A new user-facing feature                |
-| `fix`      | A bug fix                                |
-| `docs`     | Documentation only                       |
-| `refactor` | Code change with no behavior change      |
-| `test`     | Adding or updating tests                 |
-| `chore`    | Build tooling, deps, config              |
+| Type       | Meaning                             |
+| ---------- | ----------------------------------- |
+| `feat`     | A new user-facing feature           |
+| `fix`      | A bug fix                           |
+| `docs`     | Documentation only                  |
+| `refactor` | Code change with no behavior change |
+| `test`     | Adding or updating tests            |
+| `chore`    | Build tooling, deps, config         |
 
 Examples:
 
@@ -269,7 +255,7 @@ chore: bump @stellar/stellar-sdk to 16.2.0
 Rules:
 
 - Imperative mood, lowercase after the type, no trailing period.
-- Summary under ~72 characters. Add a body explaining *why* when it's not
+- Summary under ~72 characters. Add a body explaining _why_ when it's not
   obvious.
 - One logical change per commit. Prefer several focused commits over one large
   one.
@@ -278,7 +264,7 @@ Rules:
 
 Before opening a PR, verify:
 
-- [ ] Linked to the GitHub issue and GrantFox milestone/bounty id.
+- [ ] Linked to the relevant GitHub issue, if one exists.
 - [ ] Branch name follows the naming convention.
 - [ ] Code formatted (`npm run format` / `cargo fmt`).
 - [ ] Lints pass (`npm run lint`, `cargo clippy -- -D warnings`).
@@ -298,7 +284,7 @@ everyone — regardless of experience, background, or identity.
 **Our expectations:**
 
 - **Be respectful.** Disagreement on code is normal; keep it about the code.
-- **Be constructive.** In reviews, explain *why*; in replies, be open to
+- **Be constructive.** In reviews, explain _why_; in replies, be open to
   alternatives.
 - **Be patient.** Maintainers and contributors volunteer their time; reviews may
   take a few days.
@@ -308,10 +294,10 @@ everyone — regardless of experience, background, or identity.
 doxxing, and any form of discrimination. Maintainers may remove comments, close
 PRs, or ban individuals who violate these standards.
 
-**Reporting:** contact the maintainers via a GitHub issue (labeled
-`report`/private) or through GrantFox. All reports are taken seriously and
-reviewed confidentially.
+**Reporting:** contact the maintainers using the private reporting channel
+described in [SECURITY.md](SECURITY.md). Security reports are reviewed
+confidentially.
 
 ---
 
-*Happy building — and see you on GrantFox.*
+_Happy building — and thank you for contributing to ShoeSafari._

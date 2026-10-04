@@ -6,25 +6,29 @@ const steps = [
     icon: FaWallet,
     step: "01",
     title: "Connect Your Wallet",
-    description: "Install Freighter browser extension and connect to ShoeSafari. No account creation needed — your wallet is your identity.",
+    description:
+      "Install Freighter browser extension and connect to ShoeSafari. No account creation needed — your wallet is your identity.",
   },
   {
     icon: FaShoppingCart,
     step: "02",
     title: "Shop & Add to Cart",
-    description: "Browse our curated collection of quality footwear. Add your favorites to cart just like any online store.",
+    description:
+      "Browse our curated collection of quality footwear. Add your favorites to cart just like any online store.",
   },
   {
     icon: FaCheck,
     step: "03",
     title: "Pay with USDC",
-    description: "At checkout, approve the transaction in Freighter. Payment settles in seconds with a fraction-of-a-cent fee.",
+    description:
+      "At checkout, approve the transaction in Freighter. Payment settles in seconds with a fraction-of-a-cent fee.",
   },
   {
     icon: FaTruck,
     step: "04",
     title: "Track & Receive",
-    description: "Get real-time shipping updates. Funds release from escrow when you confirm delivery.",
+    description:
+      "After the Stellar transaction confirms, ShoeSafari can process your order for fulfillment.",
   },
 ];
 
@@ -40,8 +44,7 @@ export default function HowItWorks() {
             How to shop with crypto
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            New to crypto payments? No problem. Here's how easy it is to buy
-            shoes with Stellar USDC.
+            Shop real products and pay securely with USDC from your Stellar wallet.
           </p>
         </div>
 
@@ -58,25 +61,17 @@ export default function HowItWorks() {
                   <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white">
                     <step.icon size={24} />
                   </span>
-                  <span className="text-4xl font-bold text-gray-200">
-                    {step.step}
-                  </span>
+                  <span className="text-4xl font-bold text-gray-200">{step.step}</span>
                 </div>
-                <h3 className="font-semibold text-gray-900 text-lg mb-2">
-                  {step.title}
-                </h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  {step.description}
-                </p>
+                <h3 className="font-semibold text-gray-900 text-lg mb-2">{step.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{step.description}</p>
               </div>
             </div>
           ))}
         </div>
 
         <div className="mt-12 text-center">
-          <p className="text-gray-500 text-sm mb-4">
-            Don't have a Stellar wallet yet?
-          </p>
+          <p className="text-gray-500 text-sm mb-4">Don't have a Stellar wallet yet?</p>
           <a
             href="https://www.freighter.app/"
             target="_blank"

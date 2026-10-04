@@ -8,7 +8,12 @@ const values = [
     description: "Every pair is crafted with premium materials and attention to detail",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+        />
       </svg>
     ),
   },
@@ -17,7 +22,12 @@ const values = [
     description: "Pioneering crypto payments with Stellar blockchain technology",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M13 10V3L4 14h7v7l9-11h-7z"
+        />
       </svg>
     ),
   },
@@ -26,8 +36,18 @@ const values = [
     description: "Open source code, transparent pricing, no hidden fees",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+        />
       </svg>
     ),
   },
@@ -36,7 +56,12 @@ const values = [
     description: "Built by developers, for the Stellar ecosystem and beyond",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+        />
       </svg>
     ),
   },
@@ -74,15 +99,18 @@ export default function AboutUs() {
             </h2>
             <div className="space-y-4 text-gray-600 text-lg leading-relaxed">
               <p>
-                ShoeSafari started with a simple question: <em>Why can&apos;t buying shoes be as fast and borderless as sending a text?</em>
+                ShoeSafari started with a simple question:{" "}
+                <em>Why can&apos;t buying shoes be as fast and borderless as sending a text?</em>
               </p>
               <p>
-                We set out to build an e-commerce experience that combines premium footwear with the future of payments. Using Stellar&apos;s blockchain, every purchase settles in seconds with fees under a penny.
+                ShoeSafari is a live online footwear store combining product sales with Stellar
+                payments. Customers have processed more than $10,000 USDC in purchases through the
+                store.
               </p>
               <p>
-                More than a store, ShoeSafari is a working reference implementation.
-                Developers and merchants can inspect the checkout, learn from the
-                Soroban contract, and adapt the pattern for their own businesses.
+                We continue to build in the open while serving customers. Our experience shows how
+                Stellar USDC can support everyday online commerce, with payments recorded on a
+                public ledger.
               </p>
             </div>
 
@@ -94,11 +122,16 @@ export default function AboutUs() {
               >
                 Shop Now
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
                 </svg>
               </Link>
               <a
-                href="https://github.com/ShoeSafari-Hub/ShoeSafari"
+                href="https://github.com/ShoeSafari-Org/ShoeSafari"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors"
@@ -142,12 +175,11 @@ export default function AboutUs() {
             Build the next checkout with us
           </h3>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto mb-8">
-            ShoeSafari is MIT-licensed and built for contribution. Try the testnet
-            flow, open an issue, improve the integration, or adapt it for another
-            storefront.
+            ShoeSafari is MIT-licensed and built for contribution. Try the testnet flow, open an
+            issue, improve the integration, or adapt it for another storefront.
           </p>
           <a
-            href="https://github.com/ShoeSafari-Hub/ShoeSafari"
+            href="https://github.com/ShoeSafari-Org/ShoeSafari"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-3 bg-white text-gray-900 px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-colors"

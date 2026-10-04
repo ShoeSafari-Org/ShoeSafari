@@ -8,7 +8,7 @@ const socialLinks = [
   {
     name: "GitHub",
     icon: FaGithub,
-    href: "https://github.com/ShoeSafari-Hub/ShoeSafari",
+    href: "https://github.com/ShoeSafari-Org/ShoeSafari",
     color: "bg-gray-900 hover:bg-gray-800",
   },
 ];
@@ -79,7 +79,8 @@ const ContactUs = () => {
             Let&apos;s Start a Conversation
           </h2>
           <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Have questions about our products, Stellar payments, or want to contribute to the project? We&apos;d love to hear from you.
+            Have questions about our products, Stellar payments, or want to contribute to the
+            project? We&apos;d love to hear from you.
           </p>
         </div>
 
@@ -131,17 +132,23 @@ const ContactUs = () => {
                 <span className="text-white font-semibold">Open Source Project</span>
               </div>
               <p className="text-gray-400 text-sm mb-4">
-                ShoeSafari is MIT licensed. Fork it, learn from it, or contribute to make crypto payments accessible to more merchants.
+                ShoeSafari is MIT licensed. Fork it, learn from it, or contribute to make crypto
+                payments accessible to more merchants.
               </p>
               <a
-                href="https://github.com/ShoeSafari-Hub/ShoeSafari"
+                href="https://github.com/ShoeSafari-Org/ShoeSafari"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-red-400 hover:text-red-300 text-sm font-semibold transition-colors"
               >
                 View on GitHub
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
                 </svg>
               </a>
             </div>
@@ -151,7 +158,9 @@ const ContactUs = () => {
           <div className="lg:col-span-3">
             <div className="bg-gray-50 rounded-3xl p-8 md:p-10">
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Send us a message</h3>
-              <p className="text-gray-600 mb-8">Fill out the form below and we&apos;ll get back to you shortly.</p>
+              <p className="text-gray-600 mb-8">
+                Fill out the form below and we&apos;ll get back to you shortly.
+              </p>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid sm:grid-cols-2 gap-5">
@@ -251,8 +260,18 @@ const ContactUs = () => {
                   ) : (
                     <>
                       Send Message
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
                       </svg>
                     </>
                   )}
@@ -272,11 +291,21 @@ const ContactUs = () => {
         >
           {toast.type === "success" ? (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           ) : (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           )}
           <span className="font-medium">{toast.message}</span>
@@ -285,7 +314,12 @@ const ContactUs = () => {
             className="ml-2 hover:opacity-80 transition-opacity"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>

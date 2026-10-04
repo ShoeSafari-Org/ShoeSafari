@@ -1,12 +1,12 @@
 {
   "name": "shoesafari",
   "version": "1.0.0",
-  "description": "E-commerce platform with Stellar blockchain payments - showcasing crypto integration in web commerce",
+  "description": "Live online footwear store selling real products with Stellar USDC payments; over $10,000 USDC in product sales processed",
   "private": false,
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ShoeSafari-Hub/ShoeSafari.git"
+    "url": "https://github.com/ShoeSafari-Org/ShoeSafari.git"
   },
   "keywords": [
     "ecommerce",
