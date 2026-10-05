@@ -502,3 +502,47 @@ fn test_events_emitted() {
         "missing order_shipped: {flat}"
     );
 }
+
+#[test]
+fn test_unauthorized_dispatch() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let id = order_id(&env, 77);
+
+    // Pay order as buyer
+    client.pay(&token, &buyer, &id, &50_000);
+    assert_eq!(client.status(&id), Some(Status::Paid));
+    assert_eq!(usdc_balance(&env, &token, &checkout), 50_000);
+    assert_eq!(usdc_balance(&env, &token, &merchant), 0);
+    assert_eq!(usdc_balance(&env, &token, &buyer), 950_000);
+
+    // Set mock_auths to empty: simulate unauthorized caller (no merchant auth)
+    env.mock_auths(&[]);
+
+    // Attempt dispatch without authorization
+    let res = client.try_dispatch(&id);
+    assert!(res.is_err(), "dispatch without merchant auth must fail");
+
+    // Order state and balances must remain strictly unchanged
+    assert_eq!(client.status(&id), Some(Status::Paid));
+    let order = client.order(&id).unwrap();
+    assert_eq!(order.status, Status::Paid);
+    assert_eq!(order.amount, 50_000);
+    assert_eq!(order.buyer, buyer);
+    assert_eq!(order.token, token);
+
+    // Escrow balance remains in contract, merchant has received nothing
+    assert_eq!(usdc_balance(&env, &token, &checkout), 50_000);
+    assert_eq!(usdc_balance(&env, &token, &merchant), 0);
+    assert_eq!(usdc_balance(&env, &token, &buyer), 950_000);
+
+    // Re-enable mock_all_auths for authorized merchant dispatch
+    env.mock_all_auths();
+    client.dispatch(&id);
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+    assert_eq!(usdc_balance(&env, &token, &checkout), 0);
+    assert_eq!(usdc_balance(&env, &token, &merchant), 50_000);
+}
