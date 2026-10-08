@@ -166,3 +166,131 @@ stellar contract invoke \
   --id <CONTRACT_ID> --source-account alice --network testnet -- \
   status --order_id "$ORDER_ID"
 ```
+
+---
+
+## Comprehensive Deployment Guide
+
+### 1. Prerequisites & Toolchain Setup
+
+Ensure the following prerequisites are installed and configured:
+
+1. **Rust & WebAssembly Target**:
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   rustup target add wasm32-unknown-unknown
+   ```
+2. **Stellar CLI (formerly Soroban CLI)**:
+   ```bash
+   cargo install --locked stellar-cli --features opt
+   # Verify installation
+   stellar --version
+   ```
+3. **Configure Network Environments**:
+   ```bash
+   # Add Stellar Testnet
+   stellar network add \
+     --global testnet \
+     --rpc-url https://soroban-testnet.stellar.org:443 \
+     --network-passphrase "Test SDF Network ; September 2015"
+
+   # Add Stellar Mainnet
+   stellar network add \
+     --global mainnet \
+     --rpc-url https://mainnet.sorobanrpc.com:443 \
+     --network-passphrase "Public Global Stellar Network ; July 2015"
+   ```
+4. **Configure Deployer & Merchant Identities**:
+   ```bash
+   # Generate or import deployer key
+   stellar keys generate deployer --network testnet
+   # Fund testnet identity using Friendbot
+   stellar keys fund deployer --network testnet
+   ```
+
+---
+
+### 2. Building & Optimizing the Contract
+
+Always produce an optimized WebAssembly bytecode artifact prior to on-chain deployment:
+
+```bash
+cd contracts/checkout
+
+# 1. Compile to target wasm32
+cargo build --target wasm32-unknown-unknown --release
+
+# 2. Optimize the WASM binary (minimizes bytecode size and storage footprint)
+stellar contract optimize \
+  --wasm target/wasm32-unknown-unknown/release/shoessafari_checkout.wasm
+```
+
+The optimized file will be output to:
+`target/wasm32-unknown-unknown/release/shoessafari_checkout.optimized.wasm`.
+
+---
+
+### 3. Step-by-Step Testnet Deployment
+
+```bash
+# 1. Deploy the optimized contract WASM to Stellar Testnet
+CONTRACT_ID=$(stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/shoessafari_checkout.optimized.wasm \
+  --source deployer \
+  --network testnet)
+
+echo "Deployed Contract ID: $CONTRACT_ID"
+
+# 2. Initialize the contract with the Merchant Wallet Address
+stellar contract invoke \
+  --id "$CONTRACT_ID" \
+  --source deployer \
+  --network testnet -- \
+  initialize \
+  --merchant <MERCHANT_PUBLIC_KEY>
+
+# 3. Whitelist accepted Stellar Asset Contract (SAC) tokens
+# Example: Whitelist Testnet USDC
+stellar contract invoke \
+  --id "$CONTRACT_ID" \
+  --source <MERCHANT_IDENTITY> \
+  --network testnet -- \
+  add_token \
+  --token CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+```
+
+---
+
+### 4. Mainnet Deployment Checklist & Production Security
+
+Before executing mainnet deployment, verify all checklist invariants:
+
+- [ ] **Audited Source Code**: All smart contract code frozen, verified against formal invariants and zero open vulnerabilities.
+- [ ] **Hardware Wallet / Multisig Signing**: Mainnet deployer and merchant keys should be hardware wallets (Ledger) or multi-sig accounts, not hot CLI keys.
+- [ ] **Production Stellar Asset Contract (SAC) IDs**: Confirm mainnet token contract IDs (e.g., Mainnet USDC: `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`).
+- [ ] **Sufficient Reserve Balance**: Deployer account funded with sufficient native XLM for contract deployment fees, WASM ledger footprints, and persistent storage rents.
+- [ ] **One-Time Initialization Guarantee**: The `initialize` call must be executed in the same deployment batch or script to prevent front-running.
+- [ ] **Frontend Configuration**: Update environment variables (`NEXT_PUBLIC_CHECKOUT_CONTRACT_ID`, `NEXT_PUBLIC_STELLAR_NETWORK=mainnet`) in web and service layers.
+
+---
+
+### 5. Contract Initialization Parameters
+
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `merchant` | `Address` | Yes | The authoritative merchant Stellar wallet that receives payment releases upon order dispatch and holds administrative authority to manage token whitelisting. |
+
+---
+
+### 6. Troubleshooting & Common Error Resolutions
+
+| Error / Symptom | Root Cause | Resolution |
+| :--- | :--- | :--- |
+| `HostError: Error(Contract, #1)` (`AlreadyInitialized`) | Contract `initialize` has already been invoked. | The contract can only be initialized once. For upgrades or redeployments, deploy a new contract instance. |
+| `HostError: Error(Contract, #2)` (`Unauthorized`) | Caller is not authorized for the requested merchant action. | Ensure the signing keypair matches the configured `merchant` address. |
+| `HostError: Error(Contract, #3)` (`TokenNotAllowed`) | Payment was attempted with a token not on the whitelist. | Merchant must call `add_token --token <SAC_ADDRESS>` before buyers can submit payments. |
+| `HostError: Error(Contract, #4)` (`OrderNotFound`) | Action called on an uninitialized or non-existent `order_id`. | Confirm the 32-byte hex `order_id` matches the buyer's order record. |
+| `HostError: Error(Contract, #5)` (`OrderAlreadyPaid`) | Payment was submitted for an order already in `Paid` or `Shipped` status. | Generate a fresh unique 32-byte `order_id` for each checkout session. |
+| `HostError: Error(Contract, #6)` (`OrderTermsMismatch`) | Payment amount, token, or buyer does not match the terms registered during `create_order`. | Verify exact token address, buyer address, and raw stroop integer amount match order intent. |
+| `Transaction expired / Fee too low` | Network congestion or surge pricing. | Add `--fee <stroops>` flag to increase max inclusion fee when invoking CLI. |
+
