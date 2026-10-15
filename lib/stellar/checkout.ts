@@ -13,6 +13,7 @@ import { decodePaymentEvent, PaymentReceipt, waitForTransaction } from "./events
 import { addressToScVal, bytes32ToScVal, hashOrderId, i128ToScVal } from "./scval";
 import { assertPaymentReady } from "./account";
 import { buildInvocationTransaction, budgetFee, prepareAndReport } from "./simulate";
+import { formatStroopsAsXlm } from "./fees";
 
 export { fundTestnetAccount } from "./account";
 
@@ -29,6 +30,8 @@ export interface PayOptions {
   token?: TokenConfig;
   /** Called with human-readable progress updates. */
   onStatus?: (status: string) => void;
+  /** Called when the pre-signing network-fee estimate changes. */
+  onFeeEstimate?: (estimate: string) => void;
   /** Called after submission is accepted, and when its outcome is uncertain. */
   onSubmitted?: (hash: string) => void;
 }
@@ -82,7 +85,7 @@ function hexOf(bytes: Uint8Array): string {
  * sign -> submit -> wait -> decode event.
  */
 export async function payWithStellar(options: PayOptions): Promise<PayResult> {
-  const { amountUsd, orderId, publicKey, onStatus = status, onSubmitted } = options;
+  const { amountUsd, orderId, publicKey, onStatus = status, onFeeEstimate, onSubmitted } = options;
   const token = options.token ?? defaultToken();
 
   if (!CHECKOUT_CONTRACT_ID) {
@@ -121,17 +124,25 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
 
   // 4. Pre-flight simulation (surfaces errors early) + prepare.
   onStatus("Simulating transaction…");
+  onFeeEstimate?.("Estimating Stellar network fee…");
   const { tx: prepared, report } = await prepareAndReport(server, tx);
   if (!report.ok || !readiness.account) {
+    onFeeEstimate?.(
+      "Stellar network fee estimate unavailable. Fees are paid in XLM, separate from the USDC cart total."
+    );
     throw new WalletError(
       `Transaction simulation failed: ${report.error?.message ?? "unknown error"}`,
       "TX_SIMULATION_ERROR"
     );
   }
   const fee = await budgetFee(server, report);
-  onStatus(
-    `Estimated fee: ${report.minResourceFee?.toString() ?? "?"} stroops resource + ${fee} stroops total`
-  );
+  const feeXlm = formatStroopsAsXlm(fee);
+  const feeEstimate =
+    feeXlm && report.minResourceFee !== undefined
+      ? `Estimated Stellar network fee: up to ~${feeXlm} XLM. Paid in XLM, separate from the USDC cart total.`
+      : "Stellar network fee estimate unavailable. Fees are paid in XLM, separate from the USDC cart total.";
+  onFeeEstimate?.(feeEstimate);
+  onStatus(feeEstimate);
 
   onStatus("Verifying current checkout quote…");
   const quoteResponse = await fetch("/api/checkout/quote/verify", {

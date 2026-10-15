@@ -18,6 +18,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
   const [publicKey, setPublicKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [feeEstimate, setFeeEstimate] = useState("");
   const [error, setError] = useState("");
   const [transactionHash, setTransactionHash] = useState("");
   const [result, setResult] = useState(null);
@@ -52,6 +53,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
       process.env.NODE_ENV !== "production" &&
       window.localStorage.getItem("__shoesafari_e2e") === "1";
     setError("");
+    setFeeEstimate("");
     setTransactionHash("");
     setResult(null);
     setBusy(true);
@@ -112,6 +114,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         quoteToken,
         publicKey: key,
         onStatus: (msg) => setMessage(msg),
+        onFeeEstimate: (estimate) => setFeeEstimate(estimate),
         onSubmitted: (hash) => {
           const pending = { hash, orderId: quote.orderId };
           savePendingPayment(pending);
@@ -217,6 +220,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
       {message && !busy && (
         <p role="status" aria-live="polite" aria-atomic="true" className="text-sm text-gray-800">
           {message}
+        </p>
+      )}
+
+      {feeEstimate && (
+        <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-gray-700">
+          {feeEstimate}
         </p>
       )}
 
