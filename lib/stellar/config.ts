@@ -121,6 +121,19 @@ export const TX_POLL_INTERVAL_MS = 2500;
 // Meridian / friendbot for funding testnet accounts.
 export const FRIENDBOT_URL = "https://friendbot.stellar.org";
 
+/**
+ * Whether testnet funding via friendbot is available.
+ *
+ * Fail-closed: true only when the app is explicitly configured for the
+ * Stellar testnet AND the passphrase matches the official testnet
+ * passphrase. Mainnet, unknown network values, or a mismatched
+ * network/passphrase combination all return false — friendbot must never
+ * be called in those cases.
+ */
+export function isFriendbotAllowed(): boolean {
+  return NETWORK === "testnet" && NETWORK_PASSPHRASE === Networks.TESTNET;
+}
+
 // Event indexing (lib/stellar/indexer.ts).
 export const EVENT_POLL_INTERVAL_MS = 4000;
 // How many ledgers behind the tip to start scanning on first connect.
