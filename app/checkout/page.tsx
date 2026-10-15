@@ -27,6 +27,11 @@ import StellarOrderWatch from "../../components/StellarOrderWatch";
 import { SiStellar } from "react-icons/si";
 import { saveStellarOrder } from "../../lib/orderStore";
 import { useAuth } from "../../lib/AuthContext";
+import {
+  formatTokenAmount,
+  tokenSymbolForContract,
+  USDC_CONTRACT_ID,
+} from "../../lib/stellar/config";
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -54,15 +59,19 @@ const Checkout = () => {
     setTimeout(() => setToast({ show: false, message: "" }), 5000);
   };
 
-  const [orderId] = useState(() =>
-    `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
-  );
+  const [orderId] = useState(() => `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
 
   const handleStellarSuccess = async (result: {
     amountUsd: number | string;
     amountRaw: bigint;
     hash: string;
-    receipt: { ledger?: number; buyer?: string; token?: string; orderId?: string } | null;
+    receipt: {
+      ledger?: number;
+      buyer?: string;
+      token?: string;
+      orderId?: string;
+      amount?: string;
+    } | null;
   }) => {
     let orderSaved = true;
     try {
@@ -79,9 +88,18 @@ const Checkout = () => {
       console.error("Stellar payment succeeded but order persistence failed", error);
     }
 
+    const tokenContract = result.receipt?.token;
+    const tokenSymbol = tokenSymbolForContract(tokenContract);
+    const amountLabel =
+      tokenContract === USDC_CONTRACT_ID
+        ? `$${Number(result.amountUsd).toFixed(2)} USDC`
+        : result.receipt?.amount
+          ? `${formatTokenAmount(result.receipt.amount, tokenContract)} ${tokenSymbol}`
+          : tokenSymbol;
+
     showToast(
       orderSaved
-        ? `USDC payment received ✓ $${Number(result.amountUsd).toFixed(2)} · order ${orderId}`
+        ? `${amountLabel} payment received ✓ · order ${orderId}`
         : `Payment received ✓, but we could not save the order record. Transaction: ${result.hash}`
     );
     setStage(3);
@@ -112,9 +130,7 @@ const Checkout = () => {
       });
 
       setStage(2);
-      showToast(
-        "Form submitted successfully. OTP has been sent to your email."
-      );
+      showToast("Form submitted successfully. OTP has been sent to your email.");
     } catch (error) {
       setIsSubmitting(false);
       showToast("Failed to send OTP. Please try again.");
@@ -137,7 +153,7 @@ const Checkout = () => {
   const handleGoBack = () => {
     if (stage > 1) {
       setStage(stage - 1);
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   };
 
@@ -166,11 +182,7 @@ const Checkout = () => {
         >
           1
         </span>
-        <span
-          className={`w-20 h-1 sm:w-96 ${
-            stage >= 2 ? "bg-red-700" : "bg-gray-200"
-          }`}
-        ></span>
+        <span className={`w-20 h-1 sm:w-96 ${stage >= 2 ? "bg-red-700" : "bg-gray-200"}`}></span>
         <span
           className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
             stage >= 2 ? "bg-red-700 text-white" : "bg-white"
@@ -178,11 +190,7 @@ const Checkout = () => {
         >
           2
         </span>
-        <span
-          className={`w-20 h-1 sm:w-96 ${
-            stage >= 3 ? "bg-red-700" : "bg-gray-200"
-          }`}
-        ></span>
+        <span className={`w-20 h-1 sm:w-96 ${stage >= 3 ? "bg-red-700" : "bg-gray-200"}`}></span>
         <span
           className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
             stage >= 3 ? "bg-red-700 text-white" : "bg-white"
@@ -209,10 +217,7 @@ const Checkout = () => {
           </div>
           <div className="w-full md:w-1/2 px-4 p-4 rounded-md">
             {stage === 1 && (
-              <form
-                onSubmit={handleSubmit}
-                className="bg-white p-4 rounded shadow-md"
-              >
+              <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow-md">
                 <h2 className="text-2xl mb-4 text-center">Checkout</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="mb-4">
@@ -369,9 +374,9 @@ const Checkout = () => {
                 />
                 <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
                 <p className="text-[11px] text-gray-400 text-center">
-                  Order #{orderId} · USDC (testnet) is escrowed by a Soroban smart
-                  contract until we ship, then released to our merchant wallet. Refunds
-                  go straight back on-chain. No card needed.
+                  Order #{orderId} · USDC (testnet) is escrowed by a Soroban smart contract until we
+                  ship, then released to our merchant wallet. Refunds go straight back on-chain. No
+                  card needed.
                 </p>
               </div>
             )}
@@ -383,9 +388,7 @@ const Checkout = () => {
                 <h2 className="text-2xl mb-4 text-center">Confirm OTP</h2>
                 <span className="text-md">An OTP was sent to your email</span>
                 <div className="mb-4">
-                  <label className="block text-gray-700">
-                    Please confirm OTP
-                  </label>
+                  <label className="block text-gray-700">Please confirm OTP</label>
                   <input
                     type="text"
                     name="otpConfirmation"
@@ -422,12 +425,8 @@ const Checkout = () => {
             {stage === 3 && (
               <div className="bg-white p-4 rounded shadow-md h-full flex flex-col justify-center items-center">
                 <h2 className="text-6xl mb-4 text-center">Order Completed.</h2>
-                <p className="text-center">
-                  Your order has been placed successfully.
-                </p>
-                <span className="text-center">
-                  Thanks for Shopping with us 🥰🥰🥰
-                </span>
+                <p className="text-center">Your order has been placed successfully.</p>
+                <span className="text-center">Thanks for Shopping with us 🥰🥰🥰</span>
                 <Link
                   href="/shop"
                   className="text-center mt-8 py-2 bg-red-700 hover:bg-red-500 rounded-md px-2"
