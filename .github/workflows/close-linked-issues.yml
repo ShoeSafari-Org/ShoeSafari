@@ -1,0 +1,42 @@
+name: Close linked issues
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  close-linked-issues:
+    name: Close issues completed by merged pull request
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close explicitly completed issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Do not check out or execute PR code in this privileged workflow.
+            const body = (context.payload.pull_request.body || '').replace(/```[\s\S]*?```/g, '');
+            const pattern = /\b(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+((?:[\w.-]+\/[\w.-]+)?)(#\d+)/gi;
+            const references = new Set();
+            for (const match of body.matchAll(pattern)) {
+              const repository = match[1];
+              const issueNumber = Number(match[2].slice(1));
+
+              // Only close issues in this repository; leave cross-repository references alone.
+              if (repository && repository.toLowerCase() !== `${context.repo.owner}/${context.repo.repo}`.toLowerCase()) continue;
+              if (Number.isInteger(issueNumber) && issueNumber > 0) references.add(issueNumber);
+            }
+
+            for (const issue_number of references) {
+              await github.rest.issues.update({
+                ...context.repo,
+                issue_number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              core.info(`Closed issue #${issue_number}`);
+            }
