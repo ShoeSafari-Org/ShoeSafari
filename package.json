@@ -52,6 +52,7 @@
     "sharp": "^0.33.4"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^14.2.0",
     "@types/next": "^9.0.0",
@@ -63,6 +64,7 @@
     "@vitest/ui": "^1.2.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
+    "firebase-admin": "^13.5.0",
     "jsdom": "^24.0.0",
     "postcss": "^8",
     "prettier": "^3.2.0",
