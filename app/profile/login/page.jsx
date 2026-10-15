@@ -143,13 +143,15 @@ const AuthPage = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                   onClick={togglePasswordVisibility}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center pt-6 text-gray-500"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center pt-6 text-gray-500 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                 >
                   {showPassword ? (
-                    <FaRegEye size={20} />
+                    <FaRegEye aria-hidden="true" size={20} />
                   ) : (
-                    <FaRegEyeSlash size={20} />
+                    <FaRegEyeSlash aria-hidden="true" size={20} />
                   )}
                 </button>
               </div>
@@ -172,13 +174,19 @@ const AuthPage = () => {
                   />
                   <button
                     type="button"
+                    aria-label={
+                      showConfirmPassword
+                        ? "Hide confirm password"
+                        : "Show confirm password"
+                    }
+                    aria-pressed={showConfirmPassword}
                     onClick={toggleConfirmPasswordVisibility}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center pt-6 text-gray-500"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center pt-6 text-gray-500 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                   >
                     {showConfirmPassword ? (
-                      <FaRegEye size={20} />
+                      <FaRegEye aria-hidden="true" size={20} />
                     ) : (
-                      <FaRegEyeSlash size={20} />
+                      <FaRegEyeSlash aria-hidden="true" size={20} />
                     )}
                   </button>
                 </div>
