@@ -407,8 +407,7 @@ export function eventToOrder(
     symbol: string;
     ledger: number;
     txHash: string;
-  },
-  existingStatus?: OrderStatus
+  }
 ): OrderEvent | null {
   const { fields, symbol, ledger, txHash } = event;
 
@@ -428,13 +427,29 @@ export function eventToOrder(
       status = "Refunded";
       break;
     default:
-      status = existingStatus ?? "Unknown";
+      return null;
   }
 
-  // Extract fields
-  const orderId = fields.order_id || fields.topic1 || "";
-  const buyer = fields.buyer || fields.topic2 || "";
-  const amountStr = fields.amount || "0";
+  // The indexer adds canonical fields only after validating each event's XDR
+  // layout. Keep these checks here so malformed callers cannot create rows.
+  const orderId = fields.order_id || "";
+  const buyer = fields.buyer || fields.merchant || "";
+  const amountStr = fields.amount || "";
+  const transactionHashIsValid = /^[a-f0-9]{64}$/i.test(txHash);
+  const ledgerIsValid = Number.isSafeInteger(ledger) && ledger > 0;
+  const tokenIsValid =
+    (symbol !== "pay" && symbol !== "create_order") || Boolean(fields.token);
+  if (
+    !/^[a-f0-9]{64}$/i.test(orderId) ||
+    !/^\d+$/.test(amountStr) ||
+    BigInt(amountStr) <= 0n ||
+    !transactionHashIsValid ||
+    !ledgerIsValid ||
+    !tokenIsValid ||
+    ((symbol === "pay" || symbol === "create_order" || symbol === "refund") &&
+      !buyer)
+  ) return null;
+
   const token = fields.token || "";
 
   // Try to get token config
@@ -442,22 +457,16 @@ export function eventToOrder(
   const tokenSymbol = tokenConfig?.symbol ?? "Unknown token";
 
   // Parse amount
-  let amountRaw = BigInt(0);
-  try {
-    amountRaw = BigInt(amountStr);
-  } catch {
-    // Keep as 0
-  }
+  const amountRaw = BigInt(amountStr);
 
   const amountDisplay = formatTokenAmount(amountRaw, token);
 
   // Parse timestamp
   let timestamp = Date.now();
   if (fields.timestamp) {
-    try {
-      timestamp = parseInt(fields.timestamp) * 1000;
-    } catch {
-      // Keep current time
+    const parsedTimestamp = Number(fields.timestamp);
+    if (Number.isSafeInteger(parsedTimestamp) && parsedTimestamp > 0) {
+      timestamp = parsedTimestamp * 1000;
     }
   }
 

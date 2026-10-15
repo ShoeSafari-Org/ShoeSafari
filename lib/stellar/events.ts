@@ -23,6 +23,134 @@ export interface PaymentReceipt {
 }
 
 /**
+ * Decode the checkout contract's order events using their event-specific
+ * topic and data layouts. Invalid or incomplete events are ignored before
+ * they can become order rows or status transitions.
+ */
+export function decodeOrderContractEventFields(
+  symbol: string,
+  topics: xdr.ScVal[],
+  data: xdr.ScVal
+): Record<string, string> | null {
+  const dataFields = decodeEventDataMap(data);
+  if (!dataFields) return null;
+
+  const amount = positiveI128(dataFields.amount);
+  if (!amount) return null;
+
+  switch (symbol) {
+    case "pay": {
+      if (
+        topics.length !== 5 ||
+        !isAddress(topics[1]) ||
+        !isAccountAddress(topics[2]) ||
+        !isAccountAddress(topics[3]) ||
+        !isOrderId(topics[4])
+      ) return null;
+      return {
+        token: scValToString(topics[1]),
+        buyer: scValToString(topics[2]),
+        merchant: scValToString(topics[3]),
+        order_id: scValToString(topics[4]),
+        amount,
+      };
+    }
+    case "create_order": {
+      if (
+        topics.length !== 4 ||
+        !isAddress(topics[1]) ||
+        !isAccountAddress(topics[2]) ||
+        !isOrderId(topics[3])
+      ) return null;
+      const timestamp = unsignedU64(dataFields.timestamp);
+      if (!timestamp) return null;
+      return {
+        token: scValToString(topics[1]),
+        buyer: scValToString(topics[2]),
+        order_id: scValToString(topics[3]),
+        amount,
+        timestamp,
+      };
+    }
+    case "dispatch": {
+      if (
+        topics.length !== 3 ||
+        !isOrderId(topics[1]) ||
+        !isAccountAddress(topics[2])
+      ) return null;
+      return {
+        order_id: scValToString(topics[1]),
+        merchant: scValToString(topics[2]),
+        amount,
+      };
+    }
+    case "refund": {
+      if (
+        topics.length !== 3 ||
+        !isOrderId(topics[1]) ||
+        !isAccountAddress(topics[2])
+      ) return null;
+      return {
+        order_id: scValToString(topics[1]),
+        buyer: scValToString(topics[2]),
+        amount,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function decodeEventDataMap(data: xdr.ScVal): Record<string, xdr.ScVal> | null {
+  if (data.switch() !== xdr.ScValType.scvMap()) return null;
+  const fields: Record<string, xdr.ScVal> = {};
+  for (const entry of data.map() ?? []) {
+    if (entry.key().switch() !== xdr.ScValType.scvSymbol()) return null;
+    const key = entry.key().sym().toString();
+    if (fields[key]) return null;
+    fields[key] = entry.val();
+  }
+  return fields;
+}
+
+function positiveI128(value: xdr.ScVal | undefined): string | null {
+  if (!value || value.switch() !== xdr.ScValType.scvI128()) return null;
+  const amount = scValToString(value);
+  return /^\d+$/.test(amount) && BigInt(amount) > 0n ? amount : null;
+}
+
+function unsignedU64(value: xdr.ScVal | undefined): string | null {
+  if (!value || value.switch() !== xdr.ScValType.scvU64()) return null;
+  const timestamp = scValToString(value);
+  return /^\d+$/.test(timestamp) &&
+    BigInt(timestamp) > 0n &&
+    BigInt(timestamp) <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? timestamp
+    : null;
+}
+
+function isAddress(value: xdr.ScVal | undefined): value is xdr.ScVal {
+  return Boolean(value && value.switch() === xdr.ScValType.scvAddress());
+}
+
+function isAccountAddress(value: xdr.ScVal | undefined): value is xdr.ScVal {
+  if (!isAddress(value)) return false;
+  try {
+    return value.address().accountId() !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+function isOrderId(value: xdr.ScVal | undefined): value is xdr.ScVal {
+  return Boolean(
+    value &&
+      value.switch() === xdr.ScValType.scvBytes() &&
+      value.bytes().length === 32
+  );
+}
+
+/**
  * Poll `getTransaction` until the tx reaches a final state.
  * Resolves with the successful transaction; throws on FAILED.
  */
