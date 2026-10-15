@@ -146,6 +146,26 @@ fn test_pay_escrows_then_dispatch_releases_to_merchant() {
 }
 
 #[test]
+fn test_high_value_dispatch_uses_configured_second_signer() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _merchant, buyer) = setup_usdc(&env);
+    let approver = Address::generate(&env);
+    let threshold = 50_000;
+    client.set_approval_policy(&token, &threshold, &approver);
+
+    let policy = client.approval_policy(&token).unwrap();
+    assert_eq!(policy.threshold, threshold);
+    assert_eq!(policy.approver, approver);
+
+    let id = order_id(&env, 22);
+    client.pay(&token, &buyer, &id, &100_000);
+    client.dispatch(&id);
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+}
+
+#[test]
 fn test_refund_returns_escrow_to_buyer() {
     let env = Env::default();
     env.mock_all_auths();

@@ -17,6 +17,9 @@ until the merchant dispatches the order — or refunded on-chain back to the buy
 | `add_token`      | `token: Address`                                                           | `Result<(), Error>`    | Whitelist a SEP-41 token for payments (merchant signs)             |
 | `remove_token`   | `token: Address`                                                           | `Result<(), Error>`    | Remove a token from the whitelist (merchant signs)                 |
 | `is_token_allowed` | `token: Address`                                                         | `bool`                 | Query whether a token is accepted                                   |
+| `set_approval_policy` | `token: Address, threshold: i128, approver: Address`               | `Result<(), Error>`    | Require a second signer for high-value dispatches and refunds       |
+| `clear_approval_policy` | `token: Address`                                                    | `Result<(), Error>`    | Disable the token's second-signer requirement                       |
+| `approval_policy` | `token: Address`                                                        | `Option<ApprovalPolicy>` | Read the optional approval policy                                  |
 | `create_order`   | `buyer`, `order_id: BytesN<32>`, `token`, `amount: i128`                   | `Result<(), Error>`    | Register order intent as `Pending` (buyer signs; no funds move)    |
 | `pay`            | `token`, `buyer`, `order_id: BytesN<32>`, `amount: i128`                   | `Result<(), Error>`    | **Escrow** `amount` from `buyer` into the contract; order → `Paid` |
 | `dispatch`       | `order_id: BytesN<32>`                                                     | `Result<(), Error>`    | Release escrow to the merchant; order → `Shipped` (merchant signs) |
@@ -40,6 +43,12 @@ until the merchant dispatches the order — or refunded on-chain back to the buy
 ### `pay` details
 
 - `buyer.require_auth()` — the buyer must sign the transaction.
+- High-value release approval is disabled by default. The merchant can set a
+  raw-unit threshold and an additional approver per token. A qualifying
+  `dispatch` or `refund` requires both the merchant and configured approver to
+  authorize the same transaction; the approval address cannot equal the
+  merchant. Keeping policy per token avoids mixing thresholds across tokens
+  with different decimal configurations.
 - `amount` is in **raw token units** (USDC/XLM use 7 decimals, so `10.00 = 100_000_000`).
 - Transfers buyer → **contract** via the SEP-41 `transfer` host call (escrow).
 - The `token` must be on the merchant's whitelist (`add_token`).
@@ -80,6 +89,7 @@ Repeated allowlist calls that do not change state do not emit duplicate events.
 | 6    | `OrderNotFound`      | no order for the given `order_id`        |
 | 7    | `InvalidOrderStatus` | order is not `Paid` for dispatch/refund  |
 | 8    | `OrderTermsMismatch` | payment buyer, token, or amount differs from the pending order |
+| 9    | `InvalidApprovalPolicy` | invalid threshold, token, or signer configuration |
 
 ## Build
 
