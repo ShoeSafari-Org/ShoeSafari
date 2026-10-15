@@ -11,6 +11,7 @@ import { db } from "../../lib/firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import { searchProducts } from "../../lib/productSearch";
 import { ProductGridSkeleton } from "../../components/Skeleton";
+import EmptyState from "../../components/EmptyState";
 
 export default function Products() {
   const {
@@ -132,9 +133,21 @@ export default function Products() {
           )}
 
           {!isLoading && !error && products.length > 0 && filteredProducts.length === 0 && (
-            <p className="text-gray-600 text-center py-8" role="status">
-              No products match “{searchTerm.trim()}”. Clear your search to see all products.
-            </p>
+            <EmptyState
+              illustration="search"
+              role="status"
+              className="mx-auto my-8 max-w-md border-0"
+              title="No matching products"
+              description={`We couldn't find anything for “${searchTerm.trim()}”. Try a different search, or clear it to see everything.`}
+            >
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="rounded bg-red-700 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+              >
+                Clear search
+              </button>
+            </EmptyState>
           )}
 
           {!isLoading && !error && filteredProducts.length > 0 && (
@@ -188,7 +201,20 @@ export default function Products() {
           </p>
         )}
         {cartItems.length === 0 ? (
-          <p>Your cart is empty.</p>
+          <EmptyState
+            illustration="cart"
+            className="border-0"
+            title="Your cart is empty"
+            description="Looks like you haven't added any shoes yet. Explore the store and find your next favorite pair."
+          >
+            <button
+              type="button"
+              onClick={closeModal}
+              className="rounded bg-red-700 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+            >
+              Continue shopping
+            </button>
+          </EmptyState>
         ) : (
           <div>
             {cartItems.map((item) => (
