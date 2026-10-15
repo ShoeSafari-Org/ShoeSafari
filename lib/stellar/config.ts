@@ -88,6 +88,7 @@ export function defaultToken(): TokenConfig {
   return SUPPORTED_TOKENS[0];
 }
 
+/** Find the supported token configuration for a Stellar contract ID. */
 export function tokenForContract(contractId: string): TokenConfig | undefined {
   return SUPPORTED_TOKENS.find((t) => t.contractId === contractId);
 }

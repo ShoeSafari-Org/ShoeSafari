@@ -24,6 +24,7 @@ export class WalletError extends Error {
   }
 }
 
+/** Return whether the Freighter browser extension is connected and available. */
 export async function freighterAvailable(): Promise<boolean> {
   try {
     const res = await isConnected();
@@ -33,6 +34,7 @@ export async function freighterAvailable(): Promise<boolean> {
   }
 }
 
+/** Request wallet access and return the selected Stellar public key. */
 export async function connectWallet(): Promise<string> {
   if (!(await freighterAvailable())) {
     throw new WalletError(
@@ -47,6 +49,7 @@ export async function connectWallet(): Promise<string> {
   return res.address;
 }
 
+/** Read the currently authorized public key without opening a wallet prompt. */
 export async function currentAddress(): Promise<string | null> {
   if (!(await freighterAvailable())) return null;
   const res = await getAddress();
@@ -54,6 +57,7 @@ export async function currentAddress(): Promise<string | null> {
   return res.address;
 }
 
+/** Verify Freighter is set to the application's configured Stellar network. */
 export async function ensureNetwork(): Promise<string> {
   const res = await getNetwork();
   if (res.error) {
@@ -74,6 +78,7 @@ export async function ensureNetwork(): Promise<string> {
   return detected;
 }
 
+/** Sign a transaction XDR with Freighter for the supplied public key. */
 export async function signWithFreighter(
   transactionXdr: string,
   publicKey: string
@@ -91,6 +96,7 @@ export async function signWithFreighter(
   return res.signedTxXdr;
 }
 
+/** Shorten a public key for compact UI display while keeping both ends visible. */
 export function shortAddress(address: string, chars = 6): string {
   if (!address || address.length <= chars * 2 + 3) return address ?? "";
   return `${address.slice(0, chars)}…${address.slice(-chars)}`;

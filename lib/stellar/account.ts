@@ -69,6 +69,7 @@ export async function loadAccount(
   }
 }
 
+/** Ask Friendbot to fund a testnet account; throws when Friendbot rejects it. */
 export async function fundTestnetAccount(publicKey: string): Promise<void> {
   // Defense in depth: never call the friendbot URL unless the resolved
   // network configuration is the Stellar testnet. Fails closed for
@@ -227,6 +228,7 @@ export async function assertPaymentReady(
   return readiness;
 }
 
+/** Format an integer token amount using the token's decimal precision. */
 export function formatAmount(raw: bigint, decimals: number): string {
   const negative = raw < BigInt(0);
   const abs = negative ? -raw : raw;

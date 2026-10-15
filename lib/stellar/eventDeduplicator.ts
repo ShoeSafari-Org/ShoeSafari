@@ -8,12 +8,14 @@ export const MAX_SEEN_EVENT_IDS = 5_000;
 export class EventDeduplicator {
   private readonly ids = new Set<string>();
 
+  /** Create a deduplicator that retains at most `capacity` recent IDs. */
   constructor(private readonly capacity = MAX_SEEN_EVENT_IDS) {
     if (!Number.isInteger(capacity) || capacity < 1) {
       throw new Error("Event deduplication capacity must be a positive integer.");
     }
   }
 
+  /** Remember an event ID and return `false` when it is already retained. */
   remember(id: string): boolean {
     if (this.ids.has(id)) return false;
 
@@ -26,6 +28,7 @@ export class EventDeduplicator {
     return true;
   }
 
+  /** Number of event IDs currently retained. */
   get size(): number {
     return this.ids.size;
   }

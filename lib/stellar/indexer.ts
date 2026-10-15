@@ -66,6 +66,7 @@ export class PaymentEventIndexer {
   private running = false;
   private started = false;
 
+  /** Create an indexer using the configured contract and RPC defaults. */
   constructor(
     opts: {
       rpcUrl?: string;
@@ -80,6 +81,7 @@ export class PaymentEventIndexer {
     this.watchedSymbols = opts.watchedSymbols ?? ["pay", "create_order", "dispatch", "refund"];
   }
 
+  /** Snapshot of the current poll state and latest processed cursor. */
   get status(): IndexerStatus {
     return {
       running: this.running,
@@ -99,6 +101,7 @@ export class PaymentEventIndexer {
     void this.initialize(callbacks);
   }
 
+  /** Stop polling; a later `start` call can resume the indexer. */
   stop(): void {
     this.running = false;
     if (this.timer !== null) {
