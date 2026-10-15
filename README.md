@@ -79,6 +79,7 @@ timestamp, status }` and transitions `Pending → Paid → Shipped/Refunded`.
   - [Step 6 — Wire the deployed contract to the storefront](#step-6--wire-the-deployed-contract-to-the-storefront)
   - [Convenience script](#convenience-script)
 - [Paying with Stellar (testnet)](#paying-with-stellar-testnet)
+- [Testnet wallet walkthrough](docs/TESTNET_WALLET_WALKTHROUGH.md)
 - [Testnet checkout validation](docs/TESTNET_CHECKOUT.md)
 - [Environment Variables Reference](#environment-variables-reference)
 - [Stellar network configuration matrix](docs/NETWORK_CONFIGURATION.md)
@@ -443,6 +444,12 @@ whitelists USDC + native XLM:
 It prints the `NEXT_PUBLIC_CHECKOUT_CONTRACT_ID` to paste into `.env.local`.
 
 ## Paying with Stellar (testnet)
+
+New to Stellar testnet? Follow the
+[testnet wallet walkthrough](docs/TESTNET_WALLET_WALKTHROUGH.md) to install and
+configure Freighter, fund a disposable wallet, and complete a test checkout.
+It explains the difference between test XLM and test USDC and never asks for a
+wallet secret.
 
 1. Install [Freighter](https://freighter.app) and set the network to **Testnet**
    (Settings → Network → Testnet).
