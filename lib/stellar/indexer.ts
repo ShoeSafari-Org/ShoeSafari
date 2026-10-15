@@ -66,6 +66,7 @@ export class PaymentEventIndexer {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private started = false;
+  private isPolling = false;
 
   /** Create an indexer using the configured contract and RPC defaults. */
   constructor(
@@ -128,6 +129,11 @@ export class PaymentEventIndexer {
 
   private async poll(callbacks: IndexerCallbacks): Promise<void> {
     if (!this.running) return;
+    // Guard against overlapping polls: if a previous `getEvents` request is
+    // still in flight (e.g. a slow RPC response), skip this tick so we never
+    // issue concurrent requests that could race cursor updates.
+    if (this.isPolling) return;
+    this.isPolling = true;
 
     try {
       const res = await this.fetchEvents();
@@ -172,6 +178,10 @@ export class PaymentEventIndexer {
       callbacks.onError?.(new Error(`getEvents failed: ${this.lastError}`));
       this.recoverFromRetentionError();
       callbacks.onStatus?.(this.status);
+    } finally {
+      // Clear the in-flight flag after both success and failure so a later
+      // tick can poll again.
+      this.isPolling = false;
     }
   }
 
