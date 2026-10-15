@@ -128,6 +128,10 @@ it does not override network limits or guarantee a fixed wall-clock lifetime.
 
 ## Deploy (testnet)
 
+For contract-vs-frontend release decisions, storage compatibility, production
+contract ID changes, and post-deployment checks, follow the
+[checkout contract release checklist](../../docs/CONTRACT_RELEASE.md).
+
 ```bash
 # 1. Create and fund an account
 stellar keys generate alice --network testnet --fund
