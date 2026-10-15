@@ -53,6 +53,24 @@ export async function waitForTransaction(
   );
 }
 
+/** Check a submitted transaction once so the buyer can explicitly resume later. */
+export async function checkTransactionStatus(hash: string) {
+  const server = new rpc.Server(RPC_URL);
+  const result = await server.getTransaction(hash);
+
+  if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) {
+    return {
+      status: "SUCCESS" as const,
+      transaction: result,
+      receipt: decodePaymentEvent(result),
+    };
+  }
+  if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
+    return { status: "FAILED" as const, transaction: result };
+  }
+  return { status: result.status, transaction: result };
+}
+
 /**
  * Find the `PaymentReceived` event emitted by the checkout contract inside a
  * successful transaction's contract events.

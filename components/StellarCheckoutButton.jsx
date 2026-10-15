@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { payWithStellar } from "../lib/stellar/checkout";
+import { orderIdHash, payWithStellar } from "../lib/stellar/checkout";
 import { connectWallet, currentAddress } from "../lib/stellar/freighter";
 import { parseError } from "../lib/errors";
 import { NETWORK } from "../lib/stellar/config";
+import { checkTransactionStatus } from "../lib/stellar/events";
+import {
+  clearPendingPayment,
+  loadPendingPayment,
+  savePendingPayment,
+} from "../lib/stellar/recovery";
 
 /**
  * Pay the current cart total with USDC on Stellar (via Freighter).
@@ -15,9 +21,11 @@ const StellarCheckoutButton = ({ amountUsd, orderId, onSuccess, disabled = false
   const [error, setError] = useState("");
   const [transactionHash, setTransactionHash] = useState("");
   const [result, setResult] = useState(null);
+  const [recovery, setRecovery] = useState(null);
+  const [recoveryLoaded, setRecoveryLoaded] = useState(false);
 
   const generatedOrderId = useMemo(() => `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, []);
-  const effectiveOrderId = orderId || generatedOrderId;
+  const effectiveOrderId = recovery?.orderId || orderId || generatedOrderId;
 
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +35,16 @@ const StellarCheckoutButton = ({ amountUsd, orderId, onSuccess, disabled = false
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const pending = loadPendingPayment();
+    if (pending) {
+      setRecovery(pending);
+      setTransactionHash(pending.hash);
+      setMessage("A submitted payment is ready to check.");
+    }
+    setRecoveryLoaded(true);
   }, []);
 
   const handlePay = async () => {
@@ -54,14 +72,65 @@ const StellarCheckoutButton = ({ amountUsd, orderId, onSuccess, disabled = false
         orderId: effectiveOrderId,
         publicKey: key,
         onStatus: (msg) => setMessage(msg),
+        onSubmitted: (hash) => {
+          const pending = { hash, orderId: effectiveOrderId };
+          savePendingPayment(pending);
+          setRecovery(pending);
+          setTransactionHash(hash);
+        },
       });
+      clearPendingPayment();
+      setRecovery(null);
       setResult(res);
       setMessage("");
-      if (onSuccess) onSuccess(res);
+      if (onSuccess) onSuccess({ ...res, orderId: effectiveOrderId });
     } catch (e) {
       const appError = parseError(e);
       setError(appError.userMessage);
       setTransactionHash(appError.transactionHash || "");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCheckRecovery = async () => {
+    if (!recovery) return;
+    setBusy(true);
+    setError("");
+    setMessage("Checking submitted transaction…");
+
+    try {
+      const checked = await checkTransactionStatus(recovery.hash);
+      if (checked.status === "SUCCESS") {
+        const receipt = checked.receipt;
+        if (!receipt || receipt.orderId !== (await orderIdHash(recovery.orderId))) {
+          throw new Error("The saved transaction does not match this order.");
+        }
+        const amountRaw = BigInt(receipt?.amount || "0");
+        const recoveredResult = {
+          hash: recovery.hash,
+          orderId: recovery.orderId,
+          status: checked.status,
+          receipt,
+          amountRaw,
+          amountUsd: Number(amountRaw) / 10 ** 7,
+        };
+        clearPendingPayment();
+        setRecovery(null);
+        setResult(recoveredResult);
+        setMessage("");
+        if (onSuccess) onSuccess(recoveredResult);
+      } else if (checked.status === "FAILED") {
+        clearPendingPayment();
+        setRecovery(null);
+        setMessage("");
+        setError("The saved payment failed on the Stellar network. You can try again.");
+      } else {
+        setMessage("The transaction is not final yet. Check again shortly.");
+      }
+    } catch (checkError) {
+      setError(parseError(checkError).userMessage);
+      setMessage("");
     } finally {
       setBusy(false);
     }
@@ -72,7 +141,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, onSuccess, disabled = false
       <button
         type="button"
         onClick={handlePay}
-        disabled={disabled || busy || Boolean(result)}
+        disabled={disabled || busy || Boolean(result) || Boolean(recovery) || !recoveryLoaded}
         className={`w-full flex flex-col items-center justify-center gap-1 py-3 rounded transition-colors disabled:opacity-60 ${
           result ? "bg-green-600 text-white" : "bg-red-600 hover:bg-red-700 text-white"
         }`}
@@ -100,6 +169,17 @@ const StellarCheckoutButton = ({ amountUsd, orderId, onSuccess, disabled = false
           </>
         )}
       </button>
+
+      {recovery && (
+        <button
+          type="button"
+          onClick={handleCheckRecovery}
+          disabled={busy}
+          className="w-full rounded border border-blue-700 px-3 py-2 text-blue-800 disabled:opacity-60"
+        >
+          {busy ? message || "Checking…" : "Check saved payment status"}
+        </button>
+      )}
 
       {error && (
         <div className="text-xs text-red-600 text-center" role="alert">
