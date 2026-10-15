@@ -27,6 +27,11 @@ import StellarOrderWatch from "../../components/StellarOrderWatch";
 import { SiStellar } from "react-icons/si";
 import { saveStellarOrder } from "../../lib/orderStore";
 import { useAuth } from "../../lib/AuthContext";
+import {
+  formatTokenAmount,
+  tokenSymbolForContract,
+  USDC_CONTRACT_ID,
+} from "../../lib/stellar/config";
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -64,7 +69,13 @@ const Checkout = () => {
     amountUsd: number | string;
     amountRaw: bigint;
     hash: string;
-    receipt: { ledger?: number; buyer?: string; token?: string; orderId?: string } | null;
+    receipt: {
+      ledger?: number;
+      buyer?: string;
+      token?: string;
+      orderId?: string;
+      amount?: string;
+    } | null;
     orderId?: string;
     items?: Array<{
       productId: string;
@@ -90,9 +101,18 @@ const Checkout = () => {
       console.error("Stellar payment succeeded but order persistence failed", error);
     }
 
+    const tokenContract = result.receipt?.token;
+    const tokenSymbol = tokenSymbolForContract(tokenContract);
+    const amountLabel =
+      tokenContract === USDC_CONTRACT_ID
+        ? `$${Number(result.amountUsd).toFixed(2)} USDC`
+        : result.receipt?.amount
+          ? `${formatTokenAmount(result.receipt.amount, tokenContract)} ${tokenSymbol}`
+          : tokenSymbol;
+
     showToast(
       orderSaved
-        ? `USDC payment received ✓ $${Number(result.amountUsd).toFixed(2)} · order ${completedOrderId}`
+        ? `${amountLabel} payment received ✓ · order ${completedOrderId}`
         : `Payment received ✓, but we could not save the order record. Transaction: ${result.hash}`
     );
     setStage(3);
