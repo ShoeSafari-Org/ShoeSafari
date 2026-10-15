@@ -6,6 +6,8 @@ import {
   validateOTP,
   validatePrice,
   validateStellarAddress,
+  validateProductImage,
+  MAX_PRODUCT_IMAGE_SIZE_BYTES,
   sanitizeText,
   escapeHtml,
   validateForm,
@@ -143,6 +145,34 @@ describe("validatePrice", () => {
   it("formats to 2 decimal places", () => {
     const result = validatePrice("99.999");
     expect(result.sanitized).toBe("100.00");
+  });
+});
+
+describe("validateProductImage", () => {
+  it.each(["image/jpeg", "image/png", "image/webp", "image/gif"])(
+    "accepts supported format %s below the size limit",
+    (type) => {
+      expect(validateProductImage({ type, size: 1024 }).isValid).toBe(true);
+    }
+  );
+
+  it.each(["text/plain", "image/svg+xml", "application/octet-stream"])(
+    "rejects unsupported format %s",
+    (type) => {
+      expect(validateProductImage({ type, size: 1024 })).toMatchObject({
+        isValid: false,
+        error: expect.any(String),
+      });
+    }
+  );
+
+  it("rejects files at or above the Firebase Storage size limit", () => {
+    expect(
+      validateProductImage({
+        type: "image/png",
+        size: MAX_PRODUCT_IMAGE_SIZE_BYTES,
+      }).isValid
+    ).toBe(false);
   });
 });
 

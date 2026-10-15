@@ -3,6 +3,10 @@ import React, { useState, useEffect } from "react";
 import { db, storage } from "../../lib/firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  SUPPORTED_PRODUCT_IMAGE_TYPES,
+  validateProductImage,
+} from "../../lib/validation";
 
 const EditProductForm = ({ productId, onProductUpdated }) => {
   const [productName, setProductName] = useState("");
@@ -12,6 +16,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [imageError, setImageError] = useState("");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -42,6 +47,16 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (productImage) {
+      const validation = validateProductImage(productImage);
+      if (!validation.isValid) {
+        setImageError(validation.error);
+        return;
+      }
+    }
+
+    setImageError("");
     setLoading(true);
 
     try {
@@ -115,9 +130,25 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           </label>
           <input
             type="file"
+            accept={SUPPORTED_PRODUCT_IMAGE_TYPES.join(",")}
             className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-            onChange={(e) => setProductImage(e.target.files[0])}
+            aria-describedby={imageError ? "edit-product-image-error" : undefined}
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              setProductImage(file);
+              setImageError(
+                file ? validateProductImage(file).error || "" : ""
+              );
+            }}
           />
+          {imageError && (
+            <p id="edit-product-image-error" className="mt-2 text-sm text-red-600" role="alert">
+              {imageError}
+            </p>
+          )}
+          <p className="mt-1 text-sm text-gray-600">
+            JPEG, PNG, WebP, or GIF. Maximum size: 5 MiB.
+          </p>
           {existingImageUrl && (
             <img
               src={existingImageUrl}

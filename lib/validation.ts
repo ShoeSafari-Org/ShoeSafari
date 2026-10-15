@@ -19,6 +19,39 @@ export interface FormErrors {
   [key: string]: string | undefined;
 }
 
+/** Firebase Storage product-image limit. Files must be smaller than 5 MiB. */
+export const MAX_PRODUCT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+export const SUPPORTED_PRODUCT_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
+export interface ProductImageFile {
+  type: string;
+  size: number;
+}
+
+/** Validates an image before the admin forms start a Firebase upload. */
+export function validateProductImage(file: ProductImageFile): ValidationResult {
+  if (!(SUPPORTED_PRODUCT_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+    return {
+      isValid: false,
+      error: "Choose a JPEG, PNG, WebP, or GIF image.",
+    };
+  }
+
+  if (file.size >= MAX_PRODUCT_IMAGE_SIZE_BYTES) {
+    return {
+      isValid: false,
+      error: "Image must be smaller than 5 MiB.",
+    };
+  }
+
+  return { isValid: true };
+}
+
 // =============================================================================
 // SANITIZATION
 // =============================================================================

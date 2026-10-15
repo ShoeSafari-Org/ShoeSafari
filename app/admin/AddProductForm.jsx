@@ -4,11 +4,16 @@ import { db, storage } from "../../lib/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Toast from "../../components/Toast";
+import {
+  SUPPORTED_PRODUCT_IMAGE_TYPES,
+  validateProductImage,
+} from "../../lib/validation";
 
 const AddProductForm = ({ onProductAdded }) => {
   const [productName, setProductName] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productImage, setProductImage] = useState(null);
+  const [imageError, setImageError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [toast, setToast] = useState({ show: false, message: "" });
@@ -19,15 +24,22 @@ const AddProductForm = ({ onProductAdded }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
     try {
       // Ensure a file is selected
       if (!productImage) {
-        showToast("Please select an image file");
-        setLoading(false);
+        setImageError("Please select a product image.");
         return;
       }
+
+      const validation = validateProductImage(productImage);
+      if (!validation.isValid) {
+        setImageError(validation.error);
+        return;
+      }
+
+      setImageError("");
+      setLoading(true);
 
       // Upload the image to Firebase Storage
       const imageRef = ref(storage, `products/${productImage.name}`);
@@ -89,10 +101,26 @@ const AddProductForm = ({ onProductAdded }) => {
           </label>
           <input
             type="file"
+            accept={SUPPORTED_PRODUCT_IMAGE_TYPES.join(",")}
             className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-            onChange={(e) => setProductImage(e.target.files[0])}
+            aria-describedby={imageError ? "add-product-image-error" : undefined}
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              setProductImage(file);
+              setImageError(
+                file ? validateProductImage(file).error || "" : ""
+              );
+            }}
             required
           />
+          {imageError && (
+            <p id="add-product-image-error" className="mt-2 text-sm text-red-600" role="alert">
+              {imageError}
+            </p>
+          )}
+          <p className="mt-1 text-sm text-gray-600">
+            JPEG, PNG, WebP, or GIF. Maximum size: 5 MiB.
+          </p>
         </div>
         <button
           type="submit"
