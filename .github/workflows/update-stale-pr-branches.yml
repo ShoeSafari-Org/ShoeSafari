@@ -1,0 +1,68 @@
+name: Update stale pull request branches
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-branches:
+    name: Update pull requests behind main
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update stale branches
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const eventPullRequest = context.payload.pull_request;
+            const pullRequests = eventPullRequest
+              ? [eventPullRequest]
+              : await github.paginate(github.rest.pulls.list, {
+                  owner,
+                  repo,
+                  state: 'open',
+                  base: 'main',
+                  per_page: 100,
+                });
+
+            for (const listedPullRequest of pullRequests) {
+              if (listedPullRequest.state !== 'open' || listedPullRequest.draft) continue;
+              if (listedPullRequest.base.ref !== 'main') continue;
+
+              let pullRequest = listedPullRequest;
+              for (let attempt = 0; attempt < 4; attempt += 1) {
+                const mergeabilityPending = !pullRequest.mergeable_state
+                  || pullRequest.mergeable_state === 'unknown'
+                  || pullRequest.mergeable === null;
+                if (!mergeabilityPending) break;
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                const result = await github.rest.pulls.get({ owner, repo, pull_number: pullRequest.number });
+                pullRequest = result.data;
+              }
+
+              if (pullRequest.mergeable_state !== 'behind') continue;
+
+              try {
+                await github.rest.pulls.updateBranch({
+                  owner,
+                  repo,
+                  pull_number: pullRequest.number,
+                  expected_head_sha: pullRequest.head.sha,
+                });
+                core.info(`Requested update for PR #${pullRequest.number} from main.`);
+              } catch (error) {
+                if (error.status === 422) {
+                  core.warning(`Could not update PR #${pullRequest.number}; it may have conflicts or changed while updating.`);
+                  continue;
+                }
+                throw error;
+              }
+            }
