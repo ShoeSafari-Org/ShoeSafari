@@ -134,6 +134,11 @@ deployment health endpoint.
 
 ## Payment Issues
 
+For an interrupted transaction, missing confirmation, or missing order record,
+follow the [pending or missing payment reconciliation runbook](PAYMENT_RECONCILIATION.md).
+Verify the transaction on the correct network before retrying payment or
+changing an order.
+
 ### "Token not allowed" error
 
 **Symptoms:** Payment fails with TokenNotAllowed

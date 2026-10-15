@@ -10,6 +10,9 @@ built the way it is. It is written to be portable: anyone should be able to take
 this architecture, point it at their own tokens and merchant wallet, and run a
 non-custodial checkout that uses the Stellar public rail.
 
+For support steps when a submitted payment is pending or missing from the
+storefront, see the [payment reconciliation runbook](PAYMENT_RECONCILIATION.md).
+
 ---
 
 ## 1. System overview
