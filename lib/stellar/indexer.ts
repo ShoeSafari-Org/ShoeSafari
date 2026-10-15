@@ -65,8 +65,8 @@ export class PaymentEventIndexer {
 
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
-  private started = false;
-  private isPolling = false;
+  private generation = 0;
+  private pollInFlight = false;
 
   /** Create an indexer using the configured contract and RPC defaults. */
   constructor(
@@ -98,45 +98,58 @@ export class PaymentEventIndexer {
   start(callbacks: IndexerCallbacks): void {
     if (this.running) return;
     this.running = true;
-    this.started = true;
-
-    void this.initialize(callbacks);
+    const generation = ++this.generation;
+    void this.initialize(callbacks, generation);
   }
 
   /** Stop polling; a later `start` call can resume the indexer. */
   stop(): void {
     this.running = false;
+    this.generation += 1;
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
     }
   }
 
-  private async initialize(callbacks: IndexerCallbacks): Promise<void> {
+  private isActive(generation: number): boolean {
+    return this.running && this.generation === generation;
+  }
+
+  private async initialize(
+    callbacks: IndexerCallbacks,
+    generation: number
+  ): Promise<void> {
     try {
       const latest = await this.server.getLatestLedger();
+      if (!this.isActive(generation)) return;
       this.latestLedger = latest.sequence;
       this.startLedger = Math.max(1, this.latestLedger - EVENT_START_LEDGER_BACKFILL);
       callbacks.onStatus?.(this.status);
     } catch (err) {
+      if (!this.isActive(generation)) return;
       this.lastError = String(err instanceof Error ? err.message : err);
       callbacks.onError?.(new Error(`Could not reach the Stellar RPC: ${this.lastError}`));
     }
 
-    this.timer = setInterval(() => void this.poll(callbacks), this.pollMs);
-    void this.poll(callbacks);
+    if (!this.isActive(generation)) return;
+    this.timer = setInterval(
+      () => void this.poll(callbacks, generation),
+      this.pollMs
+    );
+    void this.poll(callbacks, generation);
   }
 
-  private async poll(callbacks: IndexerCallbacks): Promise<void> {
-    if (!this.running) return;
-    // Guard against overlapping polls: if a previous `getEvents` request is
-    // still in flight (e.g. a slow RPC response), skip this tick so we never
-    // issue concurrent requests that could race cursor updates.
-    if (this.isPolling) return;
-    this.isPolling = true;
+  private async poll(
+    callbacks: IndexerCallbacks,
+    generation: number
+  ): Promise<void> {
+    if (!this.isActive(generation) || this.pollInFlight) return;
+    this.pollInFlight = true;
 
     try {
       const res = await this.fetchEvents();
+      if (!this.isActive(generation)) return;
       this.latestLedger = res.latestLedger;
       this.lastError = undefined;
 
@@ -148,6 +161,7 @@ export class PaymentEventIndexer {
       }
 
       for (const raw of res.events) {
+        if (!this.isActive(generation)) return;
         if (!raw.inSuccessfulContractCall) continue;
         const decoded = this.decodeEvent(raw);
         if (!decoded) {
@@ -172,16 +186,17 @@ export class PaymentEventIndexer {
         }
       }
 
-      callbacks.onStatus?.(this.status);
+      if (this.isActive(generation)) callbacks.onStatus?.(this.status);
     } catch (err) {
+      if (!this.isActive(generation)) return;
       this.lastError = String(err instanceof Error ? err.message : err);
-      callbacks.onError?.(new Error(`getEvents failed: ${this.lastError}`));
       this.recoverFromRetentionError();
+      callbacks.onError?.(new Error(`getEvents failed: ${this.lastError}`));
+      if (!this.isActive(generation)) return;
       callbacks.onStatus?.(this.status);
     } finally {
-      // Clear the in-flight flag after both success and failure so a later
-      // tick can poll again.
-      this.isPolling = false;
+      // Clear the in-flight flag after either outcome so a later tick can poll.
+      this.pollInFlight = false;
     }
   }
 
