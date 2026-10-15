@@ -62,6 +62,11 @@ data:   { amount }   (i128, raw units)
 | `OrderCreated`   | `create_order`, token, buyer, order_id    | `{ amount, timestamp }`   |
 | `OrderShipped`   | `dispatch`, order_id, merchant            | `{ amount }`              |
 | `OrderRefunded`  | `refund`, order_id, buyer                 | `{ amount }`              |
+| `MerchantChangedV1` | `merchant_changed_v1`, previous merchant, new merchant | — |
+| `TokenAllowlistChangedV1` | `token_allowlist_changed_v1`, token | `{ allowed }` |
+
+Configuration events are published only after merchant authorization succeeds.
+Repeated allowlist calls that do not change state do not emit duplicate events.
 
 ### Errors
 

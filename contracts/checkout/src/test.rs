@@ -334,6 +334,50 @@ fn test_add_token_after_initialize() {
     assert!(client.is_token_allowed(&token));
 }
 
+#[test]
+fn test_configuration_changes_emit_versioned_events_only_on_changes() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let token = env.register(MockToken, ());
+    let contract = env.register(Checkout, ());
+    let merchant = Address::generate(&env);
+    let new_merchant = Address::generate(&env);
+    let client = CheckoutClient::new(&env, &contract);
+
+    client.initialize(&merchant);
+    client.add_token(&token);
+    let add_events = env.events().all().filter_by_contract(&client.address);
+    assert_eq!(add_events.events().len(), 1);
+    let add_topics = format!("{:?}", add_events.events()[0].body);
+    assert!(add_topics.contains("token_allowlist_changed_v1"));
+    client.add_token(&token);
+    assert!(env
+        .events()
+        .all()
+        .filter_by_contract(&client.address)
+        .events()
+        .is_empty());
+    client.remove_token(&token);
+    let remove_events = env.events().all().filter_by_contract(&client.address);
+    assert_eq!(remove_events.events().len(), 1);
+    let remove_topics = format!("{:?}", remove_events.events()[0].body);
+    assert!(remove_topics.contains("token_allowlist_changed_v1"));
+    client.remove_token(&token);
+    assert!(env
+        .events()
+        .all()
+        .filter_by_contract(&client.address)
+        .events()
+        .is_empty());
+    client.set_merchant(&new_merchant);
+
+    let merchant_events = env.events().all().filter_by_contract(&client.address);
+    assert_eq!(merchant_events.events().len(), 1);
+    let merchant_topics = format!("{:?}", merchant_events.events()[0].body);
+    assert!(merchant_topics.contains("merchant_changed_v1"));
+}
+
 // ---------------------------------------------------------------------------
 // Native XLM via the real Stellar Asset Contract
 // ---------------------------------------------------------------------------

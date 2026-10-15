@@ -10,7 +10,10 @@ use soroban_sdk::token::TokenClient;
 use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, MuxedAddress};
 
 use crate::errors::Error;
-use crate::events::{OrderCreated, OrderRefunded, OrderShipped, PaymentReceived};
+use crate::events::{
+    MerchantChangedV1, OrderCreated, OrderRefunded, OrderShipped, PaymentReceived,
+    TokenAllowlistChangedV1,
+};
 use crate::order::{Order, Status};
 use crate::storage::{
     get_admin, get_order, has_admin, is_token_allowed, set_admin, set_order, set_token_allowed,
@@ -38,6 +41,11 @@ impl Checkout {
         let admin = get_admin(&env)?;
         admin.require_auth();
         set_admin(&env, &new_merchant);
+        MerchantChangedV1 {
+            previous_merchant: admin,
+            new_merchant,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -52,7 +60,14 @@ impl Checkout {
     pub fn add_token(env: Env, token: Address) -> Result<(), Error> {
         let admin = get_admin(&env)?;
         admin.require_auth();
-        set_token_allowed(&env, &token, true);
+        if !is_token_allowed(&env, &token) {
+            set_token_allowed(&env, &token, true);
+            TokenAllowlistChangedV1 {
+                token,
+                allowed: true,
+            }
+            .publish(&env);
+        }
         Ok(())
     }
 
@@ -60,7 +75,14 @@ impl Checkout {
     pub fn remove_token(env: Env, token: Address) -> Result<(), Error> {
         let admin = get_admin(&env)?;
         admin.require_auth();
-        set_token_allowed(&env, &token, false);
+        if is_token_allowed(&env, &token) {
+            set_token_allowed(&env, &token, false);
+            TokenAllowlistChangedV1 {
+                token,
+                allowed: false,
+            }
+            .publish(&env);
+        }
         Ok(())
     }
 
