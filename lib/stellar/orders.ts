@@ -395,6 +395,11 @@ export interface OrderEvent {
     customer?: { firstName?: string; lastName?: string; email?: string; address?: string };
     items?: Array<{ name?: string; price?: number }>;
     userId?: string | null;
+    buyerWallet?: string | null;
+    status?: string;
+    completedAt?: { toMillis?: () => number } | null;
+    updatedAt?: { toMillis?: () => number } | null;
+    personalDataAnonymizedAt?: unknown;
   };
 }
 

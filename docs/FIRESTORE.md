@@ -45,6 +45,8 @@ to Firestore timestamps after the write completes.
 | `items` | array of maps | Yes | Purchased line items; see current and legacy shapes below. |
 | `createdAt` | timestamp | Yes | Server-generated creation time. |
 | `updatedAt` | timestamp | Yes | Server-generated creation/update time. Updated when the admin view mirrors a status change. |
+| `completedAt` | timestamp | Added on completion | Server timestamp written when status becomes `Shipped` or `Refunded`; starts the personal-data retention period. Legacy records use `updatedAt` as the completion time when available. |
+| `personalDataAnonymizedAt` | timestamp | Optional | Server timestamp marking removal of direct customer identifiers from this Firestore copy. |
 
 The `customer` map currently contains `firstName`, `lastName`, `email`, and
 `address`, each a string. These values are copied from checkout form state; the
@@ -53,7 +55,14 @@ as private personal information. Collect and retain only fields needed to
 fulfill the order, limit access to the merchant and the owning customer, and
 never add card number, expiry, CVV, OTP, or other payment credentials to this
 document. The card inputs in the checkout UI are not part of the Stellar order
-record.
+record. Retain direct customer fields and the Firebase `userId` for one year
+(365 days) after completion (`Shipped` or `Refunded`), then use the admin
+orders page to anonymize them. A verified customer deletion request may be
+honored earlier. The action clears the customer map, `userId`, and copied
+`buyerWallet`; it records `personalDataAnonymizedAt` and leaves order IDs,
+transaction hashes, amounts, status, and line items intact for accounting.
+The order page continues to show the buyer address from the public chain index;
+this action does not erase or change that public chain data.
 
 New checkout quote line items use this shape:
 
