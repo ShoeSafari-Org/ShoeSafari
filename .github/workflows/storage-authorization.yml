@@ -1,0 +1,43 @@
+name: Storage authorization tests
+
+on:
+  pull_request:
+    paths:
+      - "storage.rules"
+      - "firebase.storage.json"
+      - "tests/rules/**"
+      - "vitest.rules.config.js"
+      - "vitest.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/storage-authorization.yml"
+  push:
+    branches: [main]
+    paths:
+      - "storage.rules"
+      - "firebase.storage.json"
+      - "tests/rules/**"
+      - "vitest.rules.config.js"
+      - "vitest.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/storage-authorization.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx --yes firebase-tools@13.35.1 --config firebase.storage.json --project demo-shoesafari emulators:exec --only storage "npx vitest run --config vitest.rules.config.js"
