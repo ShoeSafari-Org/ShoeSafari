@@ -75,14 +75,53 @@ type ValidationError = {
   message: string;
 };
 
+const REQUIRED_ENV = {
+  checkoutContractId: {
+    name: "NEXT_PUBLIC_CHECKOUT_CONTRACT_ID",
+    context: "Stellar payments",
+  },
+  emailJsServiceId: {
+    name: "NEXT_PUBLIC_EMAILJS_SERVICE_ID",
+    context: "email notifications",
+  },
+  emailJsTemplateId: {
+    name: "NEXT_PUBLIC_EMAILJS_TEMPLATE_ID",
+    context: "email notifications",
+  },
+  emailJsPublicKey: {
+    name: "NEXT_PUBLIC_EMAILJS_PUBLIC_KEY",
+    context: "email notifications",
+  },
+  firebaseApiKey: {
+    name: "NEXT_PUBLIC_FIREBASE_API_KEY",
+    context: "Firebase authentication",
+  },
+  firebaseAuthDomain: {
+    name: "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+    context: "Firebase authentication",
+  },
+  firebaseProjectId: {
+    name: "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+    context: "Firebase database",
+  },
+  firebaseStorageBucket: {
+    name: "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+    context: "Firebase storage",
+  },
+  firebaseAppId: {
+    name: "NEXT_PUBLIC_FIREBASE_APP_ID",
+    context: "Firebase app",
+  },
+} as const;
+
 /**
  * Validates that a required environment variable is set.
  */
 function requireEnv(
-  name: string,
-  errors: ValidationError[],
-  context: string
+  requirement: (typeof REQUIRED_ENV)[keyof typeof REQUIRED_ENV],
+  errors: ValidationError[]
 ): string {
+  const { name, context } = requirement;
   const value = process.env[name];
   if (!value || value.trim() === "") {
     errors.push({
@@ -116,11 +155,7 @@ export function loadStellarConfig(
     "testnet") as "testnet" | "mainnet";
   const defaults = STELLAR_DEFAULTS[network];
 
-  const checkoutContractId = requireEnv(
-    "NEXT_PUBLIC_CHECKOUT_CONTRACT_ID",
-    errors,
-    "Stellar payments"
-  );
+  const checkoutContractId = requireEnv(REQUIRED_ENV.checkoutContractId, errors);
 
   return {
     network,
@@ -148,21 +183,9 @@ export function loadEmailJSConfig(
   errors: ValidationError[] = []
 ): EmailJSConfig {
   return {
-    serviceId: requireEnv(
-      "NEXT_PUBLIC_EMAILJS_SERVICE_ID",
-      errors,
-      "email notifications"
-    ),
-    templateId: requireEnv(
-      "NEXT_PUBLIC_EMAILJS_TEMPLATE_ID",
-      errors,
-      "email notifications"
-    ),
-    publicKey: requireEnv(
-      "NEXT_PUBLIC_EMAILJS_PUBLIC_KEY",
-      errors,
-      "email notifications"
-    ),
+    serviceId: requireEnv(REQUIRED_ENV.emailJsServiceId, errors),
+    templateId: requireEnv(REQUIRED_ENV.emailJsTemplateId, errors),
+    publicKey: requireEnv(REQUIRED_ENV.emailJsPublicKey, errors),
     defaultRecipientEmail: getEnv("NEXT_PUBLIC_DEFAULT_RECIPIENT_EMAIL"),
   };
 }
@@ -174,28 +197,12 @@ export function loadFirebaseConfig(
   errors: ValidationError[] = []
 ): FirebaseConfig {
   return {
-    apiKey: requireEnv(
-      "NEXT_PUBLIC_FIREBASE_API_KEY",
-      errors,
-      "Firebase authentication"
-    ),
-    authDomain: requireEnv(
-      "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-      errors,
-      "Firebase authentication"
-    ),
-    projectId: requireEnv(
-      "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-      errors,
-      "Firebase database"
-    ),
-    storageBucket: requireEnv(
-      "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-      errors,
-      "Firebase storage"
-    ),
+    apiKey: requireEnv(REQUIRED_ENV.firebaseApiKey, errors),
+    authDomain: requireEnv(REQUIRED_ENV.firebaseAuthDomain, errors),
+    projectId: requireEnv(REQUIRED_ENV.firebaseProjectId, errors),
+    storageBucket: requireEnv(REQUIRED_ENV.firebaseStorageBucket, errors),
     messagingSenderId: getEnv("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"),
-    appId: requireEnv("NEXT_PUBLIC_FIREBASE_APP_ID", errors, "Firebase app"),
+    appId: requireEnv(REQUIRED_ENV.firebaseAppId, errors),
     measurementId: getEnv("NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID"),
   };
 }
@@ -238,6 +245,31 @@ export function validateEnv(): EnvConfig {
   }
 
   return { stellar, emailjs, firebase, admin };
+}
+
+export type EnvironmentDiagnostics = {
+  stellarNetwork: "testnet" | "mainnet" | "unknown";
+  requiredVariables: { name: string; configured: boolean }[];
+};
+
+/**
+ * Returns safe environment metadata for the development-only diagnostics page.
+ * Environment values are deliberately never included in the result.
+ */
+export function getEnvironmentDiagnostics(): EnvironmentDiagnostics {
+  const configuredNetwork = getEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet");
+  const stellarNetwork =
+    configuredNetwork === "testnet" || configuredNetwork === "mainnet"
+      ? configuredNetwork
+      : "unknown";
+
+  return {
+    stellarNetwork,
+    requiredVariables: Object.values(REQUIRED_ENV).map(({ name }) => ({
+      name,
+      configured: Boolean(process.env[name]?.trim()),
+    })),
+  };
 }
 
 /**
