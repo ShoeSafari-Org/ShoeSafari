@@ -9,6 +9,7 @@ import Modal from "../../components/Modal";
 import Toast from "../../components/Toast";
 import { db } from "../../lib/firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
+import { ProductGridSkeleton } from "../../components/Skeleton";
 
 export default function Products() {
   const {
@@ -94,9 +95,10 @@ export default function Products() {
           </span>
 
           {isLoading && (
-            <p className="text-gray-600 text-center py-8" role="status">
-              Loading products…
-            </p>
+            <div aria-busy="true">
+              <p className="sr-only" role="status">Loading products</p>
+              <ProductGridSkeleton count={8} />
+            </div>
           )}
           {error && <p className="text-red-500 text-center">{error}</p>}
           {!isLoading && !error && products.length === 0 && (
