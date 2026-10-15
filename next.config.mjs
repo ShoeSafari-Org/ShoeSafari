@@ -37,10 +37,31 @@ const nextConfig = {
 
   // Security headers
   async headers() {
+    const contentSecurityPolicy = [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      // Next.js injects its route/bootstrap scripts and the storefront uses
+      // inline style attributes. Keep these narrow exceptions documented below.
+      "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https://lh3.googleusercontent.com https://firebasestorage.googleapis.com https://images.unsplash.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebasestorage.googleapis.com https://firebaseinstallations.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://api.emailjs.com https://soroban-rpc.stellar.org https://soroban-testnet.stellar.org https://friendbot.stellar.org",
+      "frame-src 'self' https://*.firebaseapp.com https://*.web.app https://accounts.google.com",
+      "upgrade-insecure-requests",
+    ].join('; ');
+
     return [
       {
         source: "/(.*)",
         headers: [
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: contentSecurityPolicy,
+          },
           {
             key: "X-Content-Type-Options",
             value: "nosniff",

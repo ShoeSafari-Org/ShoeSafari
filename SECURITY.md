@@ -77,7 +77,32 @@ unsubscribe flow is implemented.
 2. **XSS Prevention**: HTML entities are escaped before rendering
 3. **HTTPS Only**: All API calls use HTTPS
 4. **No Sensitive Data in URLs**: Sensitive data is sent via POST body
-5. **Content Security Policy**: Configured in Next.js headers
+5. **Content Security Policy**: A report-only policy is configured in
+   `next.config.mjs` while storefront and wallet compatibility is verified.
+
+### Content Security Policy rollout
+
+`next.config.mjs` sends `Content-Security-Policy-Report-Only` for every route.
+This lets browsers report violations without blocking checkout, Firebase auth,
+or wallet integrations during the compatibility rollout. The allowlist covers
+the Firebase Auth, Firestore, Storage, and Installations APIs; EmailJS; the
+configured Stellar RPC networks and testnet Friendbot; and the image hosts
+used by the storefront. Freighter is a browser extension and injects its
+provider into the page, so it does not require a remote script source here.
+
+The policy intentionally omits `unsafe-eval`. `unsafe-inline` remains for
+Next.js's current inline route/bootstrap scripts and the storefront's inline
+style attributes. Remove those exceptions only after migrating to nonce or
+hash-based scripts and class-based styles and verifying the rendered routes.
+
+Before changing the header to enforcing `Content-Security-Policy`, inspect the
+browser console for report-only violations on the landing page, sign-in, image
+uploads, product pages, checkout, and the admin orders page. Confirm Google
+popup auth and Freighter signing in supported browsers. Add a source only when
+the violation maps to a dependency or service the app uses; never use a
+wildcard scheme or add `unsafe-eval` to silence reports. Keep the report-only
+header until those checks pass in staging, then switch the header name and
+repeat the same checks before production rollout.
 
 ### Authentication
 
