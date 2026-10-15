@@ -65,47 +65,53 @@ export function getFocusableElements(container: HTMLElement): HTMLElement[] {
  * Checks if an element is visible.
  */
 export function isVisible(element: HTMLElement): boolean {
-  return !!(
-    element.offsetWidth ||
-    element.offsetHeight ||
-    element.getClientRects().length
-  );
+  return !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
 }
 
 /**
  * Traps focus within a container (useful for modals).
  */
 export function trapFocus(container: HTMLElement): () => void {
-  const focusableElements = getFocusableElements(container);
-  const firstElement = focusableElements[0];
-  const lastElement = focusableElements[focusableElements.length - 1];
-
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key !== Keys.TAB) return;
 
+    const focusableElements = getFocusableElements(container);
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (!firstElement || !lastElement) {
+      event.preventDefault();
+      container.focus();
+      return;
+    }
+
     if (event.shiftKey) {
-      // Shift + Tab: go backwards
-      if (document.activeElement === firstElement) {
+      if (document.activeElement === firstElement || document.activeElement === container) {
         event.preventDefault();
-        lastElement?.focus();
+        lastElement.focus();
       }
     } else {
-      // Tab: go forwards
-      if (document.activeElement === lastElement) {
+      if (document.activeElement === lastElement || document.activeElement === container) {
         event.preventDefault();
-        firstElement?.focus();
+        firstElement.focus();
       }
     }
   };
 
+  const keepFocusInside = (event: FocusEvent) => {
+    if (event.target instanceof Node && !container.contains(event.target)) {
+      (getFocusableElements(container)[0] ?? container).focus();
+    }
+  };
+
   container.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("focusin", keepFocusInside);
 
-  // Focus first element
-  firstElement?.focus();
+  (getFocusableElements(container)[0] ?? container).focus();
 
-  // Return cleanup function
   return () => {
     container.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("focusin", keepFocusInside);
   };
 }
 
@@ -261,8 +267,6 @@ export function meetsContrastRequirement(
 ): boolean {
   // This is a placeholder. In production, implement proper contrast calculation.
   // WCAG AA requires 4.5:1 for normal text, 3:1 for large text.
-  console.warn(
-    "meetsContrastRequirement is a placeholder. Implement proper contrast checking."
-  );
+  console.warn("meetsContrastRequirement is a placeholder. Implement proper contrast checking.");
   return true;
 }

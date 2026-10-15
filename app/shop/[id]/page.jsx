@@ -100,7 +100,7 @@ const ProductPage = ({ params }) => {
         show={toast.show}
         onClose={() => setToast({ show: false, message: "" })}
       />
-      <Modal show={showModal} onClose={closeModal}>
+      <Modal show={showModal} onClose={closeModal} ariaLabel="Shopping cart">
         <h2 className="text-2xl mb-4">Cart Items</h2>
         {cartItems.length === 0 ? (
           <p>Your cart is empty.</p>
