@@ -51,6 +51,15 @@ Common issues and solutions for ShoeSafari development and production.
 3. Verify variable names start with `NEXT_PUBLIC_` for client-side access
 4. Check for typos in variable names
 
+### Check local configuration safely
+
+While running `npm run dev`, open [`/dev/config`](http://localhost:3000/dev/config)
+to see which required Stellar, EmailJS, and Firebase variables are present and
+which Stellar network is selected. The page shows variable names and
+present/missing status only; it never displays configuration values. It returns
+a not-found response in production and is a local development aid, not a
+deployment health endpoint.
+
 ### Firebase connection errors
 
 **Symptoms:** "Firebase: Error" messages in console
