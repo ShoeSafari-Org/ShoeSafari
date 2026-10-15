@@ -158,14 +158,18 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         type="button"
         onClick={handlePay}
         disabled={disabled || busy || Boolean(result) || Boolean(recovery) || !recoveryLoaded}
+        aria-busy={busy}
         className={`w-full flex flex-col items-center justify-center gap-1 py-3 rounded transition-colors disabled:opacity-60 ${
-          result ? "bg-green-600 text-white" : "bg-red-600 hover:bg-red-700 text-white"
+          result ? "bg-green-700 text-white" : "bg-red-700 hover:bg-red-800 text-white"
         }`}
       >
         {busy ? (
           <>
             <span className="flex items-center gap-2 font-semibold">
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span
+                aria-hidden="true"
+                className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+              />
               {message || "Processing…"}
             </span>
           </>
@@ -186,12 +190,19 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         )}
       </button>
 
+      {message && !busy && (
+        <p role="status" aria-live="polite" aria-atomic="true" className="text-sm text-gray-800">
+          {message}
+        </p>
+      )}
+
       {recovery && (
         <button
           type="button"
           onClick={handleCheckRecovery}
           disabled={busy}
-          className="w-full rounded border border-blue-700 px-3 py-2 text-blue-800 disabled:opacity-60"
+          aria-busy={busy}
+          className="w-full rounded border border-blue-700 px-3 py-2 text-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-900 disabled:opacity-60"
         >
           {busy ? message || "Checking…" : "Check saved payment status"}
         </button>
@@ -214,7 +225,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
       )}
 
       {result && (
-        <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2 text-center">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="text-xs text-green-800 bg-green-50 border border-green-200 rounded p-2 text-center"
+        >
           Paid on ledger {result.receipt ? result.receipt.ledger : "—"} · tx{" "}
           <a
             href={`https://stellar.expert/explorer/${NETWORK === "mainnet" ? "public" : "testnet"}/tx/${result.hash}`}

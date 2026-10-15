@@ -98,13 +98,15 @@ export default function Products() {
                     <h2 className="text-lg">${prod.price}</h2>
                   </Link>
                   <button
-                    className="border-red-800 rounded-full px-2 py-2 mt-2 border-2 hover:border-red-600"
+                    type="button"
+                    aria-label={`Add ${prod.name} to cart`}
+                    className="border-red-800 rounded-full px-2 py-2 mt-2 border-2 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
                     onClick={() => {
                       addToCart(prod);
                       showToast("Item added to cart");
                     }}
                   >
-                    <FaShoppingCart />
+                    <FaShoppingCart aria-hidden="true" />
                   </button>
                 </div>
               ))}

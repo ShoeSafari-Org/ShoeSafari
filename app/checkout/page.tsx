@@ -236,31 +236,60 @@ const Checkout = () => {
 
   return (
     <>
-      <div className="flex justify-center items-center space-x-2 my-4 sm:mx-0 mx-4 mt-16">
-        <span
-          className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
-            stage >= 1 ? "bg-red-700 text-white" : "bg-white"
-          }`}
-        >
-          1
-        </span>
-        <span className={`w-20 h-1 sm:w-96 ${stage >= 2 ? "bg-red-700" : "bg-gray-200"}`}></span>
-        <span
-          className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
-            stage >= 2 ? "bg-red-700 text-white" : "bg-white"
-          }`}
-        >
-          2
-        </span>
-        <span className={`w-20 h-1 sm:w-96 ${stage >= 3 ? "bg-red-700" : "bg-gray-200"}`}></span>
-        <span
-          className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
-            stage >= 3 ? "bg-red-700 text-white" : "bg-white"
-          }`}
-        >
-          3
-        </span>
-      </div>
+      <nav
+        aria-label="Checkout progress"
+        className="flex justify-center items-center space-x-2 my-4 sm:mx-0 mx-4 mt-16"
+      >
+        <ol className="flex items-center space-x-2">
+          <li
+            aria-current={stage === 1 ? "step" : undefined}
+            className="flex items-center space-x-2"
+          >
+            <span
+              aria-hidden="true"
+              className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
+                stage >= 1 ? "bg-red-700 text-white" : "bg-white"
+              }`}
+            >
+              1
+            </span>
+            <span className="sr-only">Step 1: Customer details</span>
+            <span
+              aria-hidden="true"
+              className={`w-20 h-1 sm:w-96 ${stage >= 2 ? "bg-red-700" : "bg-gray-200"}`}
+            ></span>
+          </li>
+          <li
+            aria-current={stage === 2 ? "step" : undefined}
+            className="flex items-center space-x-2"
+          >
+            <span
+              aria-hidden="true"
+              className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
+                stage >= 2 ? "bg-red-700 text-white" : "bg-white"
+              }`}
+            >
+              2
+            </span>
+            <span className="sr-only">Step 2: Confirm email</span>
+            <span
+              aria-hidden="true"
+              className={`w-20 h-1 sm:w-96 ${stage >= 3 ? "bg-red-700" : "bg-gray-200"}`}
+            ></span>
+          </li>
+          <li aria-current={stage === 3 ? "step" : undefined}>
+            <span
+              aria-hidden="true"
+              className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
+                stage >= 3 ? "bg-red-700 text-white" : "bg-white"
+              }`}
+            >
+              3
+            </span>
+            <span className="sr-only">Step 3: Order complete</span>
+          </li>
+        </ol>
+      </nav>
 
       <div className="container mx-auto px-4 py-4 my-10 w-full bg-red-400 rounded-md border-2 border-red-700">
         <div className="flex flex-wrap -mx-4">
@@ -283,8 +312,11 @@ const Checkout = () => {
                 <h2 className="text-2xl mb-4 text-center">Checkout</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="mb-4">
-                    <label className="block text-gray-700">First Name</label>
+                    <label htmlFor="checkout-first-name" className="block text-gray-700">
+                      First Name
+                    </label>
                     <input
+                      id="checkout-first-name"
                       type="text"
                       name="firstName"
                       value={formData.firstName}
@@ -294,8 +326,11 @@ const Checkout = () => {
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-gray-700">Last Name</label>
+                    <label htmlFor="checkout-last-name" className="block text-gray-700">
+                      Last Name
+                    </label>
                     <input
+                      id="checkout-last-name"
                       type="text"
                       name="lastName"
                       value={formData.lastName}
@@ -305,8 +340,11 @@ const Checkout = () => {
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-gray-700">Email</label>
+                    <label htmlFor="checkout-email" className="block text-gray-700">
+                      Email
+                    </label>
                     <input
+                      id="checkout-email"
                       type="email"
                       name="email"
                       value={formData.email}
@@ -316,8 +354,11 @@ const Checkout = () => {
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-gray-700">Address</label>
+                    <label htmlFor="checkout-address" className="block text-gray-700">
+                      Address
+                    </label>
                     <input
+                      id="checkout-address"
                       type="text"
                       name="address"
                       value={formData.address}
@@ -327,11 +368,16 @@ const Checkout = () => {
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-gray-700">Card Number</label>
+                    <label htmlFor="checkout-card-number" className="block text-gray-700">
+                      Card Number
+                    </label>
                     <div className="relative flex justify-center items-center">
                       <input
+                        id="checkout-card-number"
                         type="text"
                         name="cardNumber"
+                        autoComplete="cc-number"
+                        inputMode="numeric"
                         value={formData.cardNumber}
                         onChange={(e) => {
                           let { value } = e.target;
@@ -347,15 +393,23 @@ const Checkout = () => {
                         required
                         className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
                       />
-                      <FaCreditCard className="absolute top-1/2 right-8 transform -translate-y-1/2 text-gray-500" />
+                      <FaCreditCard
+                        aria-hidden="true"
+                        className="absolute top-1/2 right-8 transform -translate-y-1/2 text-gray-500"
+                      />
                     </div>
                   </div>
                   <div className="mb-4">
-                    <label className="block text-gray-700">Expiry Date</label>
+                    <label htmlFor="checkout-expiry" className="block text-gray-700">
+                      Expiry Date
+                    </label>
                     <div className="relative flex justify-center items-center">
                       <input
+                        id="checkout-expiry"
                         type="text"
                         name="expiryDate"
+                        autoComplete="cc-exp"
+                        inputMode="numeric"
                         value={formData.expiryDate}
                         onChange={(e) => {
                           let { value } = e.target;
@@ -373,16 +427,24 @@ const Checkout = () => {
                         className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
                         required
                       />
-                      <BsCalendarDate className="absolute top-1/2 right-8 transform -translate-y-1/2 text-gray-500" />
+                      <BsCalendarDate
+                        aria-hidden="true"
+                        className="absolute top-1/2 right-8 transform -translate-y-1/2 text-gray-500"
+                      />
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-gray-700">Cvv</label>
+                    <label htmlFor="checkout-cvv" className="block text-gray-700">
+                      Security code
+                    </label>
                     <div className="relative flex justify-center items-center">
                       <input
+                        id="checkout-cvv"
                         type="text"
-                        name="cardNumber"
+                        name="cvv"
+                        autoComplete="cc-csc"
+                        inputMode="numeric"
                         value={formData.cvv}
                         onChange={(e) => {
                           let { value } = e.target;
@@ -398,17 +460,22 @@ const Checkout = () => {
                         required
                         className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
                       />
-                      <FaCreditCard className="absolute top-1/2 right-8 transform -translate-y-1/2 text-gray-500" />
+                      <FaCreditCard
+                        aria-hidden="true"
+                        className="absolute top-1/2 right-8 transform -translate-y-1/2 text-gray-500"
+                      />
                     </div>
                   </div>
                 </div>
                 <button
                   type="submit"
-                  className="w-full flex justify-center items-center bg-red-500 text-white py-2 rounded hover:bg-red-700 transition-colors"
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                  className="w-full flex justify-center items-center bg-red-700 text-white py-2 rounded hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900 transition-colors disabled:cursor-wait"
                 >
                   {isSubmitting ? (
                     <>
-                      <AiOutlineLoading3Quarters className="animate-spin mr-2" />
+                      <AiOutlineLoading3Quarters aria-hidden="true" className="animate-spin mr-2" />
                       Submitting...
                     </>
                   ) : (
@@ -426,7 +493,12 @@ const Checkout = () => {
                   </p>
                 )}
                 {quoteToken && quoteExpiresAt && (
-                  <p className="text-sm text-gray-700" role="status">
+                  <p
+                    className="text-sm text-gray-700"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
                     Server-confirmed checkout total: ${totalPrice.toFixed(2)} USDC. Quote expires at{" "}
                     {new Date(quoteExpiresAt).toLocaleTimeString()}.
                   </p>
@@ -448,7 +520,7 @@ const Checkout = () => {
                   onSuccess={handleStellarSuccess}
                 />
                 <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
-                <p className="text-[11px] text-gray-400 text-center">
+                <p className="text-[11px] text-gray-700 text-center">
                   Order #{orderId} · USDC (testnet) is escrowed by a Soroban smart contract until we
                   ship, then released to our merchant wallet. Refunds go straight back on-chain. No
                   card needed.
@@ -463,24 +535,31 @@ const Checkout = () => {
                 <h2 className="text-2xl mb-4 text-center">Confirm OTP</h2>
                 <span className="text-md">An OTP was sent to your email</span>
                 <div className="mb-4">
-                  <label className="block text-gray-700">Please confirm OTP</label>
+                  <label htmlFor="checkout-otp" className="block text-gray-700">
+                    Please confirm OTP
+                  </label>
                   <input
+                    id="checkout-otp"
                     type="text"
                     name="otpConfirmation"
                     value={enteredOtp}
                     onChange={handleOtpChange}
                     required
                     placeholder="OTP"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
                     className="w-64 px-3 py-2 border rounded"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-red-500 text-white flex justify-center items-center py-2 rounded hover:bg-red-700 transition-colors"
+                  disabled={isOtpSending}
+                  aria-busy={isOtpSending}
+                  className="w-full bg-red-700 text-white flex justify-center items-center py-2 rounded hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900 transition-colors disabled:cursor-wait"
                 >
                   {isOtpSending ? (
                     <>
-                      <AiOutlineLoading3Quarters className="animate-spin mr-2" />
+                      <AiOutlineLoading3Quarters aria-hidden="true" className="animate-spin mr-2" />
                       Confirming...
                     </>
                   ) : (
