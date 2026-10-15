@@ -51,14 +51,13 @@ html, body {
   outline: none;
 }
 
-/* Reduced motion preference */
+/* Honor reduced-motion preferences without hiding static loading indicators or focus styles. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }
