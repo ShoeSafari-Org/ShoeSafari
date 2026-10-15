@@ -79,6 +79,7 @@ timestamp, status }` and transitions `Pending → Paid → Shipped/Refunded`.
   - [Step 6 — Wire the deployed contract to the storefront](#step-6--wire-the-deployed-contract-to-the-storefront)
   - [Convenience script](#convenience-script)
 - [Paying with Stellar (testnet)](#paying-with-stellar-testnet)
+- [Next.js Stellar integration tutorial](docs/NEXTJS_STELLAR_INTEGRATION.md)
 - [Testnet wallet walkthrough](docs/TESTNET_WALLET_WALKTHROUGH.md)
 - [Testnet checkout validation](docs/TESTNET_CHECKOUT.md)
 - [Environment Variables Reference](#environment-variables-reference)
