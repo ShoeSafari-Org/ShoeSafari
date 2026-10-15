@@ -17,9 +17,10 @@ async function loadModules(env: Record<string, string>) {
   vi.unstubAllEnvs();
   for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
   const freighterApi = await import("@stellar/freighter-api");
+  const config = await import("../../../lib/stellar/config");
   const freighter = await import("../../../lib/stellar/freighter");
   const checkout = await import("../../../lib/stellar/checkout");
-  return { freighterApi, freighter, checkout };
+  return { freighterApi, config, freighter, checkout };
 }
 
 function mockNetwork(
@@ -121,6 +122,35 @@ describe("ensureNetwork", () => {
     });
     mockNetwork(freighterApi, "testnet");
     await expect(freighter.ensureNetwork()).resolves.toBe("testnet");
+  });
+
+  it("rejects an unsupported raw network before calling Freighter", async () => {
+    const { freighterApi, freighter } = await loadModules({
+      NEXT_PUBLIC_STELLAR_NETWORK: "private-net",
+    });
+
+    await expect(freighter.ensureNetwork()).rejects.toMatchObject({
+      name: "WalletError",
+      code: "NETWORK_CONFIG_ERROR",
+      message: expect.stringContaining("NEXT_PUBLIC_STELLAR_NETWORK"),
+    });
+    expect(freighterApi.getNetwork).not.toHaveBeenCalled();
+  });
+
+  it("rejects a mismatched raw passphrase before calling Freighter", async () => {
+    const { freighterApi, freighter, config } = await loadModules({
+      NEXT_PUBLIC_STELLAR_NETWORK: "mainnet",
+      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
+      NEXT_PUBLIC_STELLAR_RPC_URL: "https://custom-rpc.example.test",
+    });
+
+    await expect(freighter.ensureNetwork()).rejects.toMatchObject({
+      name: "WalletError",
+      code: "NETWORK_CONFIG_ERROR",
+      message: expect.stringContaining("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE"),
+    });
+    expect(freighterApi.getNetwork).not.toHaveBeenCalled();
+    expect(config.RPC_URL).toBe("https://custom-rpc.example.test");
   });
 });
 

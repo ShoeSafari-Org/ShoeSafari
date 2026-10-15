@@ -6,7 +6,11 @@ import {
   signTransaction,
 } from "@stellar/freighter-api";
 
-import { NETWORK, NETWORK_PASSPHRASE } from "./config";
+import {
+  NETWORK,
+  NETWORK_PASSPHRASE,
+  networkConfigurationError,
+} from "./config";
 
 // ---------------------------------------------------------------------------
 // Freighter wallet helpers.
@@ -59,6 +63,11 @@ export async function currentAddress(): Promise<string | null> {
 
 /** Verify Freighter is set to the application's configured Stellar network. */
 export async function ensureNetwork(): Promise<string> {
+  const configurationError = networkConfigurationError();
+  if (configurationError) {
+    throw new WalletError(configurationError, "NETWORK_CONFIG_ERROR");
+  }
+
   const res = await getNetwork();
   if (res.error) {
     throw new WalletError(res.error.toString(), "FREIGHTER_NETWORK_ERROR");
