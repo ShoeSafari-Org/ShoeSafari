@@ -6,7 +6,7 @@ import StellarCheckoutButton from "../../components/StellarCheckoutButton";
 import StellarWalletButton from "../../components/StellarWalletButton";
 import StellarOrderWatch from "../../components/StellarOrderWatch";
 import { SiStellar } from "react-icons/si";
-import { saveStellarOrder } from "../../lib/orderStore";
+import { saveStellarOrder, validateStellarOrderReceipt } from "../../lib/orderStore";
 import { useAuth } from "../../lib/AuthContext";
 import {
   formatTokenAmount,
@@ -23,6 +23,8 @@ const Checkout = () => {
   const [quoteExpiresAt, setQuoteExpiresAt] = useState<number | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(true);
   const [quoteError, setQuoteError] = useState("");
+  const [paymentHash, setPaymentHash] = useState("");
+  const [orderSaveFailed, setOrderSaveFailed] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "" });
   const [stage, setStage] = useState(1);
   const [formData, setFormData] = useState({
@@ -58,20 +60,35 @@ const Checkout = () => {
       unitPriceUsd: number;
       totalUsd: number;
     }>;
+    expectedPayment?: {
+      buyerWallet?: string;
+      tokenContract?: string;
+      checkoutContractId?: string;
+      amountRaw?: string;
+    };
   }) => {
     const completedOrderId = result.orderId || orderId;
+    setPaymentHash(result.hash);
+    setOrderSaveFailed(false);
     let orderSaved = true;
     try {
       const storedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
+      await validateStellarOrderReceipt({
+        orderId: completedOrderId,
+        result,
+        expectedPayment: result.expectedPayment,
+      });
       await saveStellarOrder({
         orderId: completedOrderId,
         result,
+        expectedPayment: result.expectedPayment,
         customer: formData,
         userId: user?.uid || null,
         items: result.items || (Array.isArray(storedItems) ? storedItems : []),
       });
     } catch (error) {
       orderSaved = false;
+      setOrderSaveFailed(true);
       logClientError(
         "Stellar payment succeeded but order persistence failed",
         error,
@@ -339,6 +356,12 @@ const Checkout = () => {
               <div className="bg-white p-4 rounded shadow-md h-full flex flex-col justify-center items-center">
                 <h2 className="text-6xl mb-4 text-center">Order Completed.</h2>
                 <p className="text-center">Your order has been placed successfully.</p>
+                {orderSaveFailed && paymentHash && (
+                  <p className="mt-3 max-w-xl break-all text-center text-sm text-red-800" role="alert">
+                    Payment was confirmed, but its order record could not be saved. Keep this
+                    transaction hash for reconciliation: {paymentHash}
+                  </p>
+                )}
                 <span className="text-center">Thanks for Shopping with us 🥰🥰🥰</span>
                 <Link
                   href="/shop"

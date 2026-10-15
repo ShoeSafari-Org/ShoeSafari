@@ -12,6 +12,7 @@ vi.mock("../../lib/AuthContext", () => ({
 
 vi.mock("../../lib/orderStore", () => ({
   saveStellarOrder: mocks.saveStellarOrder,
+  validateStellarOrderReceipt: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("next/link", () => ({

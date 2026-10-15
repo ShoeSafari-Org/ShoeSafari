@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 
-import { orderIdHash, payWithStellar } from "../lib/stellar/checkout";
+import { orderIdHash, payWithStellar, usdToRawUnits } from "../lib/stellar/checkout";
 import { connectWallet, currentAddress } from "../lib/stellar/freighter";
 import { parseError } from "../lib/errors";
-import { NETWORK } from "../lib/stellar/config";
+import { CHECKOUT_CONTRACT_ID, NETWORK, defaultToken } from "../lib/stellar/config";
 import { useNotification } from "./Notification";
 import { checkTransactionStatus } from "../lib/stellar/events";
 import {
@@ -95,18 +95,27 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
 
       if (e2eMode) {
         const amountRaw = BigInt(Math.round(Number(quote.totalUsd) * 10 ** 7));
+        const token = defaultToken();
         const mockResult = {
           hash: "a".repeat(64),
           status: "SUCCESS",
           receipt: {
             ledger: 123456,
             buyer: key,
-            token: "e2e-mock-token",
-            orderId: "e2e-mock-order-hash",
+            contractId: CHECKOUT_CONTRACT_ID,
+            token: token.contractId,
+            orderId: await orderIdHash(quote.orderId),
             amount: amountRaw.toString(),
+            txHash: "a".repeat(64),
           },
           amountRaw,
           amountUsd: Number(quote.totalUsd),
+          expectedPayment: {
+            buyerWallet: key,
+            tokenContract: token.contractId,
+            checkoutContractId: CHECKOUT_CONTRACT_ID,
+            amountRaw: amountRaw.toString(),
+          },
         };
         setResult(mockResult);
         setMessage("");
@@ -123,12 +132,27 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         onStatus: (msg) => setMessage(msg),
         onFeeEstimate: (estimate) => setFeeEstimate(estimate),
         onSubmitted: (hash) => {
-          const pending = { hash, orderId: quote.orderId };
+          const token = defaultToken();
+          const pending = {
+            hash,
+            orderId: quote.orderId,
+            buyerWallet: key,
+            tokenContract: token.contractId,
+            checkoutContractId: CHECKOUT_CONTRACT_ID,
+            amountRaw: usdToRawUnits(Number(quote.totalUsd)).toString(),
+          };
           savePendingPayment(pending);
           setRecovery(pending);
           setTransactionHash(hash);
         },
       });
+      const token = defaultToken();
+      res.expectedPayment = {
+        buyerWallet: key,
+        tokenContract: token.contractId,
+        checkoutContractId: CHECKOUT_CONTRACT_ID,
+        amountRaw: usdToRawUnits(Number(quote.totalUsd)).toString(),
+      };
       clearPendingPayment();
       setRecovery(null);
       setResult(res);
@@ -166,6 +190,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
           receipt,
           amountRaw,
           amountUsd: Number(amountRaw) / 10 ** 7,
+          expectedPayment: {
+            buyerWallet: recovery.buyerWallet,
+            tokenContract: recovery.tokenContract,
+            checkoutContractId: recovery.checkoutContractId,
+            amountRaw: recovery.amountRaw,
+          },
         };
         clearPendingPayment();
         setRecovery(null);

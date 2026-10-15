@@ -3,6 +3,10 @@ const PENDING_PAYMENT_KEY = "shoesafari:stellar-pending-payment";
 export interface PendingPayment {
   hash: string;
   orderId: string;
+  buyerWallet?: string;
+  tokenContract?: string;
+  checkoutContractId?: string;
+  amountRaw?: string;
 }
 
 /** Store only the public transaction hash and its non-sensitive order reference. */
@@ -23,7 +27,16 @@ export function loadPendingPayment(): PendingPayment | null {
       typeof payment.orderId === "string" &&
       payment.orderId.length > 0
     ) {
-      return { hash: payment.hash, orderId: payment.orderId };
+      return {
+        hash: payment.hash,
+        orderId: payment.orderId,
+        ...(typeof payment.buyerWallet === "string" && { buyerWallet: payment.buyerWallet }),
+        ...(typeof payment.tokenContract === "string" && { tokenContract: payment.tokenContract }),
+        ...(typeof payment.checkoutContractId === "string" && {
+          checkoutContractId: payment.checkoutContractId,
+        }),
+        ...(typeof payment.amountRaw === "string" && { amountRaw: payment.amountRaw }),
+      };
     }
   } catch {
     // Invalid recovery data is discarded below.
