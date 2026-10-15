@@ -1,9 +1,11 @@
+"use client";
 import { useEffect, useMemo, useState } from "react";
 
 import { orderIdHash, payWithStellar } from "../lib/stellar/checkout";
 import { connectWallet, currentAddress } from "../lib/stellar/freighter";
 import { parseError } from "../lib/errors";
 import { NETWORK } from "../lib/stellar/config";
+import { useNotification } from "./Notification";
 import { checkTransactionStatus } from "../lib/stellar/events";
 import {
   clearPendingPayment,
@@ -15,6 +17,7 @@ import {
  * Pay the current cart total with USDC on Stellar (via Freighter).
  */
 const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disabled = false }) => {
+  const { success, error: notifyError } = useNotification();
   const [publicKey, setPublicKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -62,9 +65,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
       try {
         key = e2eMode ? "G" + "A".repeat(55) : await connectWallet();
         setPublicKey(key);
+        if (!e2eMode) success("Your Freighter wallet is connected.", "Wallet connected");
       } catch (e) {
         setBusy(false);
-        setError(parseError(e).userMessage);
+        const message = parseError(e).userMessage;
+        setError(message);
+        notifyError(message, "Wallet connection failed");
         return;
       }
     }
@@ -102,6 +108,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         };
         setResult(mockResult);
         setMessage("");
+        success("Your payment was successful.", "Payment complete");
         if (onSuccess) onSuccess({ ...mockResult, orderId: quote.orderId, items: quote.items });
         return;
       }
@@ -123,10 +130,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
       setRecovery(null);
       setResult(res);
       setMessage("");
+      success("Your payment was confirmed on Stellar.", "Payment complete");
       if (onSuccess) onSuccess({ ...res, orderId: quote.orderId, items: quote.items });
     } catch (e) {
       const appError = parseError(e);
       setError(appError.userMessage);
+      notifyError(appError.userMessage, "Payment failed");
       setTransactionHash(appError.transactionHash || "");
     } finally {
       setBusy(false);
@@ -159,17 +168,21 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         setRecovery(null);
         setResult(recoveredResult);
         setMessage("");
+        success("Your submitted payment was confirmed.", "Payment complete");
         if (onSuccess) onSuccess(recoveredResult);
       } else if (checked.status === "FAILED") {
         clearPendingPayment();
         setRecovery(null);
         setMessage("");
         setError("The saved payment failed on the Stellar network. You can try again.");
+        notifyError("The saved payment failed on the Stellar network. You can try again.", "Payment failed");
       } else {
         setMessage("The transaction is not final yet. Check again shortly.");
       }
     } catch (checkError) {
-      setError(parseError(checkError).userMessage);
+      const message = parseError(checkError).userMessage;
+      setError(message);
+      notifyError(message, "Could not check payment");
       setMessage("");
     } finally {
       setBusy(false);

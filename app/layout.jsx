@@ -5,6 +5,7 @@ import ScrollToTop from "../components/ScrollToTop";
 import Whatsapp from "../components/Whatsapp";
 import Footer from "../components/Footer";
 import { AuthProvider } from "../lib/AuthContext";
+import { NotificationProvider } from "../components/Notification";
 import Head from "next/head";
 import logo from "../public/images/favicon.ico"
 
@@ -50,15 +51,17 @@ const RootLayout = ({ children }) => {
       <body className="h-full">
         <NextTopLoader color="#ff0000" showSpinner={false} />
 
-        <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="app flex-grow pt-10">{children}</main>
-            <Whatsapp />
-            <ScrollToTop />
-            <Footer />
-          </div>
-        </AuthProvider>
+        <NotificationProvider>
+          <AuthProvider>
+            <div className="flex flex-col min-h-screen">
+              <Navbar />
+              <main className="app flex-grow pt-10">{children}</main>
+              <Whatsapp />
+              <ScrollToTop />
+              <Footer />
+            </div>
+          </AuthProvider>
+        </NotificationProvider>
       </body>
     </html>
   );
