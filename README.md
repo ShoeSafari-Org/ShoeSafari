@@ -81,6 +81,7 @@ timestamp, status }` and transitions `Pending → Paid → Shipped/Refunded`.
 - [Paying with Stellar (testnet)](#paying-with-stellar-testnet)
 - [Environment Variables Reference](#environment-variables-reference)
 - [Security Notes](#security-notes)
+- [Stellar integration API reference](docs/STELLAR_API.md)
 - [Firestore deployment notes](docs/FIRESTORE.md)
 - [Drips Wave issue backlog](docs/WAVE_ISSUES.md)
 - [Contributing](#contributing)
@@ -203,7 +204,8 @@ shoesafari/
 │       ├── Cargo.toml
 │       └── README.md               #   contract interface + manual CLI examples
 ├── docs/
-│   └── ARCHITECTURE.md             # Deep Stellar integration design rationale
+│   ├── ARCHITECTURE.md             # Deep Stellar integration design rationale
+│   └── STELLAR_API.md              # Exported helper API reference
 ├── scripts/
 │   └── deploy-testnet.sh           # one-command build + deploy + initialize
 ├── public/                         # Static assets (product images)

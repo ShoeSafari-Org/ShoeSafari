@@ -291,22 +291,55 @@ const Checkout = () => {
         </ol>
       </nav>
 
-      <div className="container mx-auto px-4 py-4 my-10 w-full bg-red-400 rounded-md border-2 border-red-700">
-        <div className="flex flex-wrap -mx-4">
-          <div className="w-full md:w-1/2 px-4 mb-4 md:mb-0 p-4 rounded-md grid grid-cols-3 justify-center items-center">
-            <FaCcVisa size={70} />
-            <FaCcMastercard size={70} />
-            <FaCcPaypal size={70} />
-            <FaCcStripe size={70} />
-            <BsBank size={70} />
-            <FaCcAmex size={70} />
-            <FaCcDiscover size={70} />
-            <FaCcApplePay size={70} />
-            <FaGooglePay size={70} />
-            <FaCcAmazonPay size={70} />
-            <SiKlarna size={70} />
+      <div className="container mx-auto my-5 w-full max-w-6xl rounded-md border-2 border-red-700 bg-red-400 px-3 py-3 sm:my-10 sm:px-4 sm:py-4">
+        <div className="flex flex-col md:flex-row">
+          <div className="order-2 mb-2 grid w-full grid-cols-4 items-center justify-items-center gap-y-4 rounded-md p-3 md:order-1 md:mb-0 md:w-1/2 md:grid-cols-3 md:p-4">
+            <FaCcVisa
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaCcMastercard
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaCcPaypal
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaCcStripe
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <BsBank
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaCcAmex
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaCcDiscover
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaCcApplePay
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaGooglePay
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <FaCcAmazonPay
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
+            <SiKlarna
+              className="h-7 w-7 sm:h-10 sm:w-10 md:h-[70px] md:w-[70px]"
+              aria-hidden="true"
+            />
           </div>
-          <div className="w-full md:w-1/2 px-4 p-4 rounded-md">
+          <div className="order-1 w-full rounded-md p-1 sm:p-4 md:order-2 md:w-1/2">
             {stage === 1 && (
               <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow-md">
                 <h2 className="text-2xl mb-4 text-center">Checkout</h2>
@@ -322,7 +355,7 @@ const Checkout = () => {
                       value={formData.firstName}
                       onChange={handleChange}
                       required
-                      className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
                     />
                   </div>
                   <div className="mb-4">
@@ -336,7 +369,7 @@ const Checkout = () => {
                       value={formData.lastName}
                       onChange={handleChange}
                       required
-                      className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
                     />
                   </div>
                   <div className="mb-4">
@@ -350,7 +383,7 @@ const Checkout = () => {
                       value={formData.email}
                       onChange={handleChange}
                       required
-                      className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
                     />
                   </div>
                   <div className="mb-4">
@@ -364,7 +397,7 @@ const Checkout = () => {
                       value={formData.address}
                       onChange={handleChange}
                       required
-                      className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
                     />
                   </div>
                   <div className="mb-4">
@@ -391,7 +424,7 @@ const Checkout = () => {
                         }}
                         maxLength={16}
                         required
-                        className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
+                        className="min-h-11 w-full px-3 py-2 border rounded"
                       />
                       <FaCreditCard
                         aria-hidden="true"
@@ -424,7 +457,7 @@ const Checkout = () => {
                         }}
                         placeholder="DD/MM/YY"
                         maxLength={6}
-                        className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
+                        className="min-h-11 w-full px-3 py-2 border rounded"
                         required
                       />
                       <BsCalendarDate
@@ -458,7 +491,7 @@ const Checkout = () => {
                         }}
                         maxLength={3}
                         required
-                        className="w-full sm:w-64 lg:w-full px-3 py-2 border rounded"
+                        className="min-h-11 w-full px-3 py-2 border rounded"
                       />
                       <FaCreditCard
                         aria-hidden="true"
@@ -471,7 +504,7 @@ const Checkout = () => {
                   type="submit"
                   disabled={isSubmitting}
                   aria-busy={isSubmitting}
-                  className="w-full flex justify-center items-center bg-red-700 text-white py-2 rounded hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900 transition-colors disabled:cursor-wait"
+                  className="min-h-11 w-full flex justify-center items-center bg-red-700 text-white py-2 rounded hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900 transition-colors disabled:cursor-wait"
                 >
                   {isSubmitting ? (
                     <>
@@ -548,14 +581,14 @@ const Checkout = () => {
                     placeholder="OTP"
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    className="w-64 px-3 py-2 border rounded"
+                    className="min-h-11 w-full max-w-xs px-3 py-2 border rounded"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isOtpSending}
                   aria-busy={isOtpSending}
-                  className="w-full bg-red-700 text-white flex justify-center items-center py-2 rounded hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900 transition-colors disabled:cursor-wait"
+                  className="min-h-11 w-full bg-red-700 text-white flex justify-center items-center py-2 rounded hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900 transition-colors disabled:cursor-wait"
                 >
                   {isOtpSending ? (
                     <>
@@ -569,7 +602,7 @@ const Checkout = () => {
                 <button
                   type="button"
                   onClick={handleGoBack}
-                  className="w-full flex justify-center items-center bg-gray-300 text-black py-2 rounded mt-4 hover:bg-gray-500 transition-colors"
+                  className="min-h-11 w-full flex justify-center items-center bg-gray-300 text-black py-2 rounded mt-4 hover:bg-gray-500 transition-colors"
                 >
                   <MdArrowBack className="mr-2" />
                   Go Back
@@ -583,7 +616,7 @@ const Checkout = () => {
                 <span className="text-center">Thanks for Shopping with us 🥰🥰🥰</span>
                 <Link
                   href="/shop"
-                  className="text-center mt-8 py-2 bg-red-700 hover:bg-red-500 rounded-md px-2"
+                  className="mt-8 inline-flex min-h-11 items-center justify-center rounded-md bg-red-700 px-4 py-2 text-center hover:bg-red-500"
                 >
                   Back to Shop
                 </Link>

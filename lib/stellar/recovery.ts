@@ -10,6 +10,7 @@ export function savePendingPayment(payment: PendingPayment): void {
   localStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(payment));
 }
 
+/** Load and validate the saved transaction hash and order reference. */
 export function loadPendingPayment(): PendingPayment | null {
   const stored = localStorage.getItem(PENDING_PAYMENT_KEY);
   if (!stored) return null;
@@ -32,6 +33,7 @@ export function loadPendingPayment(): PendingPayment | null {
   return null;
 }
 
+/** Remove the saved pending-payment reference from local storage. */
 export function clearPendingPayment(): void {
   localStorage.removeItem(PENDING_PAYMENT_KEY);
 }

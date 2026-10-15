@@ -131,6 +131,19 @@ export default function OrdersPage() {
                 <span className="text-gray-500">Network:</span> {NETWORK}
               </p>
             </div>
+            {Array.isArray(order.items) && order.items.length > 0 && (
+              <div className="mt-4 border-t pt-3">
+                <h3 className="text-sm font-medium mb-2">Purchased items</h3>
+                <ul className="space-y-1 text-sm text-gray-700">
+                  {order.items.map((item, index) => (
+                    <li key={`${item.productId || item.id || "item"}-${index}`}>
+                      {item.name || item.title || `Product ${item.productId || item.id || index + 1}`}
+                      <span className="text-gray-500"> · Qty {item.quantity || 1}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {order.transactionHash && (
               <a
                 href={`https://stellar.expert/explorer/${NETWORK}/tx/${order.transactionHash}`}
