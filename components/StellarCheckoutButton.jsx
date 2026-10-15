@@ -191,18 +191,18 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
           type="button"
           onClick={handleCheckRecovery}
           disabled={busy}
-          className="w-full rounded border border-blue-700 px-3 py-2 text-blue-800 disabled:opacity-60"
+          className="min-h-11 w-full rounded border border-blue-700 px-3 py-2 text-blue-800 disabled:opacity-60"
         >
           {busy ? message || "Checking…" : "Check saved payment status"}
         </button>
       )}
 
       {error && (
-        <div className="text-xs text-red-600 text-center" role="alert">
+        <div className="text-xs text-red-600 text-center" role="alert" aria-live="polite">
           <p>{error}</p>
           {transactionHash && (
             <a
-              className="mt-1 inline-block underline"
+              className="mt-1 inline-flex min-h-11 items-center justify-center px-2 underline"
               href={`https://stellar.expert/explorer/${NETWORK === "mainnet" ? "public" : "testnet"}/tx/${transactionHash}`}
               target="_blank"
               rel="noreferrer"

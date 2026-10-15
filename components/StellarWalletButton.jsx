@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { currentAddress, freighterAvailable, WalletError } from "../lib/stellar/freighter";
+import {
+  connectWallet,
+  currentAddress,
+  freighterAvailable,
+  WalletError,
+} from "../lib/stellar/freighter";
 import { shortAddress } from "../lib/stellar/freighter";
 
 /**
@@ -62,7 +67,7 @@ const StellarWalletButton = ({ onConnect = null }) => {
           type="button"
           onClick={handleConnect}
           disabled={loading}
-          className="w-full flex justify-center items-center gap-2 border-2 border-red-600 text-red-600 bg-white py-2 rounded hover:bg-red-50 transition-colors disabled:opacity-60"
+          className="min-h-11 w-full flex justify-center items-center gap-2 border-2 border-red-600 text-red-600 bg-white py-2 rounded hover:bg-red-50 transition-colors disabled:opacity-60"
         >
           {loading ? (
             <span className="animate-pulse">Connecting…</span>
@@ -86,7 +91,7 @@ const StellarWalletButton = ({ onConnect = null }) => {
           <button
             type="button"
             onClick={handleDisconnect}
-            className="text-xs text-gray-500 hover:text-red-600 transition-colors"
+            className="min-h-11 min-w-11 px-3 text-xs text-gray-500 hover:text-red-600 transition-colors"
           >
             Disconnect
           </button>
