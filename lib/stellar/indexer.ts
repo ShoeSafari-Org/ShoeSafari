@@ -7,6 +7,7 @@ import {
   RPC_URL,
 } from "./config";
 import { scValToString } from "./scval";
+import { EventDeduplicator } from "./eventDeduplicator";
 
 // ---------------------------------------------------------------------------
 // Real-time event indexer.
@@ -59,7 +60,7 @@ export class PaymentEventIndexer {
   private latestLedger: number | undefined;
   private eventsSeen = 0;
   private lastError: string | undefined;
-  private readonly seenIds = new Set<string>();
+  private readonly seenIds = new EventDeduplicator();
 
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
@@ -76,8 +77,7 @@ export class PaymentEventIndexer {
     this.server = new rpc.Server(opts.rpcUrl ?? RPC_URL);
     this.contractId = opts.contractId ?? CHECKOUT_CONTRACT_ID;
     this.pollMs = opts.pollMs ?? EVENT_POLL_INTERVAL_MS;
-    this.watchedSymbols =
-      opts.watchedSymbols ?? ["pay", "create_order", "dispatch", "refund"];
+    this.watchedSymbols = opts.watchedSymbols ?? ["pay", "create_order", "dispatch", "refund"];
   }
 
   get status(): IndexerStatus {
@@ -111,10 +111,7 @@ export class PaymentEventIndexer {
     try {
       const latest = await this.server.getLatestLedger();
       this.latestLedger = latest.sequence;
-      this.startLedger = Math.max(
-        1,
-        this.latestLedger - EVENT_START_LEDGER_BACKFILL
-      );
+      this.startLedger = Math.max(1, this.latestLedger - EVENT_START_LEDGER_BACKFILL);
       callbacks.onStatus?.(this.status);
     } catch (err) {
       this.lastError = String(err instanceof Error ? err.message : err);
@@ -142,17 +139,15 @@ export class PaymentEventIndexer {
 
       for (const raw of res.events) {
         if (!raw.inSuccessfulContractCall) continue;
-        if (this.seenIds.has(raw.id)) continue;
-        this.seenIds.add(raw.id);
-
         const decoded = this.decodeEvent(raw);
-        if (decoded) {
-          this.eventsSeen += 1;
-          try {
-            callbacks.onEvent(decoded);
-          } catch {
-            // a throwing consumer must not break the poll loop
-          }
+        if (!decoded) continue;
+        if (!this.seenIds.remember(raw.id)) continue;
+
+        this.eventsSeen += 1;
+        try {
+          callbacks.onEvent(decoded);
+        } catch {
+          // a throwing consumer must not break the poll loop
         }
       }
 
@@ -166,9 +161,7 @@ export class PaymentEventIndexer {
   }
 
   private async fetchEvents(): Promise<rpc.Api.GetEventsResponse> {
-    const filters: rpc.Api.EventFilter[] = [
-      { type: "contract", contractIds: [this.contractId] },
-    ];
+    const filters: rpc.Api.EventFilter[] = [{ type: "contract", contractIds: [this.contractId] }];
     if (this.startLedger !== undefined) {
       return this.server.getEvents({ filters, startLedger: this.startLedger });
     }
