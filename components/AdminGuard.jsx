@@ -18,7 +18,7 @@ import Link from "next/link";
  *
  * Requirements:
  * - User must be authenticated (logged in)
- * - User's email must be in NEXT_PUBLIC_ADMIN_EMAILS environment variable
+ * - User must have the trusted Firebase Auth `admin: true` custom claim
  *
  * @param {Object} props
  * @param {React.ReactNode} props.children - Protected content to render for admins
@@ -71,9 +71,7 @@ const AdminGuard = ({ children, redirectTo = "/profile/login" }) => {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <MdWarning className="text-yellow-500 text-6xl mb-4" />
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Access Denied</h1>
-        <p className="text-gray-600 mb-2">
-          You don't have permission to access the admin panel.
-        </p>
+        <p className="text-gray-600 mb-2">You don't have permission to access the admin panel.</p>
         <p className="text-sm text-gray-500 mb-6">
           Logged in as: <span className="font-medium">{user?.email}</span>
         </p>
@@ -92,8 +90,8 @@ const AdminGuard = ({ children, redirectTo = "/profile/login" }) => {
           </Link>
         </div>
         <p className="mt-8 text-xs text-gray-400 max-w-md text-center">
-          If you believe you should have admin access, contact the site administrator
-          to add your email to the admin list.
+          If you need admin access, contact the site administrator to grant your Firebase account
+          the admin custom claim.
         </p>
       </div>
     );
