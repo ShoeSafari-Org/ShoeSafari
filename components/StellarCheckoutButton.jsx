@@ -8,7 +8,7 @@ import { NETWORK } from "../lib/stellar/config";
 /**
  * Pay the current cart total with USDC on Stellar (via Freighter).
  */
-const StellarCheckoutButton = ({ amountUsd, orderId, onSuccess, disabled = false }) => {
+const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disabled = false }) => {
   const [publicKey, setPublicKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -49,15 +49,31 @@ const StellarCheckoutButton = ({ amountUsd, orderId, onSuccess, disabled = false
     }
 
     try {
+      if (!quoteToken) throw new Error("A trusted checkout quote is required.");
+      const quoteResponse = await fetch("/api/checkout/quote/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteToken }),
+      });
+      const quoteBody = await quoteResponse.json();
+      if (!quoteResponse.ok) {
+        throw new Error(quoteBody.error || "The checkout quote could not be verified.");
+      }
+      const quote = quoteBody.quote;
+      if (quote.expiresAt <= Date.now()) {
+        throw new Error("This checkout quote has expired. Return to your cart and try again.");
+      }
+
       const res = await payWithStellar({
-        amountUsd,
-        orderId: effectiveOrderId,
+        amountUsd: quote.totalUsd,
+        orderId: quote.orderId,
+        quoteToken,
         publicKey: key,
         onStatus: (msg) => setMessage(msg),
       });
       setResult(res);
       setMessage("");
-      if (onSuccess) onSuccess(res);
+      if (onSuccess) onSuccess({ ...res, orderId: quote.orderId, items: quote.items });
     } catch (e) {
       const appError = parseError(e);
       setError(appError.userMessage);

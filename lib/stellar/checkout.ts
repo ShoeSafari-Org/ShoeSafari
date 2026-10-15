@@ -21,6 +21,8 @@ export interface PayOptions {
   amountUsd: number;
   /** Human-readable order id (any string), hashed to 32 bytes for the contract. */
   orderId: string;
+  /** Server-signed quote, revalidated immediately before wallet signing. */
+  quoteToken: string;
   /** Buyer's Freighter public key. */
   publicKey: string;
   /** Token to pay with (defaults to the first supported token, USDC). */
@@ -128,6 +130,25 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   onStatus(
     `Estimated fee: ${report.minResourceFee?.toString() ?? "?"} stroops resource + ${fee} stroops total`
   );
+
+  onStatus("Verifying current checkout quote…");
+  const quoteResponse = await fetch("/api/checkout/quote/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quoteToken: options.quoteToken }),
+  });
+  const quoteBody = await quoteResponse.json();
+  if (
+    !quoteResponse.ok ||
+    quoteBody.quote?.orderId !== orderId ||
+    quoteBody.quote?.totalUsd !== amountUsd ||
+    quoteBody.quote?.expiresAt <= Date.now()
+  ) {
+    throw new WalletError(
+      quoteBody.error || "The checkout quote expired or no longer matches this order.",
+      "QUOTE_INVALID"
+    );
+  }
 
   // 5. Sign with Freighter.
   onStatus("Waiting for Freighter signature…");

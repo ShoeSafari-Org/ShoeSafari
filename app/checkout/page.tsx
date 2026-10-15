@@ -38,6 +38,10 @@ const Checkout = () => {
 
   const [otp, setOtp] = useState(Math.floor(Math.random() * 1000000) + 1);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [quoteToken, setQuoteToken] = useState("");
+  const [quoteExpiresAt, setQuoteExpiresAt] = useState<number | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
+  const [quoteError, setQuoteError] = useState("");
   const [toast, setToast] = useState({ show: false, message: "" });
   const [stage, setStage] = useState(1);
   const [isOtpSending, setIsOtpSending] = useState(false);
@@ -72,16 +76,25 @@ const Checkout = () => {
       orderId?: string;
       amount?: string;
     } | null;
+    orderId?: string;
+    items?: Array<{
+      productId: string;
+      name: string;
+      quantity: number;
+      unitPriceUsd: number;
+      totalUsd: number;
+    }>;
   }) => {
+    const completedOrderId = result.orderId || orderId;
     let orderSaved = true;
     try {
       const storedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
       await saveStellarOrder({
-        orderId,
+        orderId: completedOrderId,
         result,
         customer: formData,
         userId: user?.uid || null,
-        items: Array.isArray(storedItems) ? storedItems : [],
+        items: result.items || (Array.isArray(storedItems) ? storedItems : []),
       });
     } catch (error) {
       orderSaved = false;
@@ -99,7 +112,7 @@ const Checkout = () => {
 
     showToast(
       orderSaved
-        ? `${amountLabel} payment received ✓ · order ${orderId}`
+        ? `${amountLabel} payment received ✓ · order ${completedOrderId}`
         : `Payment received ✓, but we could not save the order record. Transaction: ${result.hash}`
     );
     setStage(3);
@@ -158,11 +171,60 @@ const Checkout = () => {
   };
 
   useEffect(() => {
-    const storedTotalPrice = localStorage.getItem("totalPrice");
-    if (storedTotalPrice) {
-      setTotalPrice(parseFloat(storedTotalPrice));
-    }
-  }, []);
+    let active = true;
+
+    const createQuote = async () => {
+      setQuoteLoading(true);
+      setQuoteError("");
+      setQuoteToken("");
+      try {
+        const storedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
+        if (!Array.isArray(storedItems)) throw new Error("Your cart is invalid.");
+
+        const quantities = new Map<string, number>();
+        for (const item of storedItems) {
+          if (typeof item?.id !== "string" || !item.id) {
+            throw new Error("A cart item is missing its product reference.");
+          }
+          quantities.set(item.id, (quantities.get(item.id) || 0) + 1);
+        }
+
+        const response = await fetch("/api/checkout/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId,
+            items: [...quantities].map(([productId, quantity]) => ({
+              productId,
+              quantity,
+            })),
+          }),
+        });
+        const body = await response.json();
+        if (!response.ok)
+          throw new Error(body.error || "Could not confirm current product prices.");
+        if (!active) return;
+
+        setTotalPrice(body.quote.totalUsd);
+        setQuoteExpiresAt(body.quote.expiresAt);
+        setQuoteToken(body.quoteToken);
+      } catch (error) {
+        if (active) {
+          setQuoteError(
+            error instanceof Error ? error.message : "Could not confirm product prices."
+          );
+          setTotalPrice(0);
+        }
+      } finally {
+        if (active) setQuoteLoading(false);
+      }
+    };
+
+    void createQuote();
+    return () => {
+      active = false;
+    };
+  }, [orderId]);
 
   useEffect(() => {
     if (stage === 3) {
@@ -357,6 +419,18 @@ const Checkout = () => {
             )}
             {stage === 1 && (
               <div className="mt-4 bg-white p-4 rounded shadow-md flex flex-col gap-3">
+                {quoteLoading && <p role="status">Confirming current catalog prices…</p>}
+                {quoteError && (
+                  <p className="text-red-700" role="alert">
+                    {quoteError}
+                  </p>
+                )}
+                {quoteToken && quoteExpiresAt && (
+                  <p className="text-sm text-gray-700" role="status">
+                    Server-confirmed checkout total: ${totalPrice.toFixed(2)} USDC. Quote expires at{" "}
+                    {new Date(quoteExpiresAt).toLocaleTimeString()}.
+                  </p>
+                )}
                 <div className="flex items-center gap-3">
                   <span className="h-px flex-1 bg-gray-300" />
                   <span className="text-xs uppercase tracking-wider text-gray-500 flex items-center gap-2">
@@ -369,7 +443,8 @@ const Checkout = () => {
                 <StellarCheckoutButton
                   amountUsd={totalPrice}
                   orderId={orderId}
-                  disabled={isSubmitting || totalPrice <= 0}
+                  quoteToken={quoteToken}
+                  disabled={isSubmitting || totalPrice <= 0 || quoteLoading || !quoteToken}
                   onSuccess={handleStellarSuccess}
                 />
                 <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
