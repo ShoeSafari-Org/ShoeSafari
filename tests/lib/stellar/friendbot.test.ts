@@ -8,8 +8,8 @@ async function loadModules(env: Record<string, string>) {
   vi.resetModules();
   vi.unstubAllEnvs();
   for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
-  const config = await import("../../lib/stellar/config");
-  const account = await import("../../lib/stellar/account");
+  const config = await import("../../../lib/stellar/config");
+  const account = await import("../../../lib/stellar/account");
   return { config, account };
 }
 
