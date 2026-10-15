@@ -33,6 +33,10 @@ const Checkout = () => {
 
   const [otp, setOtp] = useState(Math.floor(Math.random() * 1000000) + 1);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [quoteToken, setQuoteToken] = useState("");
+  const [quoteExpiresAt, setQuoteExpiresAt] = useState<number | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
+  const [quoteError, setQuoteError] = useState("");
   const [toast, setToast] = useState({ show: false, message: "" });
   const [stage, setStage] = useState(1);
   const [isOtpSending, setIsOtpSending] = useState(false);
@@ -54,25 +58,32 @@ const Checkout = () => {
     setTimeout(() => setToast({ show: false, message: "" }), 5000);
   };
 
-  const [orderId] = useState(() =>
-    `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
-  );
+  const [orderId] = useState(() => `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
 
   const handleStellarSuccess = async (result: {
     amountUsd: number | string;
     amountRaw: bigint;
     hash: string;
     receipt: { ledger?: number; buyer?: string; token?: string; orderId?: string } | null;
+    orderId?: string;
+    items?: Array<{
+      productId: string;
+      name: string;
+      quantity: number;
+      unitPriceUsd: number;
+      totalUsd: number;
+    }>;
   }) => {
+    const completedOrderId = result.orderId || orderId;
     let orderSaved = true;
     try {
       const storedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
       await saveStellarOrder({
-        orderId,
+        orderId: completedOrderId,
         result,
         customer: formData,
         userId: user?.uid || null,
-        items: Array.isArray(storedItems) ? storedItems : [],
+        items: result.items || (Array.isArray(storedItems) ? storedItems : []),
       });
     } catch (error) {
       orderSaved = false;
@@ -81,7 +92,7 @@ const Checkout = () => {
 
     showToast(
       orderSaved
-        ? `USDC payment received ✓ $${Number(result.amountUsd).toFixed(2)} · order ${orderId}`
+        ? `USDC payment received ✓ $${Number(result.amountUsd).toFixed(2)} · order ${completedOrderId}`
         : `Payment received ✓, but we could not save the order record. Transaction: ${result.hash}`
     );
     setStage(3);
@@ -112,9 +123,7 @@ const Checkout = () => {
       });
 
       setStage(2);
-      showToast(
-        "Form submitted successfully. OTP has been sent to your email."
-      );
+      showToast("Form submitted successfully. OTP has been sent to your email.");
     } catch (error) {
       setIsSubmitting(false);
       showToast("Failed to send OTP. Please try again.");
@@ -137,16 +146,65 @@ const Checkout = () => {
   const handleGoBack = () => {
     if (stage > 1) {
       setStage(stage - 1);
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   };
 
   useEffect(() => {
-    const storedTotalPrice = localStorage.getItem("totalPrice");
-    if (storedTotalPrice) {
-      setTotalPrice(parseFloat(storedTotalPrice));
-    }
-  }, []);
+    let active = true;
+
+    const createQuote = async () => {
+      setQuoteLoading(true);
+      setQuoteError("");
+      setQuoteToken("");
+      try {
+        const storedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
+        if (!Array.isArray(storedItems)) throw new Error("Your cart is invalid.");
+
+        const quantities = new Map<string, number>();
+        for (const item of storedItems) {
+          if (typeof item?.id !== "string" || !item.id) {
+            throw new Error("A cart item is missing its product reference.");
+          }
+          quantities.set(item.id, (quantities.get(item.id) || 0) + 1);
+        }
+
+        const response = await fetch("/api/checkout/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId,
+            items: [...quantities].map(([productId, quantity]) => ({
+              productId,
+              quantity,
+            })),
+          }),
+        });
+        const body = await response.json();
+        if (!response.ok)
+          throw new Error(body.error || "Could not confirm current product prices.");
+        if (!active) return;
+
+        setTotalPrice(body.quote.totalUsd);
+        setQuoteExpiresAt(body.quote.expiresAt);
+        setQuoteToken(body.quoteToken);
+      } catch (error) {
+        if (active) {
+          setQuoteError(
+            error instanceof Error ? error.message : "Could not confirm product prices."
+          );
+          setTotalPrice(0);
+        }
+      } finally {
+        if (active) setQuoteLoading(false);
+      }
+    };
+
+    void createQuote();
+    return () => {
+      active = false;
+    };
+  }, [orderId]);
 
   useEffect(() => {
     if (stage === 3) {
@@ -166,11 +224,7 @@ const Checkout = () => {
         >
           1
         </span>
-        <span
-          className={`w-20 h-1 sm:w-96 ${
-            stage >= 2 ? "bg-red-700" : "bg-gray-200"
-          }`}
-        ></span>
+        <span className={`w-20 h-1 sm:w-96 ${stage >= 2 ? "bg-red-700" : "bg-gray-200"}`}></span>
         <span
           className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
             stage >= 2 ? "bg-red-700 text-white" : "bg-white"
@@ -178,11 +232,7 @@ const Checkout = () => {
         >
           2
         </span>
-        <span
-          className={`w-20 h-1 sm:w-96 ${
-            stage >= 3 ? "bg-red-700" : "bg-gray-200"
-          }`}
-        ></span>
+        <span className={`w-20 h-1 sm:w-96 ${stage >= 3 ? "bg-red-700" : "bg-gray-200"}`}></span>
         <span
           className={`flex justify-center items-center w-8 h-8 sm:w-10 sm:h-10 border border-red-700 rounded-full ${
             stage >= 3 ? "bg-red-700 text-white" : "bg-white"
@@ -209,10 +259,7 @@ const Checkout = () => {
           </div>
           <div className="w-full md:w-1/2 px-4 p-4 rounded-md">
             {stage === 1 && (
-              <form
-                onSubmit={handleSubmit}
-                className="bg-white p-4 rounded shadow-md"
-              >
+              <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow-md">
                 <h2 className="text-2xl mb-4 text-center">Checkout</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="mb-4">
@@ -352,6 +399,18 @@ const Checkout = () => {
             )}
             {stage === 1 && (
               <div className="mt-4 bg-white p-4 rounded shadow-md flex flex-col gap-3">
+                {quoteLoading && <p role="status">Confirming current catalog prices…</p>}
+                {quoteError && (
+                  <p className="text-red-700" role="alert">
+                    {quoteError}
+                  </p>
+                )}
+                {quoteToken && quoteExpiresAt && (
+                  <p className="text-sm text-gray-700" role="status">
+                    Server-confirmed checkout total: ${totalPrice.toFixed(2)} USDC. Quote expires at{" "}
+                    {new Date(quoteExpiresAt).toLocaleTimeString()}.
+                  </p>
+                )}
                 <div className="flex items-center gap-3">
                   <span className="h-px flex-1 bg-gray-300" />
                   <span className="text-xs uppercase tracking-wider text-gray-500 flex items-center gap-2">
@@ -364,14 +423,15 @@ const Checkout = () => {
                 <StellarCheckoutButton
                   amountUsd={totalPrice}
                   orderId={orderId}
-                  disabled={isSubmitting || totalPrice <= 0}
+                  quoteToken={quoteToken}
+                  disabled={isSubmitting || totalPrice <= 0 || quoteLoading || !quoteToken}
                   onSuccess={handleStellarSuccess}
                 />
                 <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
                 <p className="text-[11px] text-gray-400 text-center">
-                  Order #{orderId} · USDC (testnet) is escrowed by a Soroban smart
-                  contract until we ship, then released to our merchant wallet. Refunds
-                  go straight back on-chain. No card needed.
+                  Order #{orderId} · USDC (testnet) is escrowed by a Soroban smart contract until we
+                  ship, then released to our merchant wallet. Refunds go straight back on-chain. No
+                  card needed.
                 </p>
               </div>
             )}
@@ -383,9 +443,7 @@ const Checkout = () => {
                 <h2 className="text-2xl mb-4 text-center">Confirm OTP</h2>
                 <span className="text-md">An OTP was sent to your email</span>
                 <div className="mb-4">
-                  <label className="block text-gray-700">
-                    Please confirm OTP
-                  </label>
+                  <label className="block text-gray-700">Please confirm OTP</label>
                   <input
                     type="text"
                     name="otpConfirmation"
@@ -422,12 +480,8 @@ const Checkout = () => {
             {stage === 3 && (
               <div className="bg-white p-4 rounded shadow-md h-full flex flex-col justify-center items-center">
                 <h2 className="text-6xl mb-4 text-center">Order Completed.</h2>
-                <p className="text-center">
-                  Your order has been placed successfully.
-                </p>
-                <span className="text-center">
-                  Thanks for Shopping with us 🥰🥰🥰
-                </span>
+                <p className="text-center">Your order has been placed successfully.</p>
+                <span className="text-center">Thanks for Shopping with us 🥰🥰🥰</span>
                 <Link
                   href="/shop"
                   className="text-center mt-8 py-2 bg-red-700 hover:bg-red-500 rounded-md px-2"

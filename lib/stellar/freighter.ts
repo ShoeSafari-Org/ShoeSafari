@@ -14,11 +14,13 @@ import { NETWORK, NETWORK_PASSPHRASE } from "./config";
 
 export class WalletError extends Error {
   code: string;
+  transactionHash?: string;
 
-  constructor(message: string, code = "WALLET_ERROR") {
+  constructor(message: string, code = "WALLET_ERROR", transactionHash?: string) {
     super(message);
     this.name = "WalletError";
     this.code = code;
+    this.transactionHash = transactionHash;
   }
 }
 

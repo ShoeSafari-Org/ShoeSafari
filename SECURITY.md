@@ -37,14 +37,14 @@ cp .env.local.example .env.local
 
 ### Sensitive Data Handling
 
-| Data Type            | Storage               | Notes                                     |
-| -------------------- | --------------------- | ----------------------------------------- |
-| API Keys             | Environment variables | Never hardcode                            |
-| Firebase Config      | Environment variables | Client-side safe but keep secure          |
-| EmailJS Credentials  | Environment variables | Required for email functionality          |
-| Stellar Contract IDs | Environment variables | Public but environment-specific           |
-| User Passwords       | Firebase Auth         | Handled by Firebase, never stored locally |
-| Payment Data         | On-chain (Stellar)    | Non-custodial, no card data stored        |
+| Data Type            | Storage               | Notes                                                                     |
+| -------------------- | --------------------- | ------------------------------------------------------------------------- |
+| API Keys             | Environment variables | Never hardcode                                                            |
+| Firebase Config      | Environment variables | Client-side safe but keep secure                                          |
+| EmailJS Public Key   | Environment variables | Public account identifier; restrict origin and rate in provider dashboard |
+| Stellar Contract IDs | Environment variables | Public but environment-specific                                           |
+| User Passwords       | Firebase Auth         | Handled by Firebase, never stored locally                                 |
+| Payment Data         | On-chain (Stellar)    | Non-custodial, no card data stored                                        |
 
 ### Smart Contract Security
 
@@ -55,6 +55,21 @@ The Soroban escrow contract follows security best practices:
 3. **Token Whitelist**: Only approved tokens can be used for payment
 4. **Event Emission**: All state changes emit events for transparency
 5. **Error Handling**: Typed errors prevent unexpected failures
+
+### EmailJS Abuse Controls
+
+EmailJS request controls must be configured in the EmailJS dashboard. Add only
+the production and staging origins to the Domains allowlist, enable the
+provider's IP-based rate limit, and enable reCAPTCHA for the contact template.
+The browser SDK also blocks headless browsers and throttles this app's sends
+to one request every 10 seconds; these client checks supplement provider-side
+limits and cannot replace them. `lib/sendmail.js` validates and length-limits
+template fields before sending and returns a generic error without exposing
+provider response details.
+
+The newsletter currently collects no email address and does not send a
+provider request. Do not add a send until a verified subscription and
+unsubscribe flow is implemented.
 
 ### Frontend Security
 

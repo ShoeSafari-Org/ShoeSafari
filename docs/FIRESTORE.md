@@ -25,6 +25,18 @@ The Soroban contract remains authoritative for whether funds are `Paid`,
 merchant views useful, but it must not be treated as proof that a payment was
 settled.
 
+### Trusted Stellar checkout quotes
+
+The checkout quote API reads product prices through Firebase Admin on the
+server. Configure `FIREBASE_SERVICE_ACCOUNT_JSON` with a server-only service
+account and `CHECKOUT_QUOTE_SECRET` with a private random secret of at least 32
+characters. Never prefix these variables with `NEXT_PUBLIC_` or expose them to
+browser code. The API accepts product IDs and quantities, ignores prices and
+totals from the browser, and returns a signed quote that expires after 10
+minutes. The wallet flow verifies the signature and expiry immediately before
+building the transaction. Buyers see the server-confirmed total and quote
+expiry before signing.
+
 ## Rules before deployment
 
 Configure Firestore Security Rules before using real customer data. At minimum:
