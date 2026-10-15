@@ -29,6 +29,8 @@ export interface PayOptions {
   token?: TokenConfig;
   /** Called with human-readable progress updates. */
   onStatus?: (status: string) => void;
+  /** Called after submission is accepted, and when its outcome is uncertain. */
+  onSubmitted?: (hash: string) => void;
 }
 
 export interface PayResult {
@@ -80,7 +82,7 @@ function hexOf(bytes: Uint8Array): string {
  * sign -> submit -> wait -> decode event.
  */
 export async function payWithStellar(options: PayOptions): Promise<PayResult> {
-  const { amountUsd, orderId, publicKey, onStatus = status } = options;
+  const { amountUsd, orderId, publicKey, onStatus = status, onSubmitted } = options;
   const token = options.token ?? defaultToken();
 
   if (!CHECKOUT_CONTRACT_ID) {
@@ -162,6 +164,8 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   try {
     sendResponse = await server.sendTransaction(signedTx);
   } catch (error) {
+    // RPC may have accepted the transaction before the connection failed.
+    onSubmitted?.(signedTransactionHash);
     throw new WalletError(
       error instanceof Error ? error.message : String(error),
       "RPC_UNAVAILABLE",
@@ -176,6 +180,7 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
       sendResponse.hash || signedTransactionHash
     );
   }
+  onSubmitted?.(sendResponse.hash || signedTransactionHash);
   if (sendResponse.status === "PENDING" || sendResponse.status === "DUPLICATE") {
     onStatus("Confirming transaction…");
   }
