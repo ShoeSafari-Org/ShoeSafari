@@ -137,14 +137,20 @@ describe("validatePrice", () => {
   });
 
   it("rejects invalid prices", () => {
+    expect(validatePrice("").isValid).toBe(false);
     expect(validatePrice("not-a-number").isValid).toBe(false);
+    expect(validatePrice("12.50 USD").isValid).toBe(false);
+    expect(validatePrice("Infinity").isValid).toBe(false);
+    expect(validatePrice("1.234").isValid).toBe(false);
+    expect(validatePrice("-0.01").isValid).toBe(false);
     expect(validatePrice(-10).isValid).toBe(false);
+    expect(validatePrice(Number.POSITIVE_INFINITY).isValid).toBe(false);
     expect(validatePrice(1000001).isValid).toBe(false); // too high
   });
 
-  it("formats to 2 decimal places", () => {
-    const result = validatePrice("99.999");
-    expect(result.sanitized).toBe("100.00");
+  it("normalizes valid prices to two decimal places", () => {
+    const result = validatePrice("99.9");
+    expect(result.sanitized).toBe("99.90");
   });
 });
 

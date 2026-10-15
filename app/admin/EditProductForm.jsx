@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   SUPPORTED_PRODUCT_IMAGE_TYPES,
   validateProductImage,
+  validatePrice,
 } from "../../lib/validation";
 
 const EditProductForm = ({ productId, onProductUpdated }) => {
@@ -18,6 +19,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [imageError, setImageError] = useState("");
+  const [priceError, setPriceError] = useState("");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -50,6 +52,12 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const priceValidation = validatePrice(productPrice);
+    if (!priceValidation.isValid) {
+      setPriceError(priceValidation.error);
+      return;
+    }
+
     if (productImage) {
       const validation = validateProductImage(productImage);
       if (!validation.isValid) {
@@ -59,6 +67,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
     }
 
     setImageError("");
+    setPriceError("");
     setLoading(true);
 
     try {
@@ -73,7 +82,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
       const docRef = doc(db, "ShoeSafariProducts", productId);
       await updateDoc(docRef, {
         name: productName,
-        price: parseFloat(productPrice),
+        price: Number(priceValidation.sanitized),
         img: imageUrl,
         available,
       });
@@ -131,11 +140,24 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           </label>
           <input
             type="number"
+            step="0.01"
+            min="0"
+            max="1000000"
             className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             value={productPrice}
-            onChange={(e) => setProductPrice(e.target.value)}
+            onChange={(e) => {
+              setProductPrice(e.target.value);
+              setPriceError("");
+            }}
+            aria-invalid={Boolean(priceError)}
+            aria-describedby={priceError ? "edit-product-price-error" : undefined}
             required
           />
+          {priceError && (
+            <p id="edit-product-price-error" className="mt-2 text-sm text-red-600" role="alert">
+              {priceError}
+            </p>
+          )}
         </div>
         <div className="mb-6">
           <label className="block text-gray-700 text-lg font-semibold">

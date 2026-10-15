@@ -7,6 +7,7 @@ import Toast from "../../components/Toast";
 import {
   SUPPORTED_PRODUCT_IMAGE_TYPES,
   validateProductImage,
+  validatePrice,
 } from "../../lib/validation";
 
 const AddProductForm = ({ onProductAdded }) => {
@@ -14,6 +15,7 @@ const AddProductForm = ({ onProductAdded }) => {
   const [productPrice, setProductPrice] = useState("");
   const [productImage, setProductImage] = useState(null);
   const [imageError, setImageError] = useState("");
+  const [priceError, setPriceError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [toast, setToast] = useState({ show: false, message: "" });
@@ -26,6 +28,12 @@ const AddProductForm = ({ onProductAdded }) => {
     e.preventDefault();
 
     try {
+      const priceValidation = validatePrice(productPrice);
+      if (!priceValidation.isValid) {
+        setPriceError(priceValidation.error);
+        return;
+      }
+
       // Ensure a file is selected
       if (!productImage) {
         setImageError("Please select a product image.");
@@ -49,7 +57,7 @@ const AddProductForm = ({ onProductAdded }) => {
       // Add product details to Firestore
       await addDoc(collection(db, "ShoeSafariProducts"), {
         name: productName,
-        price: parseFloat(productPrice),
+        price: Number(priceValidation.sanitized),
         img: imageUrl, // Save image URL to Firestore
         available: true,
       });
@@ -57,6 +65,7 @@ const AddProductForm = ({ onProductAdded }) => {
       showToast("Product added successfully!");
       setProductName("");
       setProductPrice("");
+      setPriceError("");
       setProductImage(null);
       onProductAdded();
     } catch (error) {
@@ -90,11 +99,24 @@ const AddProductForm = ({ onProductAdded }) => {
           </label>
           <input
             type="number"
+            step="0.01"
+            min="0"
+            max="1000000"
             className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             value={productPrice}
-            onChange={(e) => setProductPrice(e.target.value)}
+            onChange={(e) => {
+              setProductPrice(e.target.value);
+              setPriceError("");
+            }}
+            aria-invalid={Boolean(priceError)}
+            aria-describedby={priceError ? "add-product-price-error" : undefined}
             required
           />
+          {priceError && (
+            <p id="add-product-price-error" className="mt-2 text-sm text-red-600" role="alert">
+              {priceError}
+            </p>
+          )}
         </div>
         <div className="mb-6">
           <label className="block text-gray-700 text-lg font-semibold">
