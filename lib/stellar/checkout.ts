@@ -10,12 +10,7 @@ import {
 } from "./config";
 import { ensureNetwork, signWithFreighter, WalletError } from "./freighter";
 import { decodePaymentEvent, PaymentReceipt, waitForTransaction } from "./events";
-import {
-  addressToScVal,
-  bytes32ToScVal,
-  hashOrderId,
-  i128ToScVal,
-} from "./scval";
+import { addressToScVal, bytes32ToScVal, hashOrderId, i128ToScVal } from "./scval";
 import { assertPaymentReady } from "./account";
 import { buildInvocationTransaction, budgetFee, prepareAndReport } from "./simulate";
 
@@ -118,12 +113,7 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
     bytes32ToScVal(orderBytes),
     i128ToScVal(amountRaw),
   ];
-  const tx = buildInvocationTransaction(
-    readiness.account!,
-    CHECKOUT_CONTRACT_ID,
-    "pay",
-    args
-  );
+  const tx = buildInvocationTransaction(readiness.account!, CHECKOUT_CONTRACT_ID, "pay", args);
 
   // 4. Pre-flight simulation (surfaces errors early) + prepare.
   onStatus("Simulating transaction…");
@@ -143,15 +133,26 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   onStatus("Waiting for Freighter signature…");
   const signedXdr = await signWithFreighter(prepared.toXDR(), publicKey);
   const signedTx = TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
+  const signedTransactionHash = signedTx.hash().toString("hex");
 
   // 6. Submit.
   onStatus("Submitting transaction…");
-  const sendResponse = await server.sendTransaction(signedTx);
+  let sendResponse;
+  try {
+    sendResponse = await server.sendTransaction(signedTx);
+  } catch (error) {
+    throw new WalletError(
+      error instanceof Error ? error.message : String(error),
+      "RPC_UNAVAILABLE",
+      signedTransactionHash
+    );
+  }
 
   if (sendResponse.status === "ERROR") {
     throw new WalletError(
       `Transaction rejected: ${sendResponse.errorResult?.toXDR("base64") ?? "unknown error"}`,
-      "TX_SEND_ERROR"
+      "TX_SEND_ERROR",
+      sendResponse.hash || signedTransactionHash
     );
   }
   if (sendResponse.status === "PENDING" || sendResponse.status === "DUPLICATE") {
@@ -159,7 +160,18 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   }
 
   // 7. Wait for final state and decode the payment event.
-  const txResult = await waitForTransaction(sendResponse.hash);
+  let txResult;
+  try {
+    txResult = await waitForTransaction(sendResponse.hash);
+  } catch (error) {
+    const diagnosticMessage = error instanceof Error ? error.message : String(error);
+    const code = /timeout|did not reach a final state/i.test(diagnosticMessage)
+      ? "TX_CONFIRMATION_TIMEOUT"
+      : /transaction failed on ledger/i.test(diagnosticMessage)
+        ? "TX_FAILED"
+        : "RPC_UNAVAILABLE";
+    throw new WalletError(diagnosticMessage, code, sendResponse.hash || signedTransactionHash);
+  }
   const receipt = decodePaymentEvent(txResult);
 
   return {
