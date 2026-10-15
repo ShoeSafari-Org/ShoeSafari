@@ -370,6 +370,34 @@ fn test_native_asset_payment_and_dispatch() {
     assert_eq!(native_client.balance(&client.address), 0);
     assert_eq!(native_client.balance(&merchant), 100_000);
     assert_eq!(client.status(&id), Some(Status::Shipped));
+
+    let refund_id = order_id(&env, 22);
+    client.pay(&native_id, &buyer, &refund_id, &75_000);
+    assert_eq!(native_client.balance(&buyer), 4_825_000);
+    assert_eq!(native_client.balance(&client.address), 75_000);
+    client.refund(&refund_id);
+    assert_eq!(native_client.balance(&buyer), 4_900_000);
+    assert_eq!(native_client.balance(&client.address), 0);
+    assert_eq!(native_client.balance(&merchant), 100_000);
+    assert_eq!(client.status(&refund_id), Some(Status::Refunded));
+
+    let balances_after_refund = (
+        native_client.balance(&buyer),
+        native_client.balance(&client.address),
+        native_client.balance(&merchant),
+    );
+    assert_eq!(
+        client.try_refund(&refund_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        (
+            native_client.balance(&buyer),
+            native_client.balance(&client.address),
+            native_client.balance(&merchant),
+        ),
+        balances_after_refund
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -384,9 +412,21 @@ fn test_duplicate_order_rejected() {
     let (client, token, _, buyer) = setup_usdc(&env);
     let id = order_id(&env, 9);
     client.pay(&token, &buyer, &id, &50_000);
+    let escrow = client.address.clone();
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+    );
 
     let result = client.try_pay(&token, &buyer, &id, &50_000);
     assert_eq!(result, Err(Ok(Error::OrderAlreadyPaid)));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+        ),
+        balances_before
+    );
 }
 
 #[test]
@@ -398,9 +438,72 @@ fn test_duplicate_pay_after_dispatch_rejected() {
     let id = order_id(&env, 10);
     client.pay(&token, &buyer, &id, &50_000);
     client.dispatch(&id);
+    let escrow = client.address.clone();
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+    );
 
     let result = client.try_pay(&token, &buyer, &id, &50_000);
     assert_eq!(result, Err(Ok(Error::OrderAlreadyPaid)));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+        ),
+        balances_before
+    );
+}
+
+#[test]
+fn test_duplicate_dispatch_and_refund_preserve_all_balances() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let escrow = client.address.clone();
+    let dispatched_id = order_id(&env, 31);
+    client.pay(&token, &buyer, &dispatched_id, &40_000);
+    client.dispatch(&dispatched_id);
+
+    let balances_after_dispatch = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+        usdc_balance(&env, &token, &merchant),
+    );
+    assert_eq!(
+        client.try_dispatch(&dispatched_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+            usdc_balance(&env, &token, &merchant),
+        ),
+        balances_after_dispatch
+    );
+
+    let refunded_id = order_id(&env, 32);
+    client.pay(&token, &buyer, &refunded_id, &25_000);
+    client.refund(&refunded_id);
+    let balances_after_refund = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+        usdc_balance(&env, &token, &merchant),
+    );
+    assert_eq!(
+        client.try_refund(&refunded_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+            usdc_balance(&env, &token, &merchant),
+        ),
+        balances_after_refund
+    );
 }
 
 #[test]
