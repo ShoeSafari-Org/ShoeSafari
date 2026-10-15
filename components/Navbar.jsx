@@ -58,8 +58,9 @@ function Navbar() {
   const handleLogout = async () => {
     try {
       await logout();
-      localStorage.clear();
-      router.push("/");
+      // AuthContext clears its user from Firebase's auth-state observer. Keep
+      // unrelated local state (such as the shopping cart) intact on sign-out.
+      router.replace("/");
       showToast("Logged out successfully");
     } catch (error) {
       showToast(error.message);
@@ -154,8 +155,9 @@ function Navbar() {
                   </span>
                 </div>
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="font-normal bg-red-700 hover:bg-red-500 rounded-md px-4 py-2 text-md"
+                  className="font-normal text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 bg-red-700 hover:bg-red-500 rounded-md px-4 py-2 text-md"
                 >
                   Logout
                 </button>
@@ -181,16 +183,29 @@ function Navbar() {
 
         <div className="flex md:hidden justify-between items-center px-3 sm:px-6">
           <Image src={logo} alt="shoesafari logo" className="w-20" />
-          {showNav ? (
-            <AiOutlineClose className="w-10 h-9 pr-2" onClick={toggleNav} />
-          ) : (
-            <AiOutlineMenu className="w-10 h-9 pr-2" onClick={toggleNav} />
-          )}
+          <button
+            type="button"
+            aria-label={showNav ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={showNav}
+            onClick={toggleNav}
+            className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700"
+          >
+            {showNav ? (
+              <AiOutlineClose aria-hidden="true" className="w-10 h-9 pr-2" />
+            ) : (
+              <AiOutlineMenu aria-hidden="true" className="w-10 h-9 pr-2" />
+            )}
+          </button>
         </div>
         {showNav && (
           <div className="fixed inset-y-0 right-0 w-1/2 h-screen bg-white flex flex-col items-center py-6 z-50 shadow-lg">
-            <button className="self-end mr-4 mb-4" onClick={toggleNav}>
-              <AiOutlineClose className="w-8 h-10" />
+            <button
+              type="button"
+              aria-label="Close navigation menu"
+              className="self-end mr-4 mb-4 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700"
+              onClick={toggleNav}
+            >
+              <AiOutlineClose aria-hidden="true" className="w-8 h-10" />
             </button>
             <div className="w-full divide-y-2 divide-dashed divide-red-700">
               <Link
@@ -272,11 +287,12 @@ function Navbar() {
                     </span>
                   </div>
                   <button
+                    type="button"
                     onClick={() => {
                       handleLogout();
                       closeNavOnClick();
                     }}
-                    className="font-normal focus:outline-none bg-red-700 hover:bg-red-500 rounded-md px-4 py-2 text-md"
+                    className="font-normal text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 bg-red-700 hover:bg-red-500 rounded-md px-4 py-2 text-md"
                   >
                     Logout
                   </button>
