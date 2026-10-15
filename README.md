@@ -476,6 +476,14 @@ It prints the `NEXT_PUBLIC_CHECKOUT_CONTRACT_ID` to paste into `.env.local`.
 
 \* Required for the Stellar payment stage; empty until you deploy the contract.
 
+`npm run build` validates required public Firebase, EmailJS, and checkout
+configuration before Next.js compiles. Testnet may use the documented RPC,
+passphrase, and token defaults. Mainnet builds must explicitly set the RPC URL
+and USDC/native token contract IDs. CI uses nonfunctional placeholders to check
+the build without production credentials; validation errors name variables but
+never print their values. Run `npm run validate:production-env` to check a
+deployment environment directly.
+
 ## Security Notes
 
 - **Merchant authorization is on-chain.** The `initialize` transaction sets the

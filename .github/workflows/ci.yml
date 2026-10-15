@@ -22,7 +22,30 @@ jobs:
       - run: npm run lint
       - run: npm run type-check
       - run: npm test -- --run
+      - run: npm run validate:production-env
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_CHECKOUT_CONTRACT_ID: C-CI_PLACEHOLDER
+          NEXT_PUBLIC_EMAILJS_SERVICE_ID: service-ci-placeholder
+          NEXT_PUBLIC_EMAILJS_TEMPLATE_ID: template-ci-placeholder
+          NEXT_PUBLIC_EMAILJS_PUBLIC_KEY: public-ci-placeholder
+          NEXT_PUBLIC_FIREBASE_API_KEY: firebase-ci-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: shoesafari-ci.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: shoesafari-ci
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: shoesafari-ci.appspot.com
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:123:web:ci-placeholder
       - run: npm run build
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_CHECKOUT_CONTRACT_ID: C-CI_PLACEHOLDER
+          NEXT_PUBLIC_EMAILJS_SERVICE_ID: service-ci-placeholder
+          NEXT_PUBLIC_EMAILJS_TEMPLATE_ID: template-ci-placeholder
+          NEXT_PUBLIC_EMAILJS_PUBLIC_KEY: public-ci-placeholder
+          NEXT_PUBLIC_FIREBASE_API_KEY: firebase-ci-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: shoesafari-ci.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: shoesafari-ci
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: shoesafari-ci.appspot.com
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:123:web:ci-placeholder
 
   contract:
     name: Soroban contract checks

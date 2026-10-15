@@ -20,6 +20,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prebuild": "npm run validate:production-env",
+    "validate:production-env": "node scripts/validate-production-env.mjs",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
