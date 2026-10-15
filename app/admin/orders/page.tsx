@@ -25,6 +25,7 @@ import Link from "next/link";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../lib/firebaseConfig";
 import { updateStellarOrderStatus } from "../../../lib/orderStore";
+import { logClientError } from "../../../lib/safeLogging";
 
 // Status badge component
 const StatusBadge = ({ status }: { status: OrderStatus }) => {
@@ -257,7 +258,7 @@ const OrdersManagementContent = () => {
     void mergeCommerceOrders().catch((loadError) => {
       // The chain remains authoritative; Firestore adds optional commerce
       // context and should not hide on-chain orders if it is unavailable.
-      console.warn("Could not load commerce order details", loadError);
+      logClientError("Could not load commerce order details", loadError);
     });
 
     // Stop after 2 seconds of loading to show UI
@@ -296,7 +297,7 @@ const OrdersManagementContent = () => {
         const commerce = orders.get(orderId)?.commerce;
         if (commerce) {
           void updateStellarOrderStatus(commerce.documentId, "Shipped").catch((statusError) =>
-            console.warn("Could not sync shipped status to Firestore", statusError)
+            logClientError("Could not sync shipped status to Firestore", statusError)
           );
         }
       } else {
@@ -334,7 +335,7 @@ const OrdersManagementContent = () => {
         const commerce = orders.get(orderId)?.commerce;
         if (commerce) {
           void updateStellarOrderStatus(commerce.documentId, "Refunded").catch((statusError) =>
-            console.warn("Could not sync refunded status to Firestore", statusError)
+            logClientError("Could not sync refunded status to Firestore", statusError)
           );
         }
       } else {

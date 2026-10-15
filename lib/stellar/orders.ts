@@ -27,6 +27,7 @@ import {
 } from "./config";
 import { connectWallet, signWithFreighter } from "./freighter";
 import { hashOrderId, bytesToHex } from "./scval";
+import { logClientError } from "../safeLogging";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -114,7 +115,7 @@ export async function readOrder(orderId: string): Promise<OrderDetails | null> {
     const simResult = await server.simulateTransaction(tx);
 
     if (rpc.Api.isSimulationError(simResult)) {
-      console.error("Simulation error reading order:", simResult.error);
+      logClientError("Simulation error reading order", simResult.error);
       return null;
     }
 

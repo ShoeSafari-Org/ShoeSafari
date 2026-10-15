@@ -2,6 +2,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { MdError, MdRefresh, MdHome } from "react-icons/md";
 import Link from "next/link";
+import { logClientError } from "../lib/safeLogging";
 
 interface Props {
   children: ReactNode;
@@ -47,8 +48,8 @@ class ErrorBoundary extends Component<Props, State> {
 
     // Log to console in development
     if (process.env.NODE_ENV === "development") {
-      console.error("ErrorBoundary caught an error:", error);
-      console.error("Component stack:", errorInfo.componentStack);
+      logClientError("ErrorBoundary caught an error", error);
+      logClientError("ErrorBoundary component stack", errorInfo.componentStack);
     }
 
     // Call optional error handler

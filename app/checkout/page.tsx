@@ -32,6 +32,7 @@ import {
   tokenSymbolForContract,
   USDC_CONTRACT_ID,
 } from "../../lib/stellar/config";
+import { logClientError } from "../../lib/safeLogging";
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -98,7 +99,11 @@ const Checkout = () => {
       });
     } catch (error) {
       orderSaved = false;
-      console.error("Stellar payment succeeded but order persistence failed", error);
+      logClientError(
+        "Stellar payment succeeded but order persistence failed",
+        error,
+        result.hash
+      );
     }
 
     const tokenContract = result.receipt?.token;
