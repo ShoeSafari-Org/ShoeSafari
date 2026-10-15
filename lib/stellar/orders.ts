@@ -23,6 +23,7 @@ import {
   TX_POLL_INTERVAL_MS,
   FEE_BUFFER_STROOPS,
   tokenForContract,
+  formatTokenAmount,
 } from "./config";
 import { connectWallet, signWithFreighter } from "./freighter";
 import { hashOrderId, bytesToHex } from "./scval";
@@ -180,11 +181,10 @@ export async function readOrder(orderId: string): Promise<OrderDetails | null> {
 
       // Format display amount
       const tokenConfig = order.token ? tokenForContract(order.token.toUpperCase()) : undefined;
-      const decimals = tokenConfig?.decimals ?? 7;
       order.tokenSymbol = tokenConfig?.symbol ?? "TOKEN";
       order.amountDisplay = order.amount
-        ? (Number(order.amount) / Math.pow(10, decimals)).toFixed(2)
-        : "0.00";
+        ? formatTokenAmount(order.amount, order.token)
+        : "0";
 
       return order as OrderDetails;
     }
@@ -439,7 +439,6 @@ export function eventToOrder(
 
   // Try to get token config
   const tokenConfig = tokenForContract(token);
-  const decimals = tokenConfig?.decimals ?? 7;
   const tokenSymbol = tokenConfig?.symbol ?? "Unknown token";
 
   // Parse amount
@@ -450,7 +449,7 @@ export function eventToOrder(
     // Keep as 0
   }
 
-  const amountDisplay = (Number(amountRaw) / Math.pow(10, decimals)).toFixed(2);
+  const amountDisplay = formatTokenAmount(amountRaw, token);
 
   // Parse timestamp
   let timestamp = Date.now();

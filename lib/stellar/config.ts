@@ -99,10 +99,16 @@ export function tokenSymbolForContract(contractId?: string | null): string {
   return tokenForContract(contractId)?.symbol ?? "Unknown token";
 }
 
-/** Format raw token units using the decimals registered for that contract. */
+/**
+ * Format raw token units using the decimals registered for that contract.
+ * Unknown tokens are kept in raw units because their decimal precision cannot
+ * be inferred safely.
+ */
 export function formatTokenAmount(amountRaw: bigint | string, contractId?: string | null): string {
-  const decimals = contractId ? (tokenForContract(contractId)?.decimals ?? 7) : 7;
   const amount = BigInt(amountRaw);
+  const decimals = contractId ? tokenForContract(contractId.toUpperCase())?.decimals : undefined;
+  if (decimals === undefined) return amount.toString();
+
   const scale = 10n ** BigInt(decimals);
   const whole = amount / scale;
   const fraction = (amount % scale).toString().padStart(decimals, "0");
