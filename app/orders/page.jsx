@@ -5,7 +5,12 @@ import Link from "next/link";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { useAuth } from "../../lib/AuthContext";
 import { db } from "../../lib/firebaseConfig";
-import { NETWORK } from "../../lib/stellar/config";
+import {
+  formatTokenAmount,
+  NETWORK,
+  tokenSymbolForContract,
+  USDC_CONTRACT_ID,
+} from "../../lib/stellar/config";
 
 const formatDate = (value) => {
   if (!value) return "Date unavailable";
@@ -15,6 +20,16 @@ const formatDate = (value) => {
 
 const shortHash = (value) =>
   value && value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
+
+const formatOrderTotal = (order) => {
+  if (order.tokenContract === USDC_CONTRACT_ID) {
+    return `$${Number(order.amountUsd || 0).toFixed(2)} USDC`;
+  }
+
+  const symbol = tokenSymbolForContract(order.tokenContract);
+  if (!order.amountRaw || symbol === "Unknown token") return symbol;
+  return `${formatTokenAmount(order.amountRaw, order.tokenContract)} ${symbol}`;
+};
 
 export default function OrdersPage() {
   const { user, loading: authLoading } = useAuth();
@@ -56,7 +71,9 @@ export default function OrdersPage() {
   }, [authLoading, user]);
 
   if (authLoading || loading) {
-    return <div className="min-h-[60vh] flex items-center justify-center">Loading your orders…</div>;
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">Loading your orders…</div>
+    );
   }
 
   if (!user) {
@@ -64,7 +81,10 @@ export default function OrdersPage() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-4 text-center">
         <h1 className="text-3xl font-bold">Your orders</h1>
         <p>Please log in to view orders linked to your account.</p>
-        <Link href="/profile/login?redirect=/orders" className="bg-red-700 text-white rounded px-5 py-2">
+        <Link
+          href="/profile/login?redirect=/orders"
+          className="bg-red-700 text-white rounded px-5 py-2"
+        >
           Log in
         </Link>
       </div>
@@ -76,11 +96,15 @@ export default function OrdersPage() {
       <h1 className="text-3xl font-bold mb-2">Your orders</h1>
       <p className="text-gray-600 mb-8">Track your ShoeSafari payments and fulfillment.</p>
 
-      {error && <p className="text-red-700 bg-red-50 border border-red-200 rounded p-4 mb-6">{error}</p>}
+      {error && (
+        <p className="text-red-700 bg-red-50 border border-red-200 rounded p-4 mb-6">{error}</p>
+      )}
       {!error && orders.length === 0 && (
         <div className="border rounded-lg p-8 text-center">
           <p className="mb-4">You have no Stellar orders yet.</p>
-          <Link href="/shop" className="text-red-700 underline">Browse the shop</Link>
+          <Link href="/shop" className="text-red-700 underline">
+            Browse the shop
+          </Link>
         </div>
       )}
 
@@ -97,9 +121,15 @@ export default function OrdersPage() {
               </span>
             </div>
             <div className="grid sm:grid-cols-3 gap-3 text-sm">
-              <p><span className="text-gray-500">Total:</span> ${Number(order.amountUsd || 0).toFixed(2)} USDC</p>
-              <p><span className="text-gray-500">Items:</span> {order.items?.length || 0}</p>
-              <p><span className="text-gray-500">Network:</span> {NETWORK}</p>
+              <p>
+                <span className="text-gray-500">Total:</span> {formatOrderTotal(order)}
+              </p>
+              <p>
+                <span className="text-gray-500">Items:</span> {order.items?.length || 0}
+              </p>
+              <p>
+                <span className="text-gray-500">Network:</span> {NETWORK}
+              </p>
             </div>
             {order.transactionHash && (
               <a

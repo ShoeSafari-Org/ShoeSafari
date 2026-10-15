@@ -87,15 +87,15 @@ kept out of the contract.
 The contract accepts any SEP-41 token the merchant whitelists with
 `add_token`. Two deployments matter in practice:
 
-| Token          | Type            | Contract id (testnet)                    | Trustline needed? |
-| -------------- | --------------- | ---------------------------------------- | ----------------- |
-| USDC           | SAC credit asset| `CBIELTK…HMXQDAMA`                       | Yes               |
-| Native XLM     | SAC native asset| `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` ¹ | No               |
+| Token      | Type             | Contract id (testnet)                                        | Trustline needed? |
+| ---------- | ---------------- | ------------------------------------------------------------ | ----------------- |
+| USDC       | SAC credit asset | `CBIELTK…HMXQDAMA`                                           | Yes               |
+| Native XLM | SAC native asset | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` ¹ | No                |
 
 ¹ `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` is **verified
 empirically** by simulating `balance` (returns 100,000,000,000 for a 10,000 XLM
 account) and `decimals` (7) against soroban-testnet.stellar.org. The native
-asset contract id is deterministic but is *not* a plain
+asset contract id is deterministic but is _not_ a plain
 `SHA-256(networkPassphrase ‖ Asset::Native XDR)`; it is the hash of the
 `HashIDPreimage::ENVELOPE_TYPE_CONTRACT_ID_FROM_ASSET` XDR structure per
 [stellar-xdr](https://github.com/stellar/stellar-xdr/blob/master/Stellar-transaction.x).
@@ -168,16 +168,16 @@ the transaction was built with and the buyer signed for.
 
 Before building a transaction we verify the buyer is actually able to pay:
 
-| Check                  | Mechanism                                                | Why it matters                              |
-| ---------------------- | -------------------------------------------------------- | ------------------------------------------- |
-| Account exists         | `server.getAccount`; friendbot on testnet                | Soroban needs a sequence number             |
-| Native XLM reserve     | `server.getAccountEntry(...).balance()` ≥ 1 XLM          | Fees + footprint come out of XLM            |
-| Trustline (USDC)       | `server.getAssetBalance(pubkey, new Asset(code, issuer))`| SAC credit assets require a trustline       |
-| Token balance          | SAC `balance` via simulation (`readTokenBalance`)        | Enough funds for the amount                 |
+| Check              | Mechanism                                                 | Why it matters                        |
+| ------------------ | --------------------------------------------------------- | ------------------------------------- |
+| Account exists     | `server.getAccount`; friendbot on testnet                 | Soroban needs a sequence number       |
+| Native XLM reserve | `server.getAccountEntry(...).balance()` ≥ 1 XLM           | Fees + footprint come out of XLM      |
+| Trustline (USDC)   | `server.getAssetBalance(pubkey, new Asset(code, issuer))` | SAC credit assets require a trustline |
+| Token balance      | SAC `balance` via simulation (`readTokenBalance`)         | Enough funds for the amount           |
 
 `assertPaymentReady` returns a structured report and, in strict mode, throws a
 `WalletError` with a human-readable, actionable message — so the checkout
-explains *why* a payment can't proceed instead of failing at signing time.
+explains _why_ a payment can't proceed instead of failing at signing time.
 
 ### 4.2 `simulate.ts` — pre-flight simulation & resource fees
 
@@ -186,7 +186,7 @@ Every payment is simulated twice on the RPC:
 1. `simulateTransaction` → a `SimulationReport`:
    - `minResourceFee` (stroops) — the fee to cover the Soroban footprint,
    - `instructions`, `diskReadBytes`, `writeBytes` — the resource budget,
-   - simulation errors (insufficient balance, bad args) surfaced *before*
+   - simulation errors (insufficient balance, bad args) surfaced _before_
      the buyer signs,
    - a recommended classic inclusion fee from `getFeeStats`.
 2. `prepareTransaction` → attaches the footprint, auth entries, and fee.
@@ -205,7 +205,9 @@ contract and decodes `pay`, `create_order`, `dispatch`, and `refund` events.
 - **Steady state**: advances by cursor (no ledger-range + cursor mixing), so no
   event is double-read or skipped.
 - **Decoding**: `topics[0]` is the event symbol; topics + data-map values are
-  decoded to strings (`scValToString`). Event ids dedupe on the client.
+  decoded to strings (`scValToString`). Event ids dedupe on the client in a
+  FIFO window capped at 5,000 IDs. Cursor retries and adjacent poll overlaps
+  are deduplicated while retained; older IDs can be replayed after eviction.
 - **Retention**: if the RPC's retention window rejects a backfill ledger, the
   window rolls forward toward the tip and recovers.
 
