@@ -98,6 +98,19 @@ real Stellar Asset Contract for native XLM
 (`env.register_stellar_asset_contract_v2`), so nothing needs to be deployed.
 They also verify pending order terms cannot be changed when the payment is made.
 
+## Order storage lifetime
+
+Orders use persistent storage. When an order's remaining TTL is below the
+1,000-ledger threshold, `storage::set_order` and `storage::get_order` request a
+renewal to 10,000 ledgers. Reads and lifecycle transitions that load or update
+an order renew its ledger entry. An absent order is not renewed.
+
+This is a rolling renewal policy, not permanent storage: an order that is not
+read or written before its TTL expires can be archived and may require a
+separate restore operation before it can be accessed. The 10,000-ledger target
+is subject to the network's maximum persistent-entry TTL and archival rules;
+it does not override network limits or guarantee a fixed wall-clock lifetime.
+
 ## Deploy (testnet)
 
 ```bash

@@ -3,12 +3,14 @@
 extern crate alloc;
 
 use alloc::{format, vec::Vec};
-use soroban_sdk::testutils::{Address as _, Events};
+use soroban_sdk::testutils::storage::Persistent as _;
+use soroban_sdk::testutils::{Address as _, Events, Ledger as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
 use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env};
 
 use crate::errors::Error;
 use crate::order::Status;
+use crate::storage::{DataKey, LEDGER_THRESHOLD};
 use crate::{Checkout, CheckoutClient};
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,20 @@ fn setup_usdc(env: &Env) -> (CheckoutClient<'_>, Address, Address, Address) {
 
 fn usdc_balance(env: &Env, token: &Address, address: &Address) -> i128 {
     MockTokenClient::new(env, token).balance(address)
+}
+
+fn order_ttl(env: &Env, contract: &Address, id: &BytesN<32>) -> u32 {
+    env.as_contract(contract, || {
+        env.storage()
+            .persistent()
+            .get_ttl(&DataKey::Order(id.clone()))
+    })
+}
+
+fn age_order_below_ttl_threshold(env: &Env, current_ttl: u32) {
+    let ledgers_to_advance = current_ttl - LEDGER_THRESHOLD + 1;
+    env.ledger()
+        .set_sequence_number(env.ledger().sequence() + ledgers_to_advance);
 }
 
 // ---------------------------------------------------------------------------
@@ -501,4 +517,44 @@ fn test_events_emitted() {
         flat.contains("order_shipped"),
         "missing order_shipped: {flat}"
     );
+}
+
+#[test]
+fn test_order_read_renews_persistent_ttl_below_threshold() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let id = order_id(&env, 31);
+    client.pay(&token, &buyer, &id, &10_000);
+
+    let ttl_after_payment = order_ttl(&env, &client.address, &id);
+    assert!(ttl_after_payment >= LEDGER_THRESHOLD);
+    age_order_below_ttl_threshold(&env, ttl_after_payment);
+    assert!(order_ttl(&env, &client.address, &id) < LEDGER_THRESHOLD);
+
+    assert!(client.order(&id).is_some());
+
+    assert!(order_ttl(&env, &client.address, &id) >= ttl_after_payment);
+}
+
+#[test]
+fn test_order_write_renews_persistent_ttl_below_threshold() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let id = order_id(&env, 32);
+    client.pay(&token, &buyer, &id, &10_000);
+    let order = client.order(&id).unwrap();
+
+    let ttl_before_age = order_ttl(&env, &client.address, &id);
+    age_order_below_ttl_threshold(&env, ttl_before_age);
+    assert!(order_ttl(&env, &client.address, &id) < LEDGER_THRESHOLD);
+
+    env.as_contract(&client.address, || {
+        crate::storage::set_order(&env, &id, &order);
+    });
+
+    assert!(order_ttl(&env, &client.address, &id) >= ttl_before_age);
 }
