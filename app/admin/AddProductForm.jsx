@@ -12,6 +12,7 @@ import {
 
 const AddProductForm = ({ onProductAdded }) => {
   const [productName, setProductName] = useState("");
+  const [productCategory, setProductCategory] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productImage, setProductImage] = useState(null);
   const [imageError, setImageError] = useState("");
@@ -56,6 +57,7 @@ const AddProductForm = ({ onProductAdded }) => {
       // Add product details to Firestore
       await addDoc(collection(db, "ShoeSafariProducts"), {
         name: productName,
+        category: productCategory.trim(),
         price: Number(priceValidation.sanitized),
         img: imageUrl, // Save image URL to Firestore
         available: true,
@@ -63,6 +65,7 @@ const AddProductForm = ({ onProductAdded }) => {
 
       showToast("Product added successfully!");
       setProductName("");
+      setProductCategory("");
       setProductPrice("");
       setPriceError("");
       setProductImage(null);
@@ -90,6 +93,19 @@ const AddProductForm = ({ onProductAdded }) => {
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
             required
+          />
+        </div>
+        <div className="mb-6">
+          <label className="block text-gray-700 text-lg font-semibold" htmlFor="product-category">
+            Category
+          </label>
+          <input
+            id="product-category"
+            type="text"
+            className="w-full p-3 mt-2 border border-gray-300 rounded-md"
+            value={productCategory}
+            onChange={(event) => setProductCategory(event.target.value)}
+            placeholder="e.g. Running"
           />
         </div>
         <div className="mb-6">

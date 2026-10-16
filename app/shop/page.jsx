@@ -13,7 +13,12 @@ import { searchProducts } from "../../lib/productSearch";
 import { ProductGridSkeleton } from "../../components/Skeleton";
 import EmptyState from "../../components/EmptyState";
 import { ProductImage } from "../../components/OptimizedImage";
-import { isProductPurchasable, normalizeProduct } from "../../lib/productCatalog";
+import {
+  filterProductsByCategory,
+  getProductCategories,
+  isProductPurchasable,
+  normalizeProduct,
+} from "../../lib/productCatalog";
 
 export default function Products() {
   const {
@@ -29,6 +34,7 @@ export default function Products() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -87,7 +93,9 @@ export default function Products() {
 
   const openModal = () => setShowModal(true);
   const closeModal = () => setShowModal(false);
-  const filteredProducts = searchProducts(products, searchTerm);
+  const categories = getProductCategories(products);
+  const categoryProducts = filterProductsByCategory(products, selectedCategory);
+  const filteredProducts = searchProducts(categoryProducts, searchTerm);
 
   return (
     <>
@@ -108,6 +116,18 @@ export default function Products() {
               placeholder="Search products"
               className="min-w-0 flex-1 rounded border border-gray-400 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"
             />
+            <label htmlFor="product-category" className="sr-only">Filter by category</label>
+            <select
+              id="product-category"
+              value={selectedCategory}
+              onChange={(event) => setSelectedCategory(event.target.value)}
+              className="rounded border border-gray-400 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"
+            >
+              <option value="all">All products</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
             {searchTerm && (
               <button
                 type="button"
@@ -138,7 +158,7 @@ export default function Products() {
               role="status"
               className="mx-auto my-8 max-w-md border-0"
               title="No matching products"
-              description={`We couldn't find anything for “${searchTerm.trim()}”. Try a different search, or clear it to see everything.`}
+              description={searchTerm.trim() ? `We couldn't find anything for “${searchTerm.trim()}”. Try another search or clear it.` : `There are no products in “${selectedCategory}” yet. Choose another category or view all products.`}
             >
               <button
                 type="button"
