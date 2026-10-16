@@ -2,6 +2,12 @@
 
 The browser and server helpers for the ShoeSafari Stellar checkout live in `lib/stellar/`. Import only the module needed by the caller; `checkout.ts` is the payment entry point, while the other modules expose lower-level wallet, account, event, and contract helpers.
 
+The public Soroban checkout surface is versioned in
+[`contracts/checkout/interface/checkout-v1.json`](../contracts/checkout/interface/checkout-v1.json).
+It is the reference for contract method signatures, argument order, event
+names, and order status values. Run `npm run check:checkout-interface` when
+changing the frontend decoder or the contract interface.
+
 ## Payment
 
 ### `lib/stellar/checkout.ts`

@@ -4,7 +4,8 @@ import { RPC_URL, TX_TIMEOUT_SECONDS, TX_POLL_INTERVAL_MS } from "./config";
 import { bytesToHex, scValToString } from "./scval";
 
 // ---------------------------------------------------------------------------
-// Payment event decoding.
+// Payment event decoding. The contract-wide entrypoints, event layouts, and
+// status values are pinned in contracts/checkout/interface/checkout-v1.json.
 //
 // The checkout contract emits (via #[contractevent]):
 //   topics: [Symbol("pay"), token, buyer, merchant, order_id]

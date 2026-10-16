@@ -9,6 +9,22 @@ until the merchant dispatches the order — or refunded on-chain back to the buy
 
 ## Interface
 
+The versioned machine-readable interface is
+[`interface/checkout-v1.json`](interface/checkout-v1.json). It records the
+Soroban entrypoint signatures and argument order, event names and fields, and
+numeric order status values. The storefront and contract documentation should
+refer to this manifest when describing the public interface. Run
+`npm run check:checkout-interface` after interface changes; the deterministic
+source check fails when Rust entrypoints, event fields/topics, or status values
+drift from the manifest.
+
+When making a backward-incompatible interface change, add a new manifest file
+and increment its major interface version; keep the old manifest to document
+deployed contracts. For compatible additions, update the current manifest's
+minor version. Corrections that do not change the deployed interface use a
+patch version. Update this README, the frontend API reference, and the release
+checklist in the same change.
+
 This is the contract-facing interface used by the storefront. `amount` values
 passed to Soroban are **raw token units**; the storefront's cart prices are
 display values in USD. For a supported 7-decimal token, `12.34` token units is

@@ -9,6 +9,11 @@ a new contract does not move orders or escrow from the old one.
 
 - [ ] Review the code change and identify whether it changes the on-chain WASM
   or only the frontend.
+- [ ] Compare public methods, argument order, events, and status values with
+  `contracts/checkout/interface/checkout-v1.json`; update the manifest and
+  version guidance in `contracts/checkout/README.md` when the interface changes.
+- [ ] Run `npm run check:checkout-interface` to detect drift between the
+  versioned interface and the Rust contract source.
 - [ ] For a frontend-only release, keep the existing contract ID and follow
   the normal frontend release process.
 - [ ] For an on-chain change, plan a new contract deployment. The checkout
