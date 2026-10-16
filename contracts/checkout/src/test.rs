@@ -378,6 +378,31 @@ fn test_token_not_allowed_rejected() {
 }
 
 #[test]
+fn test_removed_token_does_not_block_settlement_of_existing_orders() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let escrow = client.address.clone();
+    let dispatch_id = order_id(&env, 91);
+    let refund_id = order_id(&env, 92);
+
+    client.pay(&token, &buyer, &dispatch_id, &20_000);
+    client.pay(&token, &buyer, &refund_id, &15_000);
+    client.remove_token(&token);
+
+    // Allowlist removal stops new payments but must not strand existing escrow.
+    client.dispatch(&dispatch_id);
+    client.refund(&refund_id);
+
+    assert_eq!(client.status(&dispatch_id), Some(Status::Shipped));
+    assert_eq!(client.status(&refund_id), Some(Status::Refunded));
+    assert_eq!(usdc_balance(&env, &token, &buyer), 980_000);
+    assert_eq!(usdc_balance(&env, &token, &escrow), 0);
+    assert_eq!(usdc_balance(&env, &token, &merchant), 20_000);
+}
+
+#[test]
 fn test_remove_token_disables_payments() {
     let env = Env::default();
     env.mock_all_auths();
