@@ -73,15 +73,13 @@ describe("PaymentEventIndexer cancellation", () => {
     const indexer = new PaymentEventIndexer();
 
     indexer.start({ onEvent: vi.fn(), onStatus });
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPromises();
     expect(getEvents).toHaveBeenCalledTimes(1);
     const statusCallsBeforeStop = onStatus.mock.calls.length;
 
     indexer.stop();
     events.resolve({ events: [], latestLedger: 101 });
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPromises();
 
     expect(onStatus).toHaveBeenCalledTimes(statusCallsBeforeStop);
     expect(indexer.status.latestLedger).toBe(100);
