@@ -1,7 +1,9 @@
+"use client";
 import { useEffect, useRef, useState } from "react";
 
 import { PaymentEventIndexer } from "../lib/stellar/indexer";
 import { bytesToHex, hashOrderId } from "../lib/stellar/scval";
+import { useNotification } from "./Notification";
 
 /**
  * Live on-chain order monitor.
@@ -12,6 +14,7 @@ import { bytesToHex, hashOrderId } from "../lib/stellar/scval";
  * getTransaction polling used during submission).
  */
 const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
+  const { success, error: notifyError } = useNotification();
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
   const [matched, setMatched] = useState(null);
@@ -36,12 +39,16 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
           setConnected(s.running);
           if (s.lastError) setError(s.lastError);
         },
-        onError: (err) => setError(err.message),
+        onError: (err) => {
+          setError(err.message);
+          notifyError(err.message, "Order updates unavailable");
+        },
         onEvent: (event) => {
           if (event.symbol !== "pay") return;
           const orderHex = (event.fields.topic4 || "").toLowerCase();
           if (orderHex !== expected) return;
           setMatched(event);
+          success(`Payment update received for order ${orderId}.`, "Order updated");
           if (onEvent) onEvent(event);
           indexer.stop();        },
       });

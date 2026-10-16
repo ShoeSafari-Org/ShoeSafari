@@ -10,14 +10,10 @@ import {
 } from "./config";
 import { ensureNetwork, signWithFreighter, WalletError } from "./freighter";
 import { decodePaymentEvent, PaymentReceipt, waitForTransaction } from "./events";
-import {
-  addressToScVal,
-  bytes32ToScVal,
-  hashOrderId,
-  i128ToScVal,
-} from "./scval";
+import { addressToScVal, bytes32ToScVal, hashOrderId, i128ToScVal } from "./scval";
 import { assertPaymentReady } from "./account";
 import { buildInvocationTransaction, budgetFee, prepareAndReport } from "./simulate";
+import { formatStroopsAsXlm } from "./fees";
 
 export { fundTestnetAccount } from "./account";
 
@@ -26,12 +22,18 @@ export interface PayOptions {
   amountUsd: number;
   /** Human-readable order id (any string), hashed to 32 bytes for the contract. */
   orderId: string;
+  /** Server-signed quote, revalidated immediately before wallet signing. */
+  quoteToken: string;
   /** Buyer's Freighter public key. */
   publicKey: string;
   /** Token to pay with (defaults to the first supported token, USDC). */
   token?: TokenConfig;
   /** Called with human-readable progress updates. */
   onStatus?: (status: string) => void;
+  /** Called when the pre-signing network-fee estimate changes. */
+  onFeeEstimate?: (estimate: string) => void;
+  /** Called after submission is accepted, and when its outcome is uncertain. */
+  onSubmitted?: (hash: string) => void;
 }
 
 export interface PayResult {
@@ -83,7 +85,7 @@ function hexOf(bytes: Uint8Array): string {
  * sign -> submit -> wait -> decode event.
  */
 export async function payWithStellar(options: PayOptions): Promise<PayResult> {
-  const { amountUsd, orderId, publicKey, onStatus = status } = options;
+  const { amountUsd, orderId, publicKey, onStatus = status, onFeeEstimate, onSubmitted } = options;
   const token = options.token ?? defaultToken();
 
   if (!CHECKOUT_CONTRACT_ID) {
@@ -118,48 +120,95 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
     bytes32ToScVal(orderBytes),
     i128ToScVal(amountRaw),
   ];
-  const tx = buildInvocationTransaction(
-    readiness.account!,
-    CHECKOUT_CONTRACT_ID,
-    "pay",
-    args
-  );
+  const tx = buildInvocationTransaction(readiness.account!, CHECKOUT_CONTRACT_ID, "pay", args);
 
   // 4. Pre-flight simulation (surfaces errors early) + prepare.
   onStatus("Simulating transaction…");
+  onFeeEstimate?.("Estimating Stellar network fee…");
   const { tx: prepared, report } = await prepareAndReport(server, tx);
   if (!report.ok || !readiness.account) {
+    onFeeEstimate?.(
+      "Stellar network fee estimate unavailable. Fees are paid in XLM, separate from the USDC cart total."
+    );
     throw new WalletError(
       `Transaction simulation failed: ${report.error?.message ?? "unknown error"}`,
       "TX_SIMULATION_ERROR"
     );
   }
   const fee = await budgetFee(server, report);
-  onStatus(
-    `Estimated fee: ${report.minResourceFee?.toString() ?? "?"} stroops resource + ${fee} stroops total`
-  );
+  const feeXlm = formatStroopsAsXlm(fee);
+  const feeEstimate =
+    feeXlm && report.minResourceFee !== undefined
+      ? `Estimated Stellar network fee: up to ~${feeXlm} XLM. Paid in XLM, separate from the USDC cart total.`
+      : "Stellar network fee estimate unavailable. Fees are paid in XLM, separate from the USDC cart total.";
+  onFeeEstimate?.(feeEstimate);
+  onStatus(feeEstimate);
+
+  onStatus("Verifying current checkout quote…");
+  const quoteResponse = await fetch("/api/checkout/quote/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quoteToken: options.quoteToken }),
+  });
+  const quoteBody = await quoteResponse.json();
+  if (
+    !quoteResponse.ok ||
+    quoteBody.quote?.orderId !== orderId ||
+    quoteBody.quote?.totalUsd !== amountUsd ||
+    quoteBody.quote?.expiresAt <= Date.now()
+  ) {
+    throw new WalletError(
+      quoteBody.error || "The checkout quote expired or no longer matches this order.",
+      "QUOTE_INVALID"
+    );
+  }
 
   // 5. Sign with Freighter.
   onStatus("Waiting for Freighter signature…");
   const signedXdr = await signWithFreighter(prepared.toXDR(), publicKey);
   const signedTx = TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
+  const signedTransactionHash = signedTx.hash().toString("hex");
 
   // 6. Submit.
   onStatus("Submitting transaction…");
-  const sendResponse = await server.sendTransaction(signedTx);
+  let sendResponse;
+  try {
+    sendResponse = await server.sendTransaction(signedTx);
+  } catch (error) {
+    // RPC may have accepted the transaction before the connection failed.
+    onSubmitted?.(signedTransactionHash);
+    throw new WalletError(
+      error instanceof Error ? error.message : String(error),
+      "RPC_UNAVAILABLE",
+      signedTransactionHash
+    );
+  }
 
   if (sendResponse.status === "ERROR") {
     throw new WalletError(
       `Transaction rejected: ${sendResponse.errorResult?.toXDR("base64") ?? "unknown error"}`,
-      "TX_SEND_ERROR"
+      "TX_SEND_ERROR",
+      sendResponse.hash || signedTransactionHash
     );
   }
+  onSubmitted?.(sendResponse.hash || signedTransactionHash);
   if (sendResponse.status === "PENDING" || sendResponse.status === "DUPLICATE") {
     onStatus("Confirming transaction…");
   }
 
   // 7. Wait for final state and decode the payment event.
-  const txResult = await waitForTransaction(sendResponse.hash);
+  let txResult;
+  try {
+    txResult = await waitForTransaction(sendResponse.hash);
+  } catch (error) {
+    const diagnosticMessage = error instanceof Error ? error.message : String(error);
+    const code = /timeout|did not reach a final state/i.test(diagnosticMessage)
+      ? "TX_CONFIRMATION_TIMEOUT"
+      : /transaction failed on ledger/i.test(diagnosticMessage)
+        ? "TX_FAILED"
+        : "RPC_UNAVAILABLE";
+    throw new WalletError(diagnosticMessage, code, sendResponse.hash || signedTransactionHash);
+  }
   const receipt = decodePaymentEvent(txResult);
 
   return {

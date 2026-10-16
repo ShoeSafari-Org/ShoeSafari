@@ -19,6 +19,39 @@ export interface FormErrors {
   [key: string]: string | undefined;
 }
 
+/** Firebase Storage product-image limit. Files must be smaller than 5 MiB. */
+export const MAX_PRODUCT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+export const SUPPORTED_PRODUCT_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
+export interface ProductImageFile {
+  type: string;
+  size: number;
+}
+
+/** Validates an image before the admin forms start a Firebase upload. */
+export function validateProductImage(file: ProductImageFile): ValidationResult {
+  if (!(SUPPORTED_PRODUCT_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+    return {
+      isValid: false,
+      error: "Choose a JPEG, PNG, WebP, or GIF image.",
+    };
+  }
+
+  if (file.size >= MAX_PRODUCT_IMAGE_SIZE_BYTES) {
+    return {
+      isValid: false,
+      error: "Image must be smaller than 5 MiB.",
+    };
+  }
+
+  return { isValid: true };
+}
+
 // =============================================================================
 // SANITIZATION
 // =============================================================================
@@ -238,14 +271,28 @@ export function validateProductName(name: string): ValidationResult {
  * Validates a product price.
  */
 export function validatePrice(price: string | number): ValidationResult {
-  const numPrice = typeof price === "string" ? parseFloat(price) : price;
+  const rawPrice = typeof price === "string" ? price.trim() : price;
+  // Do not let parseFloat accept partial values such as "19.99usd". Prices
+  // are persisted as USD amounts with at most two decimal places.
+  if (
+    (typeof rawPrice === "string" && !/^\d+(?:\.\d{1,2})?$/.test(rawPrice)) ||
+    (typeof rawPrice !== "string" && typeof rawPrice !== "number")
+  ) {
+    return { isValid: false, error: "Please enter a valid price" };
+  }
 
-  if (isNaN(numPrice)) {
+  const numPrice = Number(rawPrice);
+
+  if (!Number.isFinite(numPrice)) {
     return { isValid: false, error: "Please enter a valid price" };
   }
 
   if (numPrice < 0) {
     return { isValid: false, error: "Price cannot be negative" };
+  }
+
+  if (Math.abs(numPrice * 100 - Math.round(numPrice * 100)) > 1e-6) {
+    return { isValid: false, error: "Price can have no more than two decimal places" };
   }
 
   if (numPrice > 1000000) {

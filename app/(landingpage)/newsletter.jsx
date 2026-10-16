@@ -6,7 +6,6 @@ export default function Newsletter() {
   const [email, setEmail] = useState("");
   const showToast = (message) => {
     setToast({ show: true, message });
-    setTimeout(() => setToast({ show: false, message: "" }), 5000);
   };
 
   const handleSubmit = (e) => {

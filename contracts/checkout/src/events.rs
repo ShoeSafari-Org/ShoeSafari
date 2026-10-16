@@ -74,3 +74,29 @@ pub struct OrderRefunded {
     /// The amount refunded, in raw token units.
     pub amount: i128,
 }
+
+/// Versioned event emitted after the merchant address changes.
+///
+/// Topics: `merchant_changed_v1`, previous_merchant, new_merchant
+#[contractevent]
+pub struct MerchantChangedV1 {
+    /// The merchant address before the change.
+    #[topic]
+    pub previous_merchant: Address,
+    /// The merchant address after the change.
+    #[topic]
+    pub new_merchant: Address,
+}
+
+/// Versioned event emitted after a token is added to or removed from the allowlist.
+///
+/// Topics: `token_allowlist_changed_v1`, token
+/// Data:   `{ allowed }`
+#[contractevent]
+pub struct TokenAllowlistChangedV1 {
+    /// The token whose allowlist status changed.
+    #[topic]
+    pub token: Address,
+    /// Whether the token is allowed after this change.
+    pub allowed: bool,
+}

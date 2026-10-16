@@ -3,15 +3,23 @@ import React, { useState, useEffect } from "react";
 import { db, storage } from "../../lib/firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  SUPPORTED_PRODUCT_IMAGE_TYPES,
+  validateProductImage,
+  validatePrice,
+} from "../../lib/validation";
 
 const EditProductForm = ({ productId, onProductUpdated }) => {
   const [productName, setProductName] = useState("");
   const [productPrice, setProductPrice] = useState("");
+  const [available, setAvailable] = useState(true);
   const [productImage, setProductImage] = useState(null);
   const [existingImageUrl, setExistingImageUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [imageError, setImageError] = useState("");
+  const [priceError, setPriceError] = useState("");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -24,6 +32,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           const productData = docSnap.data();
           setProductName(productData.name);
           setProductPrice(productData.price);
+          setAvailable(productData.available !== false);
           setExistingImageUrl(productData.img);
         } else {
           setErrorMessage("Product not found");
@@ -42,6 +51,23 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const priceValidation = validatePrice(productPrice);
+    if (!priceValidation.isValid) {
+      setPriceError(priceValidation.error);
+      return;
+    }
+
+    if (productImage) {
+      const validation = validateProductImage(productImage);
+      if (!validation.isValid) {
+        setImageError(validation.error);
+        return;
+      }
+    }
+
+    setImageError("");
+    setPriceError("");
     setLoading(true);
 
     try {
@@ -56,8 +82,9 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
       const docRef = doc(db, "ShoeSafariProducts", productId);
       await updateDoc(docRef, {
         name: productName,
-        price: parseFloat(productPrice),
+        price: Number(priceValidation.sanitized),
         img: imageUrl,
+        available,
       });
 
       setSuccessMessage("Product updated successfully!");
@@ -86,6 +113,16 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           </div>
         )}
         <div className="mb-6">
+          <label className="flex items-center gap-3 text-gray-700 text-lg font-semibold">
+            <input
+              type="checkbox"
+              checked={available}
+              onChange={(event) => setAvailable(event.target.checked)}
+            />
+            Available for purchase
+          </label>
+        </div>
+        <div className="mb-6">
           <label className="block text-gray-700 text-lg font-semibold">
             Product Name
           </label>
@@ -103,11 +140,24 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           </label>
           <input
             type="number"
+            step="0.01"
+            min="0"
+            max="1000000"
             className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             value={productPrice}
-            onChange={(e) => setProductPrice(e.target.value)}
+            onChange={(e) => {
+              setProductPrice(e.target.value);
+              setPriceError("");
+            }}
+            aria-invalid={Boolean(priceError)}
+            aria-describedby={priceError ? "edit-product-price-error" : undefined}
             required
           />
+          {priceError && (
+            <p id="edit-product-price-error" className="mt-2 text-sm text-red-600" role="alert">
+              {priceError}
+            </p>
+          )}
         </div>
         <div className="mb-6">
           <label className="block text-gray-700 text-lg font-semibold">
@@ -115,9 +165,25 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           </label>
           <input
             type="file"
+            accept={SUPPORTED_PRODUCT_IMAGE_TYPES.join(",")}
             className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-            onChange={(e) => setProductImage(e.target.files[0])}
+            aria-describedby={imageError ? "edit-product-image-error" : undefined}
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              setProductImage(file);
+              setImageError(
+                file ? validateProductImage(file).error || "" : ""
+              );
+            }}
           />
+          {imageError && (
+            <p id="edit-product-image-error" className="mt-2 text-sm text-red-600" role="alert">
+              {imageError}
+            </p>
+          )}
+          <p className="mt-1 text-sm text-gray-600">
+            JPEG, PNG, WebP, or GIF. Maximum size: 5 MiB.
+          </p>
           {existingImageUrl && (
             <img
               src={existingImageUrl}

@@ -1,6 +1,6 @@
 import { Account, Asset, rpc } from "@stellar/stellar-sdk";
 
-import { FRIENDBOT_URL, IS_MAINNET, TokenConfig } from "./config";
+import { FRIENDBOT_URL, isFriendbotAllowed, TokenConfig } from "./config";
 import { WalletError } from "./freighter";
 import { readTokenBalance, readTokenDecimals } from "./simulate";
 
@@ -56,7 +56,7 @@ export async function loadAccount(
     const account = await server.getAccount(publicKey);
     return { account, funded: false };
   } catch {
-    if (!IS_MAINNET && fund) {
+    if (isFriendbotAllowed() && fund) {
       await fundTestnetAccount(publicKey);
       const account = await server.getAccount(publicKey);
       return { account, funded: true };
@@ -69,7 +69,18 @@ export async function loadAccount(
   }
 }
 
+/** Ask Friendbot to fund a testnet account; throws when Friendbot rejects it. */
 export async function fundTestnetAccount(publicKey: string): Promise<void> {
+  // Defense in depth: never call the friendbot URL unless the resolved
+  // network configuration is the Stellar testnet. Fails closed for
+  // mainnet, unknown networks, and mismatched passphrases.
+  if (!isFriendbotAllowed()) {
+    throw new WalletError(
+      "Testnet funding (friendbot) is only available on the Stellar testnet. " +
+        "This wallet is configured for a different network — fund it with XLM manually.",
+      "FRIENDBOT_UNAVAILABLE"
+    );
+  }
   const res = await fetch(`${FRIENDBOT_URL}?addr=${encodeURIComponent(publicKey)}`);
   if (!res.ok) {
     throw new WalletError(
@@ -217,6 +228,7 @@ export async function assertPaymentReady(
   return readiness;
 }
 
+/** Format an integer token amount using the token's decimal precision. */
 export function formatAmount(raw: bigint, decimals: number): string {
   const negative = raw < BigInt(0);
   const abs = negative ? -raw : raw;

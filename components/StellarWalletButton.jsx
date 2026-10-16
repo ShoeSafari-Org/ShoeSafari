@@ -1,12 +1,20 @@
+"use client";
 import { useEffect, useState } from "react";
 
-import { currentAddress, freighterAvailable, WalletError } from "../lib/stellar/freighter";
+import {
+  connectWallet,
+  currentAddress,
+  freighterAvailable,
+  WalletError,
+} from "../lib/stellar/freighter";
 import { shortAddress } from "../lib/stellar/freighter";
+import { useNotification } from "./Notification";
 
 /**
  * Connect / disconnect a Freighter wallet and show the connected address.
  */
 const StellarWalletButton = ({ onConnect = null }) => {
+  const { success, error: notifyError, info } = useNotification();
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState("");
   const [error, setError] = useState("");
@@ -37,13 +45,16 @@ const StellarWalletButton = ({ onConnect = null }) => {
       const addr = await connectWallet();
       setConnected(true);
       setAddress(addr);
+      success("Your Freighter wallet is connected.", "Wallet connected");
       if (onConnect) onConnect(addr);
     } catch (e) {
+      const message = e instanceof WalletError ? e.message : "Could not connect to Freighter.";
       if (e instanceof WalletError) {
-        setError(e.message);
+        setError(message);
       } else {
-        setError("Could not connect to Freighter.");
+        setError(message);
       }
+      notifyError(message, "Wallet connection failed");
     } finally {
       setLoading(false);
     }
@@ -53,6 +64,7 @@ const StellarWalletButton = ({ onConnect = null }) => {
     setConnected(false);
     setAddress("");
     setError("");
+    info("Your Freighter wallet was disconnected.", "Wallet disconnected");
   };
 
   return (
@@ -62,7 +74,7 @@ const StellarWalletButton = ({ onConnect = null }) => {
           type="button"
           onClick={handleConnect}
           disabled={loading}
-          className="w-full flex justify-center items-center gap-2 border-2 border-red-600 text-red-600 bg-white py-2 rounded hover:bg-red-50 transition-colors disabled:opacity-60"
+          className="min-h-11 w-full flex justify-center items-center gap-2 border-2 border-red-600 text-red-600 bg-white py-2 rounded hover:bg-red-50 transition-colors disabled:opacity-60"
         >
           {loading ? (
             <span className="animate-pulse">Connecting…</span>
@@ -86,7 +98,7 @@ const StellarWalletButton = ({ onConnect = null }) => {
           <button
             type="button"
             onClick={handleDisconnect}
-            className="text-xs text-gray-500 hover:text-red-600 transition-colors"
+            className="min-h-11 min-w-11 px-3 text-xs text-gray-500 hover:text-red-600 transition-colors"
           >
             Disconnect
           </button>

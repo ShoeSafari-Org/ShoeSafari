@@ -66,6 +66,7 @@ timestamp, status }` and transitions `Pending → Paid → Shipped/Refunded`.
 - [Tech Stack](#tech-stack)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
+  - [Five-minute local setup](docs/LOCAL_SETUP.md)
   - [1. Clone the repository](#1-clone-the-repository)
   - [2. Install dependencies](#2-install-dependencies)
   - [3. Configure environment variables](#3-configure-environment-variables)
@@ -79,9 +80,17 @@ timestamp, status }` and transitions `Pending → Paid → Shipped/Refunded`.
   - [Step 6 — Wire the deployed contract to the storefront](#step-6--wire-the-deployed-contract-to-the-storefront)
   - [Convenience script](#convenience-script)
 - [Paying with Stellar (testnet)](#paying-with-stellar-testnet)
+- [Next.js Stellar integration tutorial](docs/NEXTJS_STELLAR_INTEGRATION.md)
+- [Testnet wallet walkthrough](docs/TESTNET_WALLET_WALKTHROUGH.md)
+- [Testnet checkout validation](docs/TESTNET_CHECKOUT.md)
 - [Environment Variables Reference](#environment-variables-reference)
+- [Stellar network configuration matrix](docs/NETWORK_CONFIGURATION.md)
 - [Security Notes](#security-notes)
+- [Stellar integration API reference](docs/STELLAR_API.md)
 - [Firestore deployment notes](docs/FIRESTORE.md)
+- [Firebase App Check rollout](docs/FIREBASE_APP_CHECK.md)
+- [Merchant dispatch and refund runbook](docs/ADMIN_ORDERS.md)
+- [Admin product catalog guide](docs/ADMIN_CATALOG.md)
 - [Drips Wave issue backlog](docs/WAVE_ISSUES.md)
 - [Contributing](#contributing)
 - [License](#license)
@@ -203,7 +212,8 @@ shoesafari/
 │       ├── Cargo.toml
 │       └── README.md               #   contract interface + manual CLI examples
 ├── docs/
-│   └── ARCHITECTURE.md             # Deep Stellar integration design rationale
+│   ├── ARCHITECTURE.md             # Deep Stellar integration design rationale
+│   └── STELLAR_API.md              # Exported helper API reference
 ├── scripts/
 │   └── deploy-testnet.sh           # one-command build + deploy + initialize
 ├── public/                         # Static assets (product images)
@@ -281,9 +291,6 @@ NEXT_PUBLIC_CHECKOUT_CONTRACT_ID=
 # USDC token contract (testnet default; set for mainnet)
 # NEXT_PUBLIC_USDC_CONTRACT_ID=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
 
-# Display-only: the merchant wallet that receives USDC payments.
-# The authoritative value lives on-chain, set during contract initialize.
-# PUBLIC_MERCHANT_ADDRESS=
 ```
 
 ### 4. Run the local dev server
@@ -442,6 +449,12 @@ It prints the `NEXT_PUBLIC_CHECKOUT_CONTRACT_ID` to paste into `.env.local`.
 
 ## Paying with Stellar (testnet)
 
+New to Stellar testnet? Follow the
+[testnet wallet walkthrough](docs/TESTNET_WALLET_WALKTHROUGH.md) to install and
+configure Freighter, fund a disposable wallet, and complete a test checkout.
+It explains the difference between test XLM and test USDC and never asks for a
+wallet secret.
+
 1. Install [Freighter](https://freighter.app) and set the network to **Testnet**
    (Settings → Network → Testnet).
 2. Open the checkout page, connect Freighter, and tap **Pay with USDC**.
@@ -460,6 +473,10 @@ It prints the `NEXT_PUBLIC_CHECKOUT_CONTRACT_ID` to paste into `.env.local`.
 
 ## Environment Variables Reference
 
+See the complete [environment variables reference](docs/ENVIRONMENT_VARIABLES.md)
+for every supported key, its required status, safe defaults, and whether it is
+public or server-only.
+
 | Variable                                 | Required | Purpose                                                        |
 | ---------------------------------------- | -------- | -------------------------------------------------------------- |
 | `NEXT_PUBLIC_STELLAR_NETWORK`            | no       | `testnet` (default) or `mainnet`                               |
@@ -468,11 +485,18 @@ It prints the `NEXT_PUBLIC_CHECKOUT_CONTRACT_ID` to paste into `.env.local`.
 | `NEXT_PUBLIC_CHECKOUT_CONTRACT_ID`       | yes*     | Deployed checkout contract (C…)                                |
 | `NEXT_PUBLIC_USDC_CONTRACT_ID`           | no       | USDC token contract (testnet default)                          |
 | `NEXT_PUBLIC_NATIVE_ASSET_CONTRACT_ID`   | no       | Native XLM SAC (verified testnet default)                      |
-| `PUBLIC_MERCHANT_ADDRESS`                | no       | Display-only merchant wallet (on-chain value is authoritative) |
 | `NEXT_PUBLIC_FIREBASE_*`                 | yes      | Firebase config (existing storefront)                          |
-| `MONGO_DB_URI`                           | yes      | Mongo URI (existing storefront)                                |
+| `MONGO_DB_URI`                           | no       | Optional MongoDB alternative; Firestore is used otherwise      |
 
 \* Required for the Stellar payment stage; empty until you deploy the contract.
+
+`npm run build` validates required public Firebase, EmailJS, and checkout
+configuration before Next.js compiles. Testnet may use the documented RPC,
+passphrase, and token defaults. Mainnet builds must explicitly set the RPC URL
+and USDC/native token contract IDs. CI uses nonfunctional placeholders to check
+the build without production credentials; validation errors name variables but
+never print their values. Run `npm run validate:production-env` to check a
+deployment environment directly.
 
 ## Security Notes
 

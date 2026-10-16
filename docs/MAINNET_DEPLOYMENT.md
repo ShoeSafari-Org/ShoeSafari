@@ -184,13 +184,17 @@ npm start
 
 ## Step 8: Post-Deployment Verification
 
+Contract deployments are immutable releases with separate order storage. Do
+not change the production contract ID until outstanding orders on the prior
+contract have a reviewed completion plan. Use
+[CONTRACT_RELEASE.md](CONTRACT_RELEASE.md) for compatibility review,
+maintainer approval, safe verification, and rollback decisions.
+
 ### Test the Full Flow
 
-1. Create a test order with a small amount (e.g., $1 USDC)
-2. Complete the payment
-3. Verify the order appears in the admin dashboard
-4. Test dispatch (release funds to merchant)
-5. Test refund with another small order
+1. Use testnet for payment, dispatch, and refund flow checks.
+2. On mainnet, limit verification to safe read calls and explorer inspection;
+   do not create a real test purchase.
 
 ### Monitor Contract Activity
 

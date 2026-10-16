@@ -23,6 +23,11 @@ We take security seriously at ShoeSafari. If you discover a security vulnerabili
 - Regular updates on our progress
 - Credit in the security advisory (if desired)
 
+Maintainers responding to production credential exposure or provider compromise
+should follow the [production credential rotation and incident response
+runbook](docs/SECURITY_OPERATIONS.md). Keep incident details and credentials in
+private systems; do not post them in a public issue or pull request.
+
 ## Security Best Practices
 
 ### Environment Variables
@@ -37,14 +42,14 @@ cp .env.local.example .env.local
 
 ### Sensitive Data Handling
 
-| Data Type            | Storage               | Notes                                     |
-| -------------------- | --------------------- | ----------------------------------------- |
-| API Keys             | Environment variables | Never hardcode                            |
-| Firebase Config      | Environment variables | Client-side safe but keep secure          |
-| EmailJS Credentials  | Environment variables | Required for email functionality          |
-| Stellar Contract IDs | Environment variables | Public but environment-specific           |
-| User Passwords       | Firebase Auth         | Handled by Firebase, never stored locally |
-| Payment Data         | On-chain (Stellar)    | Non-custodial, no card data stored        |
+| Data Type            | Storage               | Notes                                                                     |
+| -------------------- | --------------------- | ------------------------------------------------------------------------- |
+| API Keys             | Environment variables | Never hardcode                                                            |
+| Firebase Config      | Environment variables | Client-side safe but keep secure                                          |
+| EmailJS Public Key   | Environment variables | Public account identifier; restrict origin and rate in provider dashboard |
+| Stellar Contract IDs | Environment variables | Public but environment-specific                                           |
+| User Passwords       | Firebase Auth         | Handled by Firebase, never stored locally                                 |
+| Payment Data         | On-chain (Stellar)    | Non-custodial, no card data stored                                        |
 
 ### Smart Contract Security
 
@@ -56,13 +61,53 @@ The Soroban escrow contract follows security best practices:
 4. **Event Emission**: All state changes emit events for transparency
 5. **Error Handling**: Typed errors prevent unexpected failures
 
+### EmailJS Abuse Controls
+
+EmailJS request controls must be configured in the EmailJS dashboard. Add only
+the production and staging origins to the Domains allowlist, enable the
+provider's IP-based rate limit, and enable reCAPTCHA for the contact template.
+The browser SDK also blocks headless browsers and throttles this app's sends
+to one request every 10 seconds; these client checks supplement provider-side
+limits and cannot replace them. `lib/sendmail.js` validates and length-limits
+template fields before sending and returns a generic error without exposing
+provider response details.
+
+The newsletter currently collects no email address and does not send a
+provider request. Do not add a send until a verified subscription and
+unsubscribe flow is implemented.
+
 ### Frontend Security
 
 1. **Input Validation**: All user inputs are validated and sanitized
 2. **XSS Prevention**: HTML entities are escaped before rendering
 3. **HTTPS Only**: All API calls use HTTPS
 4. **No Sensitive Data in URLs**: Sensitive data is sent via POST body
-5. **Content Security Policy**: Configured in Next.js headers
+5. **Content Security Policy**: A report-only policy is configured in
+   `next.config.mjs` while storefront and wallet compatibility is verified.
+
+### Content Security Policy rollout
+
+`next.config.mjs` sends `Content-Security-Policy-Report-Only` for every route.
+This lets browsers report violations without blocking checkout, Firebase auth,
+or wallet integrations during the compatibility rollout. The allowlist covers
+the Firebase Auth, Firestore, Storage, and Installations APIs; EmailJS; the
+configured Stellar RPC networks and testnet Friendbot; and the image hosts
+used by the storefront. Freighter is a browser extension and injects its
+provider into the page, so it does not require a remote script source here.
+
+The policy intentionally omits `unsafe-eval`. `unsafe-inline` remains for
+Next.js's current inline route/bootstrap scripts and the storefront's inline
+style attributes. Remove those exceptions only after migrating to nonce or
+hash-based scripts and class-based styles and verifying the rendered routes.
+
+Before changing the header to enforcing `Content-Security-Policy`, inspect the
+browser console for report-only violations on the landing page, sign-in, image
+uploads, product pages, checkout, and the admin orders page. Confirm Google
+popup auth and Freighter signing in supported browsers. Add a source only when
+the violation maps to a dependency or service the app uses; never use a
+wildcard scheme or add `unsafe-eval` to silence reports. Keep the report-only
+header until those checks pass in staging, then switch the header name and
+repeat the same checks before production rollout.
 
 ### Authentication
 

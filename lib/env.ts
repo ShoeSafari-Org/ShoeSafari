@@ -5,6 +5,12 @@
  * that required configuration is present at runtime.
  */
 
+import {
+  expectedNetworkPassphrase,
+  isStellarNetwork,
+  type StellarNetwork,
+} from "./stellar/config";
+
 // =============================================================================
 // TYPE DEFINITIONS
 // =============================================================================
@@ -45,16 +51,17 @@ export interface EnvConfig {
 // DEFAULTS
 // =============================================================================
 
+// Keep docs/NETWORK_CONFIGURATION.md in sync with these server-side defaults.
 const STELLAR_DEFAULTS = {
   testnet: {
     rpcUrl: "https://soroban-testnet.stellar.org",
-    networkPassphrase: "Test SDF Network ; September 2015",
+    networkPassphrase: expectedNetworkPassphrase("testnet"),
     usdcContractId: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
     nativeAssetContractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   },
   mainnet: {
     rpcUrl: "https://soroban-rpc.mainnet.stellar.gateway.fm",
-    networkPassphrase: "Public Global Stellar Network ; September 2015",
+    networkPassphrase: expectedNetworkPassphrase("mainnet"),
     usdcContractId: "", // Must be configured for mainnet
     nativeAssetContractId: "", // Must be configured for mainnet
   },
@@ -143,16 +150,37 @@ function getEnv(name: string, defaultValue: string = ""): string {
  * Loads and validates Stellar configuration.
  */
 export function loadStellarConfig(errors: ValidationError[] = []): StellarConfig {
-  const network = (getEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet") || "testnet") as
-    "testnet" | "mainnet";
+  const configuredNetwork = getEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet");
+  let network: StellarNetwork;
+  if (isStellarNetwork(configuredNetwork)) {
+    network = configuredNetwork;
+  } else {
+    errors.push({
+      field: "NEXT_PUBLIC_STELLAR_NETWORK",
+      message: "must be either testnet or mainnet",
+    });
+    network = "testnet";
+  }
   const defaults = STELLAR_DEFAULTS[network];
+
+  const configuredPassphrase = getEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE");
+  const expectedPassphrase = expectedNetworkPassphrase(network);
+  if (configuredPassphrase && configuredPassphrase !== expectedPassphrase) {
+    errors.push({
+      field: "NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE",
+      message: `must match the configured ${network} network`,
+    });
+  }
 
   const checkoutContractId = requireEnv(REQUIRED_ENV.checkoutContractId, errors);
 
   return {
     network,
     rpcUrl: getEnv("NEXT_PUBLIC_STELLAR_RPC_URL", defaults.rpcUrl),
-    networkPassphrase: getEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", defaults.networkPassphrase),
+    networkPassphrase:
+      configuredPassphrase === expectedPassphrase
+        ? configuredPassphrase
+        : defaults.networkPassphrase,
     checkoutContractId,
     usdcContractId: getEnv("NEXT_PUBLIC_USDC_CONTRACT_ID", defaults.usdcContractId),
     nativeAssetContractId: getEnv(

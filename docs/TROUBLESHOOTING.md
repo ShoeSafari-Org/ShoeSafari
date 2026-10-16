@@ -15,6 +15,16 @@ Common issues and solutions for ShoeSafari development and production.
 
 ## Development Setup
 
+### Content Security Policy reports
+
+The storefront currently sends CSP in report-only mode. Check the browser
+console while using sign-in, product images, checkout, and Freighter; reports
+do not block those requests. If a report names a missing host, confirm the
+request belongs to Firebase, EmailJS, Stellar RPC, or an image provider before
+adding that exact host to `connect-src`, `frame-src`, or `img-src` in
+`next.config.mjs`. Do not add broad wildcards or `unsafe-eval`. See the CSP
+rollout notes in [`SECURITY.md`](../SECURITY.md) before enabling enforcement.
+
 ### `npm install` fails
 
 **Symptoms:** Error during dependency installation
@@ -123,6 +133,11 @@ deployment health endpoint.
 ---
 
 ## Payment Issues
+
+For an interrupted transaction, missing confirmation, or missing order record,
+follow the [pending or missing payment reconciliation runbook](PAYMENT_RECONCILIATION.md).
+Verify the transaction on the correct network before retrying payment or
+changing an order.
 
 ### "Token not allowed" error
 

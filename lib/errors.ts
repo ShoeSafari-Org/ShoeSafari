@@ -18,6 +18,10 @@ export interface AppError {
   severity: ErrorSeverity;
   recoverable: boolean;
   action?: string;
+  /** Raw failure detail for diagnostics; never render this to shoppers. */
+  diagnosticMessage?: string;
+  /** Transaction hash when submission may have reached the network. */
+  transactionHash?: string;
 }
 
 // =============================================================================
@@ -51,7 +55,8 @@ const STELLAR_ERRORS: Record<string, AppError> = {
   OrderAlreadyPaid: {
     code: "STELLAR_ORDER_ALREADY_PAID",
     message: "Order already paid",
-    userMessage: "This order has already been paid. If you believe this is an error, please contact support.",
+    userMessage:
+      "This order has already been paid. If you believe this is an error, please contact support.",
     severity: "warning",
     recoverable: false,
   },
@@ -123,7 +128,8 @@ const STELLAR_ERRORS: Record<string, AppError> = {
   InsufficientBalance: {
     code: "ACCOUNT_INSUFFICIENT_BALANCE",
     message: "Insufficient balance",
-    userMessage: "You don't have enough funds to complete this payment. Please add more to your wallet.",
+    userMessage:
+      "You don't have enough funds to complete this payment. Please add more to your wallet.",
     severity: "error",
     recoverable: true,
     action: "Add funds",
@@ -131,24 +137,18 @@ const STELLAR_ERRORS: Record<string, AppError> = {
   NoTrustline: {
     code: "ACCOUNT_NO_TRUSTLINE",
     message: "No trustline for token",
-    userMessage: "Your wallet needs to trust USDC before receiving payments. We'll set this up for you.",
+    userMessage:
+      "Your wallet needs to trust USDC before receiving payments. We'll set this up for you.",
     severity: "info",
     recoverable: true,
   },
 
   // Transaction errors
-  TransactionFailed: {
-    code: "TX_FAILED",
-    message: "Transaction failed",
-    userMessage: "The payment couldn't be processed. Please try again.",
-    severity: "error",
-    recoverable: true,
-    action: "Try again",
-  },
   TransactionTimeout: {
     code: "TX_TIMEOUT",
     message: "Transaction timed out",
-    userMessage: "The transaction is taking longer than expected. Please check your wallet for the status.",
+    userMessage:
+      "The transaction is taking longer than expected. Please check your wallet for the status.",
     severity: "warning",
     recoverable: true,
     action: "Check wallet",
@@ -160,15 +160,56 @@ const STELLAR_ERRORS: Record<string, AppError> = {
     severity: "error",
     recoverable: true,
   },
+  TransactionRejected: {
+    code: "TX_REJECTED",
+    message: "Transaction rejected",
+    userMessage: "The Stellar network rejected this payment. Check your wallet and try again.",
+    severity: "error",
+    recoverable: true,
+    action: "Review payment and retry",
+  },
+  SigningFailed: {
+    code: "WALLET_SIGNING_FAILED",
+    message: "Wallet signing failed",
+    userMessage: "Freighter could not sign this payment. Reconnect your wallet and try again.",
+    severity: "error",
+    recoverable: true,
+    action: "Reconnect wallet",
+  },
+  RpcUnavailable: {
+    code: "RPC_UNAVAILABLE",
+    message: "Stellar RPC unavailable",
+    userMessage: "We couldn't reach the Stellar network. Check your connection and try again.",
+    severity: "error",
+    recoverable: true,
+    action: "Retry",
+  },
+  TransactionFailed: {
+    code: "TX_FAILED",
+    message: "Transaction failed",
+    userMessage: "The network confirmed that this payment failed. You can try again.",
+    severity: "error",
+    recoverable: true,
+    action: "Try again",
+  },
 
   // Network errors
   NetworkError: {
     code: "NETWORK_ERROR",
     message: "Network error",
-    userMessage: "We're having trouble connecting to the Stellar network. Please check your internet connection.",
+    userMessage:
+      "We're having trouble connecting to the Stellar network. Please check your internet connection.",
     severity: "error",
     recoverable: true,
     action: "Retry",
+  },
+  InvalidNetworkConfiguration: {
+    code: "STELLAR_CONFIG_INVALID",
+    message: "Invalid Stellar network configuration",
+    userMessage:
+      "This store's Stellar network settings are invalid. Contact the store owner before trying again.",
+    severity: "error",
+    recoverable: false,
   },
   RpcError: {
     code: "RPC_ERROR",
@@ -178,6 +219,29 @@ const STELLAR_ERRORS: Record<string, AppError> = {
     recoverable: true,
     action: "Retry",
   },
+};
+
+const ERROR_CODE_MAP: Record<string, AppError> = {
+  WALLET_NOT_CONNECTED: STELLAR_ERRORS.WalletNotConnected,
+  FREIGHTER_NOT_FOUND: STELLAR_ERRORS.WalletNotInstalled,
+  FREIGHTER_REQUEST_DENIED: STELLAR_ERRORS.UserRejected,
+  USER_REJECTED: STELLAR_ERRORS.UserRejected,
+  WRONG_NETWORK: STELLAR_ERRORS.WrongNetwork,
+  FREIGHTER_NETWORK_ERROR: STELLAR_ERRORS.NetworkError,
+  NETWORK_CONFIG_ERROR: STELLAR_ERRORS.InvalidNetworkConfiguration,
+  FREIGHTER_SIGN_ERROR: STELLAR_ERRORS.SigningFailed,
+  PAYMENT_NOT_READY: STELLAR_ERRORS.InsufficientBalance,
+  ACCOUNT_NOT_FOUND: STELLAR_ERRORS.AccountNotFunded,
+  TX_SIMULATION_ERROR: STELLAR_ERRORS.SimulationFailed,
+  SIMULATION_FAILED: STELLAR_ERRORS.SimulationFailed,
+  TX_SEND_ERROR: STELLAR_ERRORS.TransactionRejected,
+  TX_REJECTED: STELLAR_ERRORS.TransactionRejected,
+  TX_FAILED: STELLAR_ERRORS.TransactionFailed,
+  TX_CONFIRMATION_TIMEOUT: STELLAR_ERRORS.TransactionTimeout,
+  TX_TIMEOUT: STELLAR_ERRORS.TransactionTimeout,
+  RPC_UNAVAILABLE: STELLAR_ERRORS.RpcUnavailable,
+  TX_RPC_ERROR: STELLAR_ERRORS.RpcUnavailable,
+  NETWORK_ERROR: STELLAR_ERRORS.RpcUnavailable,
 };
 
 // =============================================================================
@@ -303,9 +367,20 @@ export function parseError(error: unknown): AppError {
     return GENERAL_ERRORS.Unknown;
   }
 
+  const diagnosticMessage = getDiagnosticMessage(error);
+  const errorCode = getErrorCode(error);
+  const transactionHash = getTransactionHash(error, diagnosticMessage);
+  if (errorCode && ERROR_CODE_MAP[errorCode.toUpperCase()]) {
+    return {
+      ...ERROR_CODE_MAP[errorCode.toUpperCase()],
+      diagnosticMessage,
+      transactionHash,
+    };
+  }
+
   // Handle string errors
   if (typeof error === "string") {
-    return parseErrorMessage(error);
+    return parseErrorMessage(error, transactionHash);
   }
 
   // Handle Error objects
@@ -316,12 +391,12 @@ export function parseError(error: unknown): AppError {
       return FIREBASE_ERRORS[firebaseCode];
     }
 
-    return parseErrorMessage(error.message);
+    return parseErrorMessage(error.message, transactionHash);
   }
 
   // Handle objects with message property
   if (typeof error === "object" && "message" in error) {
-    return parseErrorMessage(String((error as { message: unknown }).message));
+    return parseErrorMessage(String((error as { message: unknown }).message), transactionHash);
   }
 
   return GENERAL_ERRORS.Unknown;
@@ -330,8 +405,33 @@ export function parseError(error: unknown): AppError {
 /**
  * Parses an error message string and matches it to known errors.
  */
-function parseErrorMessage(message: string): AppError {
+function parseErrorMessage(message: string, transactionHash?: string): AppError {
   const lowerMessage = message.toLowerCase();
+  const withDiagnostic = (appError: AppError): AppError => ({
+    ...appError,
+    diagnosticMessage: message,
+    transactionHash,
+  });
+
+  if (lowerMessage.includes("simulation") || lowerMessage.includes("preflight")) {
+    return withDiagnostic(STELLAR_ERRORS.SimulationFailed);
+  }
+  if (
+    lowerMessage.includes("rpc") ||
+    lowerMessage.includes("failed to fetch") ||
+    lowerMessage.includes("fetch failed") ||
+    lowerMessage.includes("econnrefused") ||
+    lowerMessage.includes("enotfound") ||
+    lowerMessage.includes("network unavailable")
+  ) {
+    return withDiagnostic(STELLAR_ERRORS.RpcUnavailable);
+  }
+  if (lowerMessage.includes("transaction rejected")) {
+    return withDiagnostic(STELLAR_ERRORS.TransactionRejected);
+  }
+  if (lowerMessage.includes("transaction failed on ledger")) {
+    return withDiagnostic(STELLAR_ERRORS.TransactionFailed);
+  }
 
   // Check Stellar errors
   for (const [key, appError] of Object.entries(STELLAR_ERRORS)) {
@@ -339,40 +439,66 @@ function parseErrorMessage(message: string): AppError {
       lowerMessage.includes(key.toLowerCase()) ||
       lowerMessage.includes(appError.code.toLowerCase())
     ) {
-      return appError;
+      return withDiagnostic(appError);
     }
   }
 
   // Check for common error patterns
   if (lowerMessage.includes("insufficient") || lowerMessage.includes("balance")) {
-    return STELLAR_ERRORS.InsufficientBalance;
+    return withDiagnostic(STELLAR_ERRORS.InsufficientBalance);
   }
   if (lowerMessage.includes("rejected") || lowerMessage.includes("cancelled")) {
-    return STELLAR_ERRORS.UserRejected;
+    return withDiagnostic(STELLAR_ERRORS.UserRejected);
   }
   if (lowerMessage.includes("timeout") || lowerMessage.includes("timed out")) {
-    return STELLAR_ERRORS.TransactionTimeout;
+    return withDiagnostic(STELLAR_ERRORS.TransactionTimeout);
   }
   if (lowerMessage.includes("network") || lowerMessage.includes("connection")) {
-    return STELLAR_ERRORS.NetworkError;
+    return withDiagnostic(STELLAR_ERRORS.RpcUnavailable);
   }
   if (lowerMessage.includes("freighter") && lowerMessage.includes("install")) {
-    return STELLAR_ERRORS.WalletNotInstalled;
+    return withDiagnostic(STELLAR_ERRORS.WalletNotInstalled);
   }
 
   // Check Firebase errors
   for (const appError of Object.values(FIREBASE_ERRORS)) {
     if (lowerMessage.includes(appError.code.toLowerCase())) {
-      return appError;
+      return withDiagnostic(appError);
     }
   }
 
   // Return generic error with original message
-  return {
-    ...GENERAL_ERRORS.Unknown,
-    message,
-    userMessage: message.length > 100 ? "An error occurred. Please try again." : message,
-  };
+  return withDiagnostic(GENERAL_ERRORS.Unknown);
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+function getDiagnosticMessage(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
+function getTransactionHash(error: unknown, diagnosticMessage: string): string | undefined {
+  if (typeof error === "object" && error !== null) {
+    const candidate =
+      (error as { transactionHash?: unknown; hash?: unknown }).transactionHash ??
+      (error as { hash?: unknown }).hash;
+    if (typeof candidate === "string" && /^[a-f0-9]{64}$/i.test(candidate)) {
+      return candidate;
+    }
+  }
+  const match = diagnosticMessage.match(/(?:transaction\s+)?hash\s*[:=]\s*([a-f0-9]{64})/i);
+  return match?.[1];
 }
 
 /**

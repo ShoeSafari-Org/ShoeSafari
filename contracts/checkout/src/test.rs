@@ -3,12 +3,14 @@
 extern crate alloc;
 
 use alloc::{format, vec::Vec};
-use soroban_sdk::testutils::{Address as _, Events};
+use soroban_sdk::testutils::storage::Persistent as _;
+use soroban_sdk::testutils::{Address as _, Events, Ledger as _, MockAuth, MockAuthInvoke};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, IntoVal};
 
 use crate::errors::Error;
 use crate::order::Status;
+use crate::storage::{DataKey, LEDGER_THRESHOLD};
 use crate::{Checkout, CheckoutClient};
 
 // ---------------------------------------------------------------------------
@@ -97,6 +99,20 @@ fn usdc_balance(env: &Env, token: &Address, address: &Address) -> i128 {
     MockTokenClient::new(env, token).balance(address)
 }
 
+fn order_ttl(env: &Env, contract: &Address, id: &BytesN<32>) -> u32 {
+    env.as_contract(contract, || {
+        env.storage()
+            .persistent()
+            .get_ttl(&DataKey::Order(id.clone()))
+    })
+}
+
+fn age_order_below_ttl_threshold(env: &Env, current_ttl: u32) {
+    let ledgers_to_advance = current_ttl - LEDGER_THRESHOLD + 1;
+    env.ledger()
+        .set_sequence_number(env.ledger().sequence() + ledgers_to_advance);
+}
+
 // ---------------------------------------------------------------------------
 // Core escrow lifecycle
 // ---------------------------------------------------------------------------
@@ -130,6 +146,26 @@ fn test_pay_escrows_then_dispatch_releases_to_merchant() {
 }
 
 #[test]
+fn test_high_value_dispatch_uses_configured_second_signer() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _merchant, buyer) = setup_usdc(&env);
+    let approver = Address::generate(&env);
+    let threshold = 50_000;
+    client.set_approval_policy(&token, &threshold, &approver);
+
+    let policy = client.approval_policy(&token).unwrap();
+    assert_eq!(policy.threshold, threshold);
+    assert_eq!(policy.approver, approver);
+
+    let id = order_id(&env, 22);
+    client.pay(&token, &buyer, &id, &100_000);
+    client.dispatch(&id);
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+}
+
+#[test]
 fn test_refund_returns_escrow_to_buyer() {
     let env = Env::default();
     env.mock_all_auths();
@@ -145,6 +181,44 @@ fn test_refund_returns_escrow_to_buyer() {
     assert_eq!(usdc_balance(&env, &token, &checkout), 0);
     assert_eq!(usdc_balance(&env, &token, &buyer), 1_000_000);
     assert_eq!(client.status(&id), Some(Status::Refunded));
+}
+
+#[test]
+fn test_unauthorized_refund_preserves_escrow() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let attacker = Address::generate(&env);
+    let id = order_id(&env, 9);
+    client.pay(&token, &buyer, &id, &100_000);
+
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &checkout),
+    );
+
+    // An unrelated address cannot authorize the merchant-only refund.
+    env.mock_auths(&[MockAuth {
+        address: &attacker,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "refund",
+            args: (id.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_refund(&id).is_err());
+
+    assert_eq!(client.status(&id), Some(Status::Paid));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &checkout),
+        ),
+        balances_before
+    );
 }
 
 #[test]
@@ -334,6 +408,50 @@ fn test_add_token_after_initialize() {
     assert!(client.is_token_allowed(&token));
 }
 
+#[test]
+fn test_configuration_changes_emit_versioned_events_only_on_changes() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let token = env.register(MockToken, ());
+    let contract = env.register(Checkout, ());
+    let merchant = Address::generate(&env);
+    let new_merchant = Address::generate(&env);
+    let client = CheckoutClient::new(&env, &contract);
+
+    client.initialize(&merchant);
+    client.add_token(&token);
+    let add_events = env.events().all().filter_by_contract(&client.address);
+    assert_eq!(add_events.events().len(), 1);
+    let add_topics = format!("{:?}", add_events.events()[0].body);
+    assert!(add_topics.contains("token_allowlist_changed_v1"));
+    client.add_token(&token);
+    assert!(env
+        .events()
+        .all()
+        .filter_by_contract(&client.address)
+        .events()
+        .is_empty());
+    client.remove_token(&token);
+    let remove_events = env.events().all().filter_by_contract(&client.address);
+    assert_eq!(remove_events.events().len(), 1);
+    let remove_topics = format!("{:?}", remove_events.events()[0].body);
+    assert!(remove_topics.contains("token_allowlist_changed_v1"));
+    client.remove_token(&token);
+    assert!(env
+        .events()
+        .all()
+        .filter_by_contract(&client.address)
+        .events()
+        .is_empty());
+    client.set_merchant(&new_merchant);
+
+    let merchant_events = env.events().all().filter_by_contract(&client.address);
+    assert_eq!(merchant_events.events().len(), 1);
+    let merchant_topics = format!("{:?}", merchant_events.events()[0].body);
+    assert!(merchant_topics.contains("merchant_changed_v1"));
+}
+
 // ---------------------------------------------------------------------------
 // Native XLM via the real Stellar Asset Contract
 // ---------------------------------------------------------------------------
@@ -370,6 +488,34 @@ fn test_native_asset_payment_and_dispatch() {
     assert_eq!(native_client.balance(&client.address), 0);
     assert_eq!(native_client.balance(&merchant), 100_000);
     assert_eq!(client.status(&id), Some(Status::Shipped));
+
+    let refund_id = order_id(&env, 22);
+    client.pay(&native_id, &buyer, &refund_id, &75_000);
+    assert_eq!(native_client.balance(&buyer), 4_825_000);
+    assert_eq!(native_client.balance(&client.address), 75_000);
+    client.refund(&refund_id);
+    assert_eq!(native_client.balance(&buyer), 4_900_000);
+    assert_eq!(native_client.balance(&client.address), 0);
+    assert_eq!(native_client.balance(&merchant), 100_000);
+    assert_eq!(client.status(&refund_id), Some(Status::Refunded));
+
+    let balances_after_refund = (
+        native_client.balance(&buyer),
+        native_client.balance(&client.address),
+        native_client.balance(&merchant),
+    );
+    assert_eq!(
+        client.try_refund(&refund_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        (
+            native_client.balance(&buyer),
+            native_client.balance(&client.address),
+            native_client.balance(&merchant),
+        ),
+        balances_after_refund
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -384,9 +530,65 @@ fn test_duplicate_order_rejected() {
     let (client, token, _, buyer) = setup_usdc(&env);
     let id = order_id(&env, 9);
     client.pay(&token, &buyer, &id, &50_000);
+    let escrow = client.address.clone();
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+    );
 
     let result = client.try_pay(&token, &buyer, &id, &50_000);
     assert_eq!(result, Err(Ok(Error::OrderAlreadyPaid)));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+        ),
+        balances_before
+    );
+}
+
+#[test]
+fn test_duplicate_payment_attempt_has_no_second_transfer_or_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let id = order_id(&env, 46);
+    let amount = 50_000;
+
+    client.pay(&token, &buyer, &id, &amount);
+    let balances_after_first_payment = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &checkout),
+    );
+    let event_count_after_first_payment = env
+        .events()
+        .all()
+        .filter_by_contract(&checkout)
+        .events()
+        .len();
+
+    assert_eq!(
+        client.try_pay(&token, &buyer, &id, &amount),
+        Err(Ok(Error::OrderAlreadyPaid))
+    );
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &checkout),
+        ),
+        balances_after_first_payment
+    );
+    assert_eq!(
+        env.events()
+            .all()
+            .filter_by_contract(&checkout)
+            .events()
+            .len(),
+        event_count_after_first_payment
+    );
+    assert_eq!(client.order(&id).unwrap().amount, amount);
 }
 
 #[test]
@@ -398,9 +600,72 @@ fn test_duplicate_pay_after_dispatch_rejected() {
     let id = order_id(&env, 10);
     client.pay(&token, &buyer, &id, &50_000);
     client.dispatch(&id);
+    let escrow = client.address.clone();
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+    );
 
     let result = client.try_pay(&token, &buyer, &id, &50_000);
     assert_eq!(result, Err(Ok(Error::OrderAlreadyPaid)));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+        ),
+        balances_before
+    );
+}
+
+#[test]
+fn test_duplicate_dispatch_and_refund_preserve_all_balances() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let escrow = client.address.clone();
+    let dispatched_id = order_id(&env, 31);
+    client.pay(&token, &buyer, &dispatched_id, &40_000);
+    client.dispatch(&dispatched_id);
+
+    let balances_after_dispatch = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+        usdc_balance(&env, &token, &merchant),
+    );
+    assert_eq!(
+        client.try_dispatch(&dispatched_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+            usdc_balance(&env, &token, &merchant),
+        ),
+        balances_after_dispatch
+    );
+
+    let refunded_id = order_id(&env, 32);
+    client.pay(&token, &buyer, &refunded_id, &25_000);
+    client.refund(&refunded_id);
+    let balances_after_refund = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &escrow),
+        usdc_balance(&env, &token, &merchant),
+    );
+    assert_eq!(
+        client.try_refund(&refunded_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &escrow),
+            usdc_balance(&env, &token, &merchant),
+        ),
+        balances_after_refund
+    );
 }
 
 #[test]
@@ -471,6 +736,149 @@ fn test_set_merchant_changes_escrow_destination() {
 }
 
 #[test]
+fn test_initialize_requires_merchant_auth_and_does_not_write_admin() {
+    let env = Env::default();
+    let contract = env.register(Checkout, ());
+    let client = CheckoutClient::new(&env, &contract);
+    let merchant = Address::generate(&env);
+    let attacker = Address::generate(&env);
+
+    // The only supplied authorization belongs to an unrelated account.
+    env.mock_auths(&[MockAuth {
+        address: &attacker,
+        invoke: &MockAuthInvoke {
+            contract: &contract,
+            fn_name: "initialize",
+            args: (merchant.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+
+    assert!(client.try_initialize(&merchant).is_err());
+    assert_eq!(client.try_merchant(), Err(Ok(Error::NotInitialized)));
+    env.as_contract(&contract, || {
+        assert!(!env.storage().persistent().has(&DataKey::Admin));
+    });
+}
+
+#[test]
+fn test_reinitialize_rejected_preserves_merchant_and_token_balances() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let id = order_id(&env, 43);
+    client.pay(&token, &buyer, &id, &100_000);
+
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &checkout),
+        usdc_balance(&env, &token, &merchant),
+    );
+    let replacement = Address::generate(&env);
+
+    assert_eq!(
+        client.try_initialize(&replacement),
+        Err(Ok(Error::AlreadyInitialized))
+    );
+    assert_eq!(client.merchant(), merchant);
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &checkout),
+            usdc_balance(&env, &token, &merchant),
+        ),
+        balances_before
+    );
+}
+
+#[test]
+fn test_merchant_rotation_denies_old_and_allows_new_merchant() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, old_merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let new_merchant = Address::generate(&env);
+    let id = order_id(&env, 44);
+    client.pay(&token, &buyer, &id, &75_000);
+    client.set_merchant(&new_merchant);
+
+    let new_token = env.register(MockToken, ());
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &checkout),
+        usdc_balance(&env, &token, &old_merchant),
+        usdc_balance(&env, &token, &new_merchant),
+    );
+
+    // The previous merchant cannot dispatch the escrow or change token policy.
+    env.mock_auths(&[MockAuth {
+        address: &old_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "dispatch",
+            args: (id.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_dispatch(&id).is_err());
+
+    env.mock_auths(&[MockAuth {
+        address: &old_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "add_token",
+            args: (new_token.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_add_token(&new_token).is_err());
+
+    assert_eq!(client.merchant(), new_merchant);
+    assert_eq!(client.status(&id), Some(Status::Paid));
+    assert!(!client.is_token_allowed(&new_token));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &checkout),
+            usdc_balance(&env, &token, &old_merchant),
+            usdc_balance(&env, &token, &new_merchant),
+        ),
+        balances_before
+    );
+
+    // The new merchant can perform both privileged actions.
+    env.mock_auths(&[MockAuth {
+        address: &new_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "add_token",
+            args: (new_token.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    client.add_token(&new_token);
+    assert!(client.is_token_allowed(&new_token));
+
+    env.mock_auths(&[MockAuth {
+        address: &new_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "dispatch",
+            args: (id.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    client.dispatch(&id);
+
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+    assert_eq!(usdc_balance(&env, &token, &checkout), 0);
+    assert_eq!(usdc_balance(&env, &token, &new_merchant), 75_000);
+}
+
+#[test]
 fn test_events_emitted() {
     let env = Env::default();
     env.mock_all_auths();
@@ -501,4 +909,44 @@ fn test_events_emitted() {
         flat.contains("order_shipped"),
         "missing order_shipped: {flat}"
     );
+}
+
+#[test]
+fn test_order_read_renews_persistent_ttl_below_threshold() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let id = order_id(&env, 31);
+    client.pay(&token, &buyer, &id, &10_000);
+
+    let ttl_after_payment = order_ttl(&env, &client.address, &id);
+    assert!(ttl_after_payment >= LEDGER_THRESHOLD);
+    age_order_below_ttl_threshold(&env, ttl_after_payment);
+    assert!(order_ttl(&env, &client.address, &id) < LEDGER_THRESHOLD);
+
+    assert!(client.order(&id).is_some());
+
+    assert!(order_ttl(&env, &client.address, &id) >= ttl_after_payment);
+}
+
+#[test]
+fn test_order_write_renews_persistent_ttl_below_threshold() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let id = order_id(&env, 32);
+    client.pay(&token, &buyer, &id, &10_000);
+    let order = client.order(&id).unwrap();
+
+    let ttl_before_age = order_ttl(&env, &client.address, &id);
+    age_order_below_ttl_threshold(&env, ttl_before_age);
+    assert!(order_ttl(&env, &client.address, &id) < LEDGER_THRESHOLD);
+
+    env.as_contract(&client.address, || {
+        crate::storage::set_order(&env, &id, &order);
+    });
+
+    assert!(order_ttl(&env, &client.address, &id) >= ttl_before_age);
 }

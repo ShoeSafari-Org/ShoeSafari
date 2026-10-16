@@ -1,5 +1,54 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getEnvironmentDiagnostics, isDevelopment, isProduction } from "../../lib/env";
+import {
+  getEnvironmentDiagnostics,
+  isDevelopment,
+  isProduction,
+  loadStellarConfig,
+} from "../../lib/env";
+
+describe("loadStellarConfig", () => {
+  it("uses the testnet defaults when no network settings are supplied", () => {
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet");
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", "");
+    vi.stubEnv("NEXT_PUBLIC_CHECKOUT_CONTRACT_ID", "C-checkout");
+    const errors: { field: string; message: string }[] = [];
+
+    const config = loadStellarConfig(errors);
+
+    expect(config.network).toBe("testnet");
+    expect(config.networkPassphrase).toBe("Test SDF Network ; September 2015");
+    expect(errors).toEqual([]);
+  });
+
+  it("rejects unsupported networks and falls back to safe testnet defaults", () => {
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "private-net");
+    vi.stubEnv("NEXT_PUBLIC_CHECKOUT_CONTRACT_ID", "C-checkout");
+    const errors: { field: string; message: string }[] = [];
+
+    const config = loadStellarConfig(errors);
+
+    expect(config.network).toBe("testnet");
+    expect(config.networkPassphrase).toBe("Test SDF Network ; September 2015");
+    expect(errors).toContainEqual(
+      expect.objectContaining({ field: "NEXT_PUBLIC_STELLAR_NETWORK" })
+    );
+  });
+
+  it("rejects a passphrase that does not belong to the selected network", () => {
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "mainnet");
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", "Test SDF Network ; September 2015");
+    vi.stubEnv("NEXT_PUBLIC_CHECKOUT_CONTRACT_ID", "C-checkout");
+    const errors: { field: string; message: string }[] = [];
+
+    const config = loadStellarConfig(errors);
+
+    expect(config.network).toBe("mainnet");
+    expect(config.networkPassphrase).toBe("Public Global Stellar Network ; September 2015");
+    expect(errors).toContainEqual(
+      expect.objectContaining({ field: "NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE" })
+    );
+  });
+});
 
 describe("isDevelopment", () => {
   it("returns true in development", () => {
