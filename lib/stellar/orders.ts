@@ -6,12 +6,11 @@
  */
 
 import {
+  Account,
   TransactionBuilder,
-  Operation,
   Contract,
   rpc,
   xdr,
-  Keypair,
   StrKey,
 } from "@stellar/stellar-sdk";
 
@@ -56,6 +55,53 @@ export interface OrderActionResult {
   error?: string;
 }
 
+/**
+ * Distinct failure modes for a read-only order lookup.
+ *
+ * `RPC_ERROR`         - the Soroban RPC could not be reached (network/transport).
+ * `SIMULATION_FAILED` - the RPC responded but the simulation returned an error
+ *                       (e.g. host error, malformed arguments, bad contract id).
+ * `DECODE_FAILED`     - the simulation succeeded but the return value could not
+ *                       be decoded into an `Order`.
+ */
+export type OrderReadErrorCode = "RPC_ERROR" | "SIMULATION_FAILED" | "DECODE_FAILED";
+
+/**
+ * Typed error for read-only order lookups. Lets callers tell a transport/RPC
+ * failure apart from an order that simply does not exist (which is NOT an
+ * error — see the `not-found` result below).
+ */
+export class OrderReadError extends Error {
+  readonly code: OrderReadErrorCode;
+  /** Underlying failure detail for diagnostics; never render raw to shoppers. */
+  readonly detail?: unknown;
+
+  constructor(code: OrderReadErrorCode, message: string, detail?: unknown) {
+    super(message);
+    this.name = "OrderReadError";
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+/**
+ * Discriminated result of {@link readOrder}. A missing order is a first-class
+ * outcome (`not-found`) distinct from an RPC/simulation failure (`error`).
+ */
+export type ReadOrderResult =
+  | { kind: "found"; order: OrderDetails }
+  | { kind: "not-found" }
+  | { kind: "error"; error: OrderReadError };
+
+/**
+ * Public reads simulate against a throwaway, unfunded source account. The
+ * all-zero Ed25519 account id is valid for simulation (which neither signs nor
+ * submits), so reads never require a connected wallet, friendbot funding, or a
+ * random funded-account lookup.
+ */
+export const READ_ONLY_SOURCE_ACCOUNT =
+  "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
 // ---------------------------------------------------------------------------
 // Status Conversion
 // ---------------------------------------------------------------------------
@@ -81,117 +127,169 @@ function decodeStatus(statusVal: xdr.ScVal): OrderStatus {
 // ---------------------------------------------------------------------------
 
 /**
- * Reads an order's details from the contract.
+ * Decode the `order` contract function's return value (`Option<Order>`) into an
+ * {@link OrderDetails}.
+ *
+ * Returns `null` when the order is absent. The contract returns `None` as
+ * `ScVal::Void`; a present order (`Some(Order)`) is the struct itself, encoded
+ * as an `ScVal::Map`. A legacy `Vec([Order])` wrapping is also tolerated.
+ * Malformed values throw so they cannot be mistaken for a missing order.
  */
-export async function readOrder(orderId: string): Promise<OrderDetails | null> {
+function decodeOrder(
+  retval: xdr.ScVal,
+  orderId: string,
+  orderIdHash: string
+): OrderDetails | null {
+  // None -> order does not exist.
+  if (retval.switch() === xdr.ScValType.scvVoid()) {
+    return null;
+  }
+
+  // Unwrap a legacy Vec([Order]) wrapper into the inner struct map.
+  let orderVal = retval;
+  if (orderVal.switch() === xdr.ScValType.scvVec()) {
+    const vec = orderVal.vec();
+    if (!vec || vec.length === 0) return null; // explicit empty option -> absent
+    orderVal = vec[0];
+  }
+
+  if (orderVal.switch() !== xdr.ScValType.scvMap()) {
+    throw new Error("Expected an order map from the contract");
+  }
+  const orderMap = orderVal.map();
+  if (!orderMap) throw new Error("Order response did not contain a map");
+
+  const order: Partial<OrderDetails> = { orderId, orderIdHash };
+
+  for (const entry of orderMap) {
+    const key =
+      entry.key().switch() === xdr.ScValType.scvSymbol() ? entry.key().sym().toString() : "";
+    const val = entry.val();
+
+    switch (key) {
+      case "buyer":
+        if (val.switch() === xdr.ScValType.scvAddress()) {
+          order.buyer = StrKey.encodeEd25519PublicKey(val.address().accountId().ed25519());
+        }
+        break;
+      case "amount":
+        if (val.switch() === xdr.ScValType.scvI128()) {
+          const parts = val.i128();
+          order.amount =
+            (BigInt(parts.hi().toString()) << BigInt(64)) | BigInt(parts.lo().toString());
+        }
+        break;
+      case "token":
+        if (val.switch() === xdr.ScValType.scvAddress()) {
+          order.token = StrKey.encodeContract(
+            Buffer.from(val.address().contractId() as unknown as Uint8Array)
+          );
+        }
+        break;
+      case "timestamp":
+        if (val.switch() === xdr.ScValType.scvU64()) {
+          order.timestamp = Number(val.u64().toString());
+        }
+        break;
+      case "status":
+        order.status = decodeStatus(val);
+        break;
+    }
+  }
+
+  if (
+    !order.buyer ||
+    order.amount === undefined ||
+    !order.token ||
+    order.timestamp === undefined ||
+    !order.status
+  ) {
+    throw new Error("Order response omitted a required field");
+  }
+
+  // Format display amount.
+  const tokenConfig = order.token ? tokenForContract(order.token.toUpperCase()) : undefined;
+  order.tokenSymbol = tokenConfig?.symbol ?? "TOKEN";
+  order.amountDisplay = order.amount ? formatTokenAmount(order.amount, order.token) : "0";
+
+  return order as OrderDetails;
+}
+
+/**
+ * Reads an order's details from the checkout contract.
+ *
+ * This is a read-only, public query: it builds the `order` invocation and runs
+ * it through the Soroban RPC simulation path with a throwaway unfunded source
+ * account. It never connects a wallet, calls friendbot, or looks up a random
+ * funded account, so reads work regardless of wallet or funding state.
+ *
+ * The result is a discriminated union so callers can distinguish:
+ *   - `found`     - the order exists and decoded successfully.
+ *   - `not-found` - the contract has no such order (NOT an error).
+ *   - `error`     - an RPC/transport failure or a simulation/decode failure
+ *                   ({@link OrderReadError} carries a specific `code`).
+ */
+export async function readOrder(orderId: string): Promise<ReadOrderResult> {
   const server = new rpc.Server(RPC_URL);
   const contract = new Contract(CHECKOUT_CONTRACT_ID);
 
   const orderIdHashBytes = await hashOrderId(orderId);
   const orderIdHash = bytesToHex(orderIdHashBytes);
 
-  const account = await server
-    .getAccount(
-      Keypair.random().publicKey() // dummy source for simulation
-    )
-    .catch(() => null);
+  // Throwaway, unfunded source: simulation neither signs nor submits, so no
+  // on-chain account lookup or funding is required.
+  const source = new Account(READ_ONLY_SOURCE_ACCOUNT, "0");
+  const tx = new TransactionBuilder(source, {
+    fee: "100",
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(contract.call("order", xdr.ScVal.scvBytes(Buffer.from(orderIdHashBytes))))
+    .setTimeout(30)
+    .build();
 
-  if (!account) {
-    // Fallback: just simulate without account
-    const tx = new TransactionBuilder(
-      new (await import("@stellar/stellar-sdk")).Account(
-        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-        "0"
-      ),
-      {
-        fee: "100",
-        networkPassphrase: NETWORK_PASSPHRASE,
-      }
-    )
-      .addOperation(contract.call("order", xdr.ScVal.scvBytes(Buffer.from(orderIdHash, "hex"))))
-      .setTimeout(30)
-      .build();
-
-    const simResult = await server.simulateTransaction(tx);
-
-    if (rpc.Api.isSimulationError(simResult)) {
-      logClientError("Simulation error reading order", simResult.error);
-      return null;
-    }
-
-    if (!rpc.Api.isSimulationSuccess(simResult) || !simResult.result) {
-      return null;
-    }
-
-    const retval = simResult.result.retval;
-    if (retval.switch() === xdr.ScValType.scvVoid()) {
-      return null; // Order doesn't exist
-    }
-
-    // Parse the Option<Order> - it's a vec with the order struct inside
-    if (retval.switch() === xdr.ScValType.scvVec()) {
-      const vec = retval.vec();
-      if (!vec || vec.length === 0) return null;
-
-      // The order is the first (and only) element
-      const orderVal = vec[0];
-      if (orderVal.switch() !== xdr.ScValType.scvMap()) return null;
-
-      const orderMap = orderVal.map();
-      if (!orderMap) return null;
-      const order: Partial<OrderDetails> = {
-        orderId,
-        orderIdHash,
-      };
-
-      for (const entry of orderMap) {
-        const key =
-          entry.key().switch() === xdr.ScValType.scvSymbol() ? entry.key().sym().toString() : "";
-        const val = entry.val();
-
-        switch (key) {
-          case "buyer":
-            if (val.switch() === xdr.ScValType.scvAddress()) {
-              order.buyer = StrKey.encodeEd25519PublicKey(val.address().accountId().ed25519());
-            }
-            break;
-          case "amount":
-            if (val.switch() === xdr.ScValType.scvI128()) {
-              const parts = val.i128();
-              order.amount =
-                (BigInt(parts.hi().toString()) << BigInt(64)) | BigInt(parts.lo().toString());
-            }
-            break;
-          case "token":
-            if (val.switch() === xdr.ScValType.scvAddress()) {
-              order.token = StrKey.encodeContract(
-                Buffer.from(val.address().contractId() as unknown as Uint8Array)
-              );
-            }
-            break;
-          case "timestamp":
-            if (val.switch() === xdr.ScValType.scvU64()) {
-              order.timestamp = Number(val.u64().toString());
-            }
-            break;
-          case "status":
-            order.status = decodeStatus(val);
-            break;
-        }
-      }
-
-      // Format display amount
-      const tokenConfig = order.token ? tokenForContract(order.token.toUpperCase()) : undefined;
-      order.tokenSymbol = tokenConfig?.symbol ?? "TOKEN";
-      order.amountDisplay = order.amount
-        ? formatTokenAmount(order.amount, order.token)
-        : "0";
-
-      return order as OrderDetails;
-    }
+  let simResult: Awaited<ReturnType<typeof server.simulateTransaction>>;
+  try {
+    simResult = await server.simulateTransaction(tx);
+  } catch (err) {
+    logClientError("RPC error reading order", err);
+    return {
+      kind: "error",
+      error: new OrderReadError("RPC_ERROR", "Could not reach the Soroban RPC", err),
+    };
   }
 
-  return null;
+  if (rpc.Api.isSimulationError(simResult)) {
+    logClientError("Simulation error reading order", simResult.error);
+    return {
+      kind: "error",
+      error: new OrderReadError(
+        "SIMULATION_FAILED",
+        "Order simulation failed",
+        simResult.error
+      ),
+    };
+  }
+
+  if (!rpc.Api.isSimulationSuccess(simResult) || !simResult.result) {
+    return {
+      kind: "error",
+      error: new OrderReadError("SIMULATION_FAILED", "Order simulation did not succeed"),
+    };
+  }
+
+  try {
+    const order = decodeOrder(simResult.result.retval, orderId, orderIdHash);
+    if (!order) {
+      return { kind: "not-found" };
+    }
+    return { kind: "found", order };
+  } catch (err) {
+    logClientError("Could not decode order response", err);
+    return {
+      kind: "error",
+      error: new OrderReadError("DECODE_FAILED", "Order response could not be decoded", err),
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -393,7 +491,19 @@ export interface OrderEvent {
   txHash: string;
   commerce?: {
     documentId: string;
-    customer?: { firstName?: string; lastName?: string; email?: string; address?: string };
+    customer?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      address?: string | {
+        addressLine1?: string;
+        addressLine2?: string;
+        city?: string;
+        region?: string;
+        postalCode?: string;
+        country?: string;
+      };
+    };
     items?: Array<{ name?: string; price?: number }>;
     userId?: string | null;
   };

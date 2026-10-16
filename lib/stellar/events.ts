@@ -4,7 +4,8 @@ import { RPC_URL, TX_TIMEOUT_SECONDS, TX_POLL_INTERVAL_MS } from "./config";
 import { bytesToHex, scValToString } from "./scval";
 
 // ---------------------------------------------------------------------------
-// Payment event decoding.
+// Payment event decoding. The contract-wide entrypoints, event layouts, and
+// status values are pinned in contracts/checkout/interface/checkout-v1.json.
 //
 // The checkout contract emits (via #[contractevent]):
 //   topics: [Symbol("pay"), token, buyer, merchant, order_id]
@@ -181,22 +182,50 @@ export async function waitForTransaction(
   );
 }
 
-/** Check a submitted transaction once so the buyer can explicitly resume later. */
+/**
+ * Resume checking a previously submitted transaction without resubmitting it.
+ * RPC errors and NOT_FOUND are transient while a transaction is propagating,
+ * so retry the same hash with bounded backoff and leave recovery data intact
+ * when the deadline expires.
+ */
 export async function checkTransactionStatus(hash: string) {
   const server = new rpc.Server(RPC_URL);
-  const result = await server.getTransaction(hash);
+  const deadline = Date.now() + TX_TIMEOUT_SECONDS * 1000;
+  let delayMs = TX_POLL_INTERVAL_MS;
+  let lastStatus: rpc.Api.GetTransactionResponse["status"] | undefined;
+  let lastError: unknown;
 
-  if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) {
-    return {
-      status: "SUCCESS" as const,
-      transaction: result,
-      receipt: decodePaymentEvent(result),
-    };
+  while (Date.now() < deadline) {
+    try {
+      const result = await server.getTransaction(hash);
+      lastStatus = result.status;
+      lastError = undefined;
+
+      if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) {
+        return {
+          status: "SUCCESS" as const,
+          transaction: result,
+          receipt: decodePaymentEvent(result),
+        };
+      }
+      if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
+        return { status: "FAILED" as const, transaction: result };
+      }
+    } catch (error) {
+      // Keep checking this same hash after temporary RPC failures. The caller
+      // can retry later if the bounded recovery window expires.
+      lastError = error;
+    }
+
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    await sleep(Math.min(delayMs, remainingMs));
+    delayMs = Math.min(delayMs * 2, 10_000);
   }
-  if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
-    return { status: "FAILED" as const, transaction: result };
-  }
-  return { status: result.status, transaction: result };
+
+  if (lastError) throw lastError;
+
+  return { status: lastStatus ?? rpc.Api.GetTransactionStatus.NOT_FOUND, transaction: null };
 }
 
 /**

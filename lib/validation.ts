@@ -271,14 +271,28 @@ export function validateProductName(name: string): ValidationResult {
  * Validates a product price.
  */
 export function validatePrice(price: string | number): ValidationResult {
-  const numPrice = typeof price === "string" ? parseFloat(price) : price;
+  const rawPrice = typeof price === "string" ? price.trim() : price;
+  // Do not let parseFloat accept partial values such as "19.99usd". Prices
+  // are persisted as USD amounts with at most two decimal places.
+  if (
+    (typeof rawPrice === "string" && !/^\d+(?:\.\d{1,2})?$/.test(rawPrice)) ||
+    (typeof rawPrice !== "string" && typeof rawPrice !== "number")
+  ) {
+    return { isValid: false, error: "Please enter a valid price" };
+  }
 
-  if (isNaN(numPrice)) {
+  const numPrice = Number(rawPrice);
+
+  if (!Number.isFinite(numPrice)) {
     return { isValid: false, error: "Please enter a valid price" };
   }
 
   if (numPrice < 0) {
     return { isValid: false, error: "Price cannot be negative" };
+  }
+
+  if (Math.abs(numPrice * 100 - Math.round(numPrice * 100)) > 1e-6) {
+    return { isValid: false, error: "Price can have no more than two decimal places" };
   }
 
   if (numPrice > 1000000) {

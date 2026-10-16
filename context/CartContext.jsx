@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { restoreCart } from "../lib/cartStorage";
 import { isProductAvailable } from "../lib/productAvailability";
+import { isProductPurchasable } from "../lib/productCatalog";
 
 const CartContext = createContext();
 
@@ -32,7 +33,7 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   const addToCart = (product) => {
-    if (!isProductAvailable(product)) return false;
+    if (!isProductAvailable(product) || !isProductPurchasable(product)) return false;
     setCartItems((prevCartItems) => {
       const updatedCartItems = [...prevCartItems, product];
       localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));

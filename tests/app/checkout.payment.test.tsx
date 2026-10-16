@@ -79,7 +79,8 @@ describe("Checkout Stellar payment", () => {
     expect(screen.getByLabelText("First Name")).toBeInTheDocument();
     expect(screen.getByLabelText("Last Name")).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
-    expect(screen.getByLabelText("Delivery address")).toBeInTheDocument();
+    expect(screen.getByLabelText("Address line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("City")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect Freighter" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pay with Stellar (USDC)" })).toBeDisabled();
     expect(screen.queryByLabelText(/card number|expiry date|security code|otp/i)).toBeNull();
@@ -95,9 +96,13 @@ describe("Checkout Stellar payment", () => {
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "ada@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Delivery address"), {
+    fireEvent.change(screen.getByLabelText("Address line 1"), {
       target: { value: "1 Example Street" },
     });
+    fireEvent.change(screen.getByLabelText("City"), { target: { value: "London" } });
+    fireEvent.change(screen.getByLabelText("State / region"), { target: { value: "Greater London" } });
+    fireEvent.change(screen.getByLabelText("Postal code"), { target: { value: "SW1A 1AA" } });
+    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "United Kingdom" } });
 
     const payButton = screen.getByRole("button", { name: "Pay with Stellar (USDC)" });
     await waitFor(() => expect(payButton).toBeEnabled());
@@ -110,7 +115,14 @@ describe("Checkout Stellar payment", () => {
           firstName: "Ada",
           lastName: "Lovelace",
           email: "ada@example.com",
-          address: "1 Example Street",
+          address: {
+            addressLine1: "1 Example Street",
+            addressLine2: "",
+            city: "London",
+            region: "Greater London",
+            postalCode: "SW1A 1AA",
+            country: "United Kingdom",
+          },
         },
         userId: "customer-1",
       }),

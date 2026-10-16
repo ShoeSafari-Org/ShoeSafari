@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { login, loginWithGoogle, signup } from "../../../lib/auth";
+import { login, loginWithGoogle, resetPassword, signup } from "../../../lib/auth";
 import { getSafeLoginRedirect } from "../../../lib/authRedirect";
 import Toast from "../../../components/Toast";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
@@ -19,13 +19,13 @@ const AuthPage = () => {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isGoogleLoggingIn, setIsGoogleLoggingIn] = useState(false);
   const googleLoginInFlight = useRef(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true);
 
   const showToast = (message) => {
     setToast({ show: true, message });
-    setTimeout(() => setToast({ show: false, message: "" }), 3000);
   };
 
   const router = useRouter();
@@ -66,6 +66,25 @@ const AuthPage = () => {
       showToast(err.message);
     } finally {
       setIsSigningUp(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      showToast("Enter your email address to request a password reset.");
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      await resetPassword(email.trim());
+      showToast("If an account exists for that email, a password reset link will be sent.");
+    } catch (err) {
+      const message = err.message?.includes("auth/invalid-email")
+        ? "Enter a valid email address."
+        : "We couldn't send a reset link right now. Please try again.";
+      showToast(message);
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -127,6 +146,17 @@ const AuthPage = () => {
                   required
                 />
               </div>
+              {isLoginMode && (
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={isResettingPassword}
+                  aria-busy={isResettingPassword}
+                  className="text-sm text-red-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:opacity-60"
+                >
+                  {isResettingPassword ? "Sending reset link..." : "Forgot password?"}
+                </button>
+              )}
               <div className="relative">
                 <label
                   htmlFor="password"

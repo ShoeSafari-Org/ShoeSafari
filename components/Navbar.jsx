@@ -41,7 +41,6 @@ function Navbar() {
   const [toast, setToast] = useState({ show: false, message: "" });
   const showToast = (message) => {
     setToast({ show: true, message });
-    setTimeout(() => setToast({ show: false, message: "" }), 3000);
   };
 
   const [showNav, setShowNav] = useState(false);

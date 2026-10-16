@@ -83,6 +83,25 @@ describe("admin product image uploads", () => {
     expect(onProductAdded).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects an invalid add-form price before upload or Firestore writes", async () => {
+    const { container } = render(<AddProductForm onProductAdded={vi.fn()} />);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Trail shoe" },
+    });
+    fireEvent.change(container.querySelector('input[type="number"]'), {
+      target: { value: "not-a-price" },
+    });
+    fireEvent.change(getFileInput(), {
+      target: { files: [new File(["image"], "shoe.png", { type: "image/png" })] },
+    });
+
+    fireEvent.submit(container.querySelector("form"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/valid price/i);
+    expect(firebaseMocks.uploadBytes).not.toHaveBeenCalled();
+    expect(firebaseMocks.addDoc).not.toHaveBeenCalled();
+  });
+
   it("rejects unsupported edit-form files before upload and keeps form values", async () => {
     const { container } = render(
       <EditProductForm productId="shoe-1" onProductUpdated={vi.fn()} />
@@ -96,6 +115,25 @@ describe("admin product image uploads", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/jpeg, png, webp, or gif/i);
     expect(screen.getByDisplayValue("Existing shoe")).toBeInTheDocument();
+    expect(firebaseMocks.uploadBytes).not.toHaveBeenCalled();
+    expect(firebaseMocks.updateDoc).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid edit-form price before upload or Firestore writes", async () => {
+    const { container } = render(
+      <EditProductForm productId="shoe-1" onProductUpdated={vi.fn()} />
+    );
+    await screen.findByDisplayValue("Existing shoe");
+    fireEvent.change(container.querySelector('input[type="number"]'), {
+      target: { value: "-2" },
+    });
+    fireEvent.change(getFileInput(), {
+      target: { files: [new File(["image"], "shoe.png", { type: "image/png" })] },
+    });
+
+    fireEvent.submit(container.querySelector("form"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/greater than zero/i);
     expect(firebaseMocks.uploadBytes).not.toHaveBeenCalled();
     expect(firebaseMocks.updateDoc).not.toHaveBeenCalled();
   });

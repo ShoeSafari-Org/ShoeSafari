@@ -8,69 +8,18 @@ import {
   refundOrder,
   OrderEvent,
   eventToOrder,
-  OrderStatus,
 } from "../../../lib/stellar/orders";
 import { NETWORK, CHECKOUT_CONTRACT_ID } from "../../../lib/stellar/config";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
-import {
-  MdRefresh,
-  MdCheckCircle,
-  MdLocalShipping,
-  MdPayment,
-  MdPending,
-  MdCancel,
-} from "react-icons/md";
+import { MdRefresh, MdCheckCircle } from "react-icons/md";
 import { SiStellar } from "react-icons/si";
 import Link from "next/link";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../lib/firebaseConfig";
 import { updateStellarOrderStatus } from "../../../lib/orderStore";
 import { logClientError } from "../../../lib/safeLogging";
-
-// Status badge component
-const StatusBadge = ({ status }: { status: OrderStatus }) => {
-  const statusConfig: Record<
-    OrderStatus,
-    { bg: string; text: string; icon: React.ReactNode }
-  > = {
-    Pending: {
-      bg: "bg-yellow-100",
-      text: "text-yellow-800",
-      icon: <MdPending className="mr-1" />,
-    },
-    Paid: {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
-      icon: <MdPayment className="mr-1" />,
-    },
-    Shipped: {
-      bg: "bg-green-100",
-      text: "text-green-800",
-      icon: <MdLocalShipping className="mr-1" />,
-    },
-    Refunded: {
-      bg: "bg-red-100",
-      text: "text-red-800",
-      icon: <MdCancel className="mr-1" />,
-    },
-    Unknown: {
-      bg: "bg-gray-100",
-      text: "text-gray-800",
-      icon: null,
-    },
-  };
-
-  const config = statusConfig[status] || statusConfig.Unknown;
-
-  return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
-    >
-      {config.icon}
-      {status}
-    </span>
-  );
-};
+import { formatShippingAddress } from "../../../lib/shippingAddress";
+import OrderStatusBadge from "../../../components/OrderStatusBadge";
 
 // Format timestamp
 const formatDate = (timestamp: number) => {
@@ -114,6 +63,9 @@ const OrderRow = ({
           <div className="mt-1 text-xs text-gray-500">
             {order.commerce.customer.firstName} {order.commerce.customer.lastName}
             {order.commerce.customer.email && <div>{order.commerce.customer.email}</div>}
+            {order.commerce.customer.address && (
+              <div>{formatShippingAddress(order.commerce.customer.address)}</div>
+            )}
           </div>
         )}
       </td>
@@ -128,7 +80,7 @@ const OrderRow = ({
         </div>
       </td>
       <td className="py-4 px-4">
-        <StatusBadge status={order.status} />
+        <OrderStatusBadge status={order.status} />
       </td>
       <td className="py-4 px-4 text-sm text-gray-500">
         {formatDate(order.timestamp)}

@@ -47,6 +47,16 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: shoesafari-ci.appspot.com
           NEXT_PUBLIC_FIREBASE_APP_ID: 1:123:web:ci-placeholder
 
+  interface:
+    name: Checkout interface manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 18
+      - run: npm run check:checkout-interface
+
   contract:
     name: Soroban contract checks
     runs-on: ubuntu-latest
@@ -54,12 +64,12 @@ jobs:
       run:
         working-directory: contracts/checkout
     steps:
-      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           targets: wasm32v1-none
           components: rustfmt, clippy
+      - uses: actions/checkout@v4
       - run: cargo fmt -- --check
       - run: cargo test
       - run: cargo clippy --all-targets -- -D warnings

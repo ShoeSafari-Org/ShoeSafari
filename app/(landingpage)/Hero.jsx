@@ -12,7 +12,6 @@ export default function Hero() {
 
   const showToast = (message) => {
     setToast({ show: true, message });
-    setTimeout(() => setToast({ show: false, message: "" }), 5000);
   };
 
   const handleProtectedLinkClick = (e, path) => {

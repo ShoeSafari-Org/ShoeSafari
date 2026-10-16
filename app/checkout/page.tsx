@@ -14,6 +14,7 @@ import {
   USDC_CONTRACT_ID,
 } from "../../lib/stellar/config";
 import { logClientError } from "../../lib/safeLogging";
+import { isShippingAddressComplete } from "../../lib/shippingAddress";
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -31,12 +32,18 @@ const Checkout = () => {
     firstName: "",
     lastName: "",
     email: "",
-    address: "",
+    address: {
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      region: "",
+      postalCode: "",
+      country: "",
+    },
   });
 
   const showToast = (message: string) => {
     setToast({ show: true, message });
-    setTimeout(() => setToast({ show: false, message: "" }), 5000);
   };
 
   const [orderId] = useState(() => `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
@@ -118,6 +125,15 @@ const Checkout = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    if (
+      ["addressLine1", "addressLine2", "city", "region", "postalCode", "country"].includes(name)
+    ) {
+      setFormData((prevData) => ({
+        ...prevData,
+        address: { ...prevData.address, [name]: value },
+      }));
+      return;
+    }
     setFormData((prevData) => ({ ...prevData, [name]: value }));
   };
 
@@ -125,7 +141,7 @@ const Checkout = () => {
     Boolean(formData.firstName.trim()) &&
     Boolean(formData.lastName.trim()) &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim()) &&
-    Boolean(formData.address.trim());
+    isShippingAddressComplete(formData.address);
 
   useEffect(() => {
     let active = true;
@@ -289,23 +305,96 @@ const Checkout = () => {
                     />
                   </div>
                   <div className="mb-4">
-                    <label htmlFor="checkout-address" className="block text-gray-700">
-                      Delivery address
+                    <label htmlFor="checkout-address-line1" className="block text-gray-700">
+                      Address line 1
                     </label>
                     <input
-                      id="checkout-address"
+                      id="checkout-address-line1"
                       type="text"
-                      name="address"
-                      value={formData.address}
+                      name="addressLine1"
+                      value={formData.address.addressLine1}
                       onChange={handleChange}
                       required
+                      autoComplete="address-line1"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="checkout-address-line2" className="block text-gray-700">
+                      Address line 2 (optional)
+                    </label>
+                    <input
+                      id="checkout-address-line2"
+                      type="text"
+                      name="addressLine2"
+                      value={formData.address.addressLine2}
+                      onChange={handleChange}
+                      autoComplete="address-line2"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="checkout-city" className="block text-gray-700">City</label>
+                    <input
+                      id="checkout-city"
+                      type="text"
+                      name="city"
+                      value={formData.address.city}
+                      onChange={handleChange}
+                      required
+                      autoComplete="address-level2"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="checkout-region" className="block text-gray-700">
+                      State / region
+                    </label>
+                    <input
+                      id="checkout-region"
+                      type="text"
+                      name="region"
+                      value={formData.address.region}
+                      onChange={handleChange}
+                      required
+                      autoComplete="address-level1"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="checkout-postal-code" className="block text-gray-700">
+                      Postal code
+                    </label>
+                    <input
+                      id="checkout-postal-code"
+                      type="text"
+                      name="postalCode"
+                      value={formData.address.postalCode}
+                      onChange={handleChange}
+                      required
+                      autoComplete="postal-code"
+                      className="min-h-11 w-full px-3 py-2 border rounded"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="checkout-country" className="block text-gray-700">
+                      Country
+                    </label>
+                    <input
+                      id="checkout-country"
+                      type="text"
+                      name="country"
+                      value={formData.address.country}
+                      onChange={handleChange}
+                      required
+                      autoComplete="country-name"
                       className="min-h-11 w-full px-3 py-2 border rounded"
                     />
                   </div>
                 </div>
                 {!customerDetailsComplete && (
                   <p className="text-sm text-gray-600" role="status">
-                    Enter your name, email, and delivery address to continue to payment.
+                    Enter your name, email, street, city, region, postal code, and country to continue to payment.
                   </p>
                 )}
               </section>
@@ -344,6 +433,11 @@ const Checkout = () => {
                   quoteToken={quoteToken}
                   disabled={!customerDetailsComplete || totalPrice <= 0 || quoteLoading || !quoteToken}
                   onSuccess={handleStellarSuccess}
+                  validateBeforePay={() =>
+                    customerDetailsComplete
+                      ? ""
+                      : "Complete your delivery details before signing the payment."
+                  }
                 />
                 <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
                 <p className="text-[11px] text-gray-700 text-center">

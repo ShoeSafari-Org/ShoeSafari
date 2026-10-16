@@ -1,0 +1,44 @@
+{
+  "interfaceVersion": "1.0.0",
+  "contract": "Checkout",
+  "methods": [
+    { "name": "initialize", "arguments": ["merchant: Address"], "returns": "Result<(), Error>" },
+    { "name": "set_merchant", "arguments": ["new_merchant: Address"], "returns": "Result<(), Error>" },
+    { "name": "merchant", "arguments": [], "returns": "Result<Address, Error>" },
+    { "name": "add_token", "arguments": ["token: Address"], "returns": "Result<(), Error>" },
+    { "name": "remove_token", "arguments": ["token: Address"], "returns": "Result<(), Error>" },
+    { "name": "set_approval_policy", "arguments": ["token: Address", "threshold: i128", "approver: Address"], "returns": "Result<(), Error>" },
+    { "name": "clear_approval_policy", "arguments": ["token: Address"], "returns": "Result<(), Error>" },
+    { "name": "approval_policy", "arguments": ["token: Address"], "returns": "Option<ApprovalPolicy>" },
+    { "name": "is_token_allowed", "arguments": ["token: Address"], "returns": "bool" },
+    { "name": "create_order", "arguments": ["buyer: Address", "order_id: BytesN<32>", "token: Address", "amount: i128"], "returns": "Result<(), Error>" },
+    { "name": "pay", "arguments": ["token: Address", "buyer: Address", "order_id: BytesN<32>", "amount: i128"], "returns": "Result<(), Error>" },
+    { "name": "dispatch", "arguments": ["order_id: BytesN<32>"], "returns": "Result<(), Error>" },
+    { "name": "refund", "arguments": ["order_id: BytesN<32>"], "returns": "Result<(), Error>" },
+    { "name": "order", "arguments": ["order_id: BytesN<32>"], "returns": "Option<Order>" },
+    { "name": "status", "arguments": ["order_id: BytesN<32>"], "returns": "Option<Status>" },
+    { "name": "is_paid", "arguments": ["order_id: BytesN<32>"], "returns": "bool" }
+  ],
+  "events": [
+    { "type": "PaymentReceived", "name": "pay", "topics": ["token", "buyer", "merchant", "order_id"], "data": ["amount"] },
+    { "type": "OrderCreated", "name": "create_order", "topics": ["token", "buyer", "order_id"], "data": ["amount", "timestamp"] },
+    { "type": "OrderShipped", "name": "dispatch", "topics": ["order_id", "merchant"], "data": ["amount"] },
+    { "type": "OrderRefunded", "name": "refund", "topics": ["order_id", "buyer"], "data": ["amount"] },
+    { "type": "MerchantChangedV1", "name": "merchant_changed_v1", "topics": ["previous_merchant", "new_merchant"], "data": [] },
+    { "type": "TokenAllowlistChangedV1", "name": "token_allowlist_changed_v1", "topics": ["token"], "data": ["allowed"] }
+  ],
+  "statuses": [
+    { "name": "Pending", "value": 0 },
+    { "name": "Paid", "value": 1 },
+    { "name": "Shipped", "value": 2 },
+    { "name": "Refunded", "value": 3 }
+  ],
+  "frontendCallSites": [
+    { "path": "lib/stellar/checkout.ts", "methods": ["pay"] },
+    { "path": "lib/stellar/orders.ts", "methods": ["order", "dispatch", "refund"] },
+    {
+      "path": "lib/stellar/events.ts",
+      "events": ["pay", "create_order", "dispatch", "refund"]
+    }
+  ]
+}

@@ -93,11 +93,15 @@ export default function OrdersPage() {
             continue;
           }
           try {
-            const contractOrder = await readOrder(record.orderId);
-            if (!contractOrder) {
+            const readResult = await readOrder(record.orderId);
+            if (readResult.kind !== "found") {
+              // Both a missing on-chain record and an RPC/simulation failure
+              // leave this order unverified; the status distinction is
+              // available on readResult for callers that need it.
               unverifiedCount += 1;
               continue;
             }
+            const contractOrder = readResult.order;
             const checkedAt = Date.now();
             setOrders((current) =>
               current.map((order) =>

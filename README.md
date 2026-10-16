@@ -90,6 +90,7 @@ timestamp, status }` and transitions `Pending → Paid → Shipped/Refunded`.
 - [Firestore deployment notes](docs/FIRESTORE.md)
 - [Firebase App Check rollout](docs/FIREBASE_APP_CHECK.md)
 - [Merchant dispatch and refund runbook](docs/ADMIN_ORDERS.md)
+- [Admin product catalog guide](docs/ADMIN_CATALOG.md)
 - [Drips Wave issue backlog](docs/WAVE_ISSUES.md)
 - [Contributing](#contributing)
 - [License](#license)

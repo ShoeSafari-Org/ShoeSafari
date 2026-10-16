@@ -12,6 +12,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { searchProducts } from "../../lib/productSearch";
 import { ProductGridSkeleton } from "../../components/Skeleton";
 import EmptyState from "../../components/EmptyState";
+import { isProductPurchasable, normalizeProduct } from "../../lib/productCatalog";
 
 export default function Products() {
   const {
@@ -55,10 +56,9 @@ export default function Products() {
 
         const snapshot = await getDocs(collection(db, "ShoeSafariProducts"));
         setProducts(
-          snapshot.docs.map((productDoc) => ({
-            id: productDoc.id,
-            ...productDoc.data(),
-          }))
+          snapshot.docs
+            .map((productDoc) => normalizeProduct(productDoc.data(), productDoc.id))
+            .filter(Boolean)
         );
       } catch {
         setError("We couldn't load products right now. Please try again later.");
@@ -72,7 +72,6 @@ export default function Products() {
 
   const showToast = (message) => {
     setToast({ show: true, message });
-    setTimeout(() => setToast({ show: false, message: "" }), 3000);
   };
 
   const handleCheckout = (e) => {
@@ -163,7 +162,9 @@ export default function Products() {
                       className="mb-2"
                     />
                     <h1 className="text-xl font-bold">{prod.name}</h1>
-                    <h2 className="text-lg">${prod.price}</h2>
+                    <h2 className="text-lg">
+                      {prod.price === null ? "Price unavailable" : `$${prod.price}`}
+                    </h2>
                     <p className="text-sm" aria-label="Product availability">
                       {prod.available === false ? "Unavailable" : "Available"}
                     </p>
@@ -171,11 +172,20 @@ export default function Products() {
                   <button
                     type="button"
                     aria-label={`Add ${prod.name} to cart`}
-                    disabled={prod.available === false}
+                    disabled={!isProductPurchasable(prod)}
+                    title={
+                      prod.price === null
+                        ? "This product cannot be purchased because its price is missing or invalid."
+                        : undefined
+                    }
                     className="border-red-800 rounded-full px-2 py-2 mt-2 border-2 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => {
                       showToast(
-                        addToCart(prod) ? "Item added to cart" : "This product is unavailable"
+                        addToCart(prod)
+                          ? "Item added to cart"
+                          : prod.price === null
+                            ? "This product cannot be added because its price is missing or invalid."
+                            : "This product is unavailable."
                       );
                     }}
                   >
