@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Toast from "../../components/Toast";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import StellarCheckoutButton from "../../components/StellarCheckoutButton";
 import StellarWalletButton from "../../components/StellarWalletButton";
 import StellarOrderWatch from "../../components/StellarOrderWatch";
@@ -19,6 +20,7 @@ import { isShippingAddressComplete } from "../../lib/shippingAddress";
 
 const Checkout = () => {
   const { user } = useAuth();
+  const router = useRouter();
 
   const [totalPrice, setTotalPrice] = useState(0);
   const [quoteToken, setQuoteToken] = useState("");
@@ -165,6 +167,10 @@ const Checkout = () => {
       try {
         const storedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
         if (!Array.isArray(storedItems)) throw new Error("Your cart is invalid.");
+        if (storedItems.length === 0) {
+          if (active) router.replace("/shop");
+          return;
+        }
 
         const quantities = new Map<string, number>();
         for (const item of storedItems) {
