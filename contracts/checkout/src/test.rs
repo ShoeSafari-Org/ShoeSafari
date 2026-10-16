@@ -4,9 +4,9 @@ extern crate alloc;
 
 use alloc::{format, vec::Vec};
 use soroban_sdk::testutils::storage::Persistent as _;
-use soroban_sdk::testutils::{Address as _, Events, Ledger as _};
+use soroban_sdk::testutils::{Address as _, Events, Ledger as _, MockAuth, MockAuthInvoke};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, IntoVal};
 
 use crate::errors::Error;
 use crate::order::Status;
@@ -651,6 +651,149 @@ fn test_set_merchant_changes_escrow_destination() {
 
     client.dispatch(&id);
     assert_eq!(usdc_balance(&env, &token, &new_merchant), 10_000);
+}
+
+#[test]
+fn test_initialize_requires_merchant_auth_and_does_not_write_admin() {
+    let env = Env::default();
+    let contract = env.register(Checkout, ());
+    let client = CheckoutClient::new(&env, &contract);
+    let merchant = Address::generate(&env);
+    let attacker = Address::generate(&env);
+
+    // The only supplied authorization belongs to an unrelated account.
+    env.mock_auths(&[MockAuth {
+        address: &attacker,
+        invoke: &MockAuthInvoke {
+            contract: &contract,
+            fn_name: "initialize",
+            args: (merchant.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+
+    assert!(client.try_initialize(&merchant).is_err());
+    assert_eq!(client.try_merchant(), Err(Ok(Error::NotInitialized)));
+    env.as_contract(&contract, || {
+        assert!(!env.storage().persistent().has(&DataKey::Admin));
+    });
+}
+
+#[test]
+fn test_reinitialize_rejected_preserves_merchant_and_token_balances() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let id = order_id(&env, 43);
+    client.pay(&token, &buyer, &id, &100_000);
+
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &checkout),
+        usdc_balance(&env, &token, &merchant),
+    );
+    let replacement = Address::generate(&env);
+
+    assert_eq!(
+        client.try_initialize(&replacement),
+        Err(Ok(Error::AlreadyInitialized))
+    );
+    assert_eq!(client.merchant(), merchant);
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &checkout),
+            usdc_balance(&env, &token, &merchant),
+        ),
+        balances_before
+    );
+}
+
+#[test]
+fn test_merchant_rotation_denies_old_and_allows_new_merchant() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, old_merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let new_merchant = Address::generate(&env);
+    let id = order_id(&env, 44);
+    client.pay(&token, &buyer, &id, &75_000);
+    client.set_merchant(&new_merchant);
+
+    let new_token = env.register(MockToken, ());
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &checkout),
+        usdc_balance(&env, &token, &old_merchant),
+        usdc_balance(&env, &token, &new_merchant),
+    );
+
+    // The previous merchant cannot dispatch the escrow or change token policy.
+    env.mock_auths(&[MockAuth {
+        address: &old_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "dispatch",
+            args: (id.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_dispatch(&id).is_err());
+
+    env.mock_auths(&[MockAuth {
+        address: &old_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "add_token",
+            args: (new_token.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_add_token(&new_token).is_err());
+
+    assert_eq!(client.merchant(), new_merchant);
+    assert_eq!(client.status(&id), Some(Status::Paid));
+    assert!(!client.is_token_allowed(&new_token));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &checkout),
+            usdc_balance(&env, &token, &old_merchant),
+            usdc_balance(&env, &token, &new_merchant),
+        ),
+        balances_before
+    );
+
+    // The new merchant can perform both privileged actions.
+    env.mock_auths(&[MockAuth {
+        address: &new_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "add_token",
+            args: (new_token.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    client.add_token(&new_token);
+    assert!(client.is_token_allowed(&new_token));
+
+    env.mock_auths(&[MockAuth {
+        address: &new_merchant,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "dispatch",
+            args: (id.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    client.dispatch(&id);
+
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+    assert_eq!(usdc_balance(&env, &token, &checkout), 0);
+    assert_eq!(usdc_balance(&env, &token, &new_merchant), 75_000);
 }
 
 #[test]
