@@ -1,6 +1,8 @@
 "use client"
 import { createContext, useContext, useEffect, useState } from "react";
+import { restoreCart } from "../lib/cartStorage";
 import { isProductAvailable } from "../lib/productAvailability";
+import { isProductPurchasable } from "../lib/productCatalog";
 
 const CartContext = createContext();
 
@@ -10,33 +12,28 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [itemCount, setItemCount] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [cartRecoveryMessage, setCartRecoveryMessage] = useState("");
 
   useEffect(() => {
-    const savedItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
-    const originalItems = Array.isArray(savedItems) ? savedItems : [];
-    const storedCartItems = originalItems.filter(isProductAvailable);
-    const storedTotalPrice =
-      parseFloat(localStorage.getItem("totalPrice")) || 0;
-
-    setCartItems(storedCartItems);
-    setItemCount(storedCartItems.length);
-    setTotalPrice(
-      storedCartItems.length === originalItems.length
-        ? storedTotalPrice
-        : storedCartItems.reduce((total, item) => total + (Number(item.price) || 0), 0)
-    );
-    if (storedCartItems.length !== originalItems.length || !Array.isArray(savedItems)) {
-      localStorage.setItem("cartItems", JSON.stringify(storedCartItems));
-      localStorage.setItem("itemCount", storedCartItems.length.toString());
-      localStorage.setItem(
-        "totalPrice",
-        storedCartItems.reduce((total, item) => total + (Number(item.price) || 0), 0).toString()
-      );
+    const restored = restoreCart(window.localStorage);
+    const items = restored.items.filter(isProductAvailable);
+    const itemCount = items.length;
+    const totalPrice = items.reduce((total, item) => total + (Number(item.price) || 0), 0);
+    setCartItems(items);
+    setItemCount(itemCount);
+    setTotalPrice(totalPrice);
+    if (items.length !== restored.items.length) {
+      window.localStorage.setItem("cartItems", JSON.stringify(items));
+      window.localStorage.setItem("itemCount", String(itemCount));
+      window.localStorage.setItem("totalPrice", String(totalPrice));
+    }
+    if (restored.recovered || items.length !== restored.items.length) {
+      setCartRecoveryMessage("Invalid saved cart data was removed. Your remaining cart is ready.");
     }
   }, []);
 
   const addToCart = (product) => {
-    if (!isProductAvailable(product)) return false;
+    if (!isProductAvailable(product) || !isProductPurchasable(product)) return false;
     setCartItems((prevCartItems) => {
       const updatedCartItems = [...prevCartItems, product];
       localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));
@@ -96,6 +93,7 @@ export const CartProvider = ({ children }) => {
         cartItems,
         itemCount,
         totalPrice,
+        cartRecoveryMessage,
         addToCart,
         removeFromCart,
         clearCart,

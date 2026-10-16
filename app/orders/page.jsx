@@ -5,6 +5,10 @@ import Link from "next/link";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { useAuth } from "../../lib/AuthContext";
 import { db } from "../../lib/firebaseConfig";
+import { OrderCardSkeleton, PageHeaderSkeleton } from "../../components/Skeleton";
+import EmptyState from "../../components/EmptyState";
+import { readOrder } from "../../lib/stellar/orders";
+import { applyVerifiedOrderRead } from "../../lib/stellar/orderStatus";
 import {
   formatTokenAmount,
   NETWORK,
@@ -36,12 +40,18 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshError, setRefreshError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     if (authLoading) return;
     if (!user) {
       setLoading(false);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     const loadOrders = async () => {
@@ -59,20 +69,81 @@ export default function OrdersPage() {
           const right = b.createdAt?.toMillis?.() || 0;
           return right - left;
         });
-        setOrders(records);
+        if (cancelled) return;
+        setOrders((previous) => {
+          const previousById = new Map(previous.map((order) => [order.id, order]));
+          return records.map((order) => {
+            const previousOrder = previousById.get(order.id);
+            return {
+              ...order,
+              verifiedStatus: previousOrder?.verifiedStatus,
+              verifiedAt: previousOrder?.verifiedAt,
+            };
+          });
+        });
+        setError("");
+        setRefreshError("");
+        setRefreshing(records.length > 0);
+
+        let unverifiedCount = 0;
+        for (const record of records) {
+          if (cancelled) return;
+          if (!record.orderId || !record.orderIdHash) {
+            unverifiedCount += 1;
+            continue;
+          }
+          try {
+            const readResult = await readOrder(record.orderId);
+            if (readResult.kind !== "found") {
+              // Both a missing on-chain record and an RPC/simulation failure
+              // leave this order unverified; the status distinction is
+              // available on readResult for callers that need it.
+              unverifiedCount += 1;
+              continue;
+            }
+            const contractOrder = readResult.order;
+            const checkedAt = Date.now();
+            setOrders((current) =>
+              current.map((order) =>
+                order.id === record.id
+                  ? applyVerifiedOrderRead(order, contractOrder, checkedAt)
+                  : order
+              )
+            );
+          } catch {
+            unverifiedCount += 1;
+          }
+        }
+        if (!cancelled && unverifiedCount > 0) {
+          setRefreshError(
+            `Could not verify ${unverifiedCount} ${unverifiedCount === 1 ? "order" : "orders"} from Stellar. Showing the last verified status where available.`
+          );
+        }
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Could not load orders.");
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Could not load orders.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setRefreshing(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    loadOrders();
-  }, [authLoading, user]);
+    void loadOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, refreshKey]);
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">Loading your orders…</div>
+      <main className="max-w-5xl mx-auto px-4 py-12 mt-8" aria-busy="true">
+        <p className="sr-only" role="status">Loading your orders</p>
+        <PageHeaderSkeleton />
+        <div className="space-y-4">
+          {Array.from({ length: 3 }, (_, index) => <OrderCardSkeleton key={index} />)}
+        </div>
+      </main>
     );
   }
 
@@ -96,16 +167,37 @@ export default function OrdersPage() {
       <h1 className="text-3xl font-bold mb-2">Your orders</h1>
       <p className="text-gray-600 mb-8">Track your ShoeSafari payments and fulfillment.</p>
 
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <button
+          type="button"
+          onClick={() => {
+            setRefreshing(true);
+            setRefreshError("");
+            setRefreshKey((current) => current + 1);
+          }}
+          disabled={refreshing}
+          className="rounded border border-gray-400 px-4 py-2 text-sm disabled:opacity-60"
+        >
+          {refreshing ? "Checking Stellar…" : "Refresh on-chain status"}
+        </button>
+        <p className="text-sm text-gray-600" aria-live="polite">
+          {refreshError
+            ? refreshError
+            : "Statuses come from the checkout contract; unverified Firestore values are not shown as confirmed."}
+        </p>
+      </div>
+
       {error && (
         <p className="text-red-700 bg-red-50 border border-red-200 rounded p-4 mb-6">{error}</p>
       )}
       {!error && orders.length === 0 && (
-        <div className="border rounded-lg p-8 text-center">
-          <p className="mb-4">You have no Stellar orders yet.</p>
-          <Link href="/shop" className="text-red-700 underline">
-            Browse the shop
-          </Link>
-        </div>
+        <EmptyState
+          illustration="orders"
+          title="No orders yet"
+          description="When you buy something with Stellar, your orders will show up here so you can track payments and fulfillment."
+          actionHref="/shop"
+          actionLabel="Browse the shop"
+        />
       )}
 
       <div className="space-y-4">
@@ -116,8 +208,8 @@ export default function OrdersPage() {
                 <h2 className="font-semibold">Order {order.orderId}</h2>
                 <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
               </div>
-              <span className="h-fit rounded-full bg-green-100 text-green-800 px-3 py-1 text-sm">
-                {order.status || "Paid"}
+              <span className={`h-fit rounded-full px-3 py-1 text-sm ${order.verifiedStatus ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}>
+                {order.verifiedStatus || "Awaiting on-chain verification"}
               </span>
             </div>
             <div className="grid sm:grid-cols-3 gap-3 text-sm">
@@ -153,6 +245,16 @@ export default function OrdersPage() {
               >
                 View transaction {shortHash(order.transactionHash)}
               </a>
+            )}
+            {!order.verifiedStatus && (
+              <p className="mt-3 text-sm text-amber-800">
+                This order’s status has not been confirmed by a contract read.
+              </p>
+            )}
+            {order.verifiedAt && (
+              <p className="mt-3 text-xs text-gray-500">
+                Last verified from Stellar: {new Date(order.verifiedAt).toLocaleString()}
+              </p>
             )}
           </article>
         ))}

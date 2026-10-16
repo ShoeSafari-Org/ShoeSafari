@@ -40,4 +40,4 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx --yes firebase-tools@13.35.1 --config firebase.storage.json --project demo-shoesafari emulators:exec --only storage "npx vitest run --config vitest.rules.config.js"
+      - run: npm run test:rules:storage

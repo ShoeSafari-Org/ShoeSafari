@@ -18,3 +18,12 @@ it, remove `admin` from the current custom claims and call
 `setCustomUserClaims` again. Never grant claims from browser code. Configure the Storage emulator with
 `firebase.storage.json`; the test suite uses only the `demo-shoesafari` project
 and never accesses production Firebase.
+
+Run the Storage rules tests locally with Java installed. CI uses this same
+command, and no production Firebase credentials are required:
+
+```bash
+npm run test:rules:storage
+```
+
+Run both Firestore and Storage rules suites with `npm run test:rules`.

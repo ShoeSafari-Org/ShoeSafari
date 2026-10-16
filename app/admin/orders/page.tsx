@@ -29,6 +29,8 @@ import {
   updateStellarOrderStatus,
 } from "../../../lib/orderStore";
 import { isOrderRetentionDue } from "../../../lib/orderRetention";
+import { logClientError } from "../../../lib/safeLogging";
+import { formatShippingAddress } from "../../../lib/shippingAddress";
 
 // Status badge component
 const StatusBadge = ({ status }: { status: OrderStatus }) => {
@@ -133,6 +135,9 @@ const OrderRow = ({
             <div className="mt-1 text-xs text-gray-500">
               {order.commerce.customer.firstName} {order.commerce.customer.lastName}
               {order.commerce.customer.email && <div>{order.commerce.customer.email}</div>}
+              {order.commerce.customer.address && (
+                <div>{formatShippingAddress(order.commerce.customer.address)}</div>
+              )}
             </div>
           )}
       </td>
@@ -300,7 +305,7 @@ const OrdersManagementContent = () => {
     void mergeCommerceOrders().catch((loadError) => {
       // The chain remains authoritative; Firestore adds optional commerce
       // context and should not hide on-chain orders if it is unavailable.
-      console.warn("Could not load commerce order details", loadError);
+      logClientError("Could not load commerce order details", loadError);
     });
 
     // Stop after 2 seconds of loading to show UI
@@ -339,7 +344,7 @@ const OrdersManagementContent = () => {
         const commerce = orders.get(orderId)?.commerce;
         if (commerce) {
           void updateStellarOrderStatus(commerce.documentId, "Shipped").catch((statusError) =>
-            console.warn("Could not sync shipped status to Firestore", statusError)
+            logClientError("Could not sync shipped status to Firestore", statusError)
           );
         }
       } else {
@@ -421,7 +426,7 @@ const OrdersManagementContent = () => {
         const commerce = orders.get(orderId)?.commerce;
         if (commerce) {
           void updateStellarOrderStatus(commerce.documentId, "Refunded").catch((statusError) =>
-            console.warn("Could not sync refunded status to Firestore", statusError)
+            logClientError("Could not sync refunded status to Firestore", statusError)
           );
         }
       } else {

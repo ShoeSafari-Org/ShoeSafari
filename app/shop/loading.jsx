@@ -1,14 +1,11 @@
-import React from "react";
-// import LoadingSpinner from "../../components/LoadingSpinner";
-const loading = () => {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-white">
-      <div className="text-center">
-        <div className="loader border-t-4 border-red-700 rounded-full w-16 h-16 mx-auto animate-spin" aria-hidden="true"></div>
-        <p role="status" className="mt-3 text-gray-600">Loading…</p>
-      </div>
-    </div>
-  );
-};
+import { ProductGridSkeleton } from "../../components/Skeleton";
+
+const loading = () => (
+  <main className="mx-auto min-h-screen w-full max-w-screen-xl bg-white px-4 py-8" aria-busy="true">
+    <p role="status" className="sr-only">Loading products</p>
+    <div className="mb-8 h-12 max-w-sm animate-pulse rounded bg-gray-200" aria-hidden="true" />
+    <ProductGridSkeleton count={8} />
+  </main>
+);
 
 export default loading;

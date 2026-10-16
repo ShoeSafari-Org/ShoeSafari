@@ -8,6 +8,7 @@ import {
 } from "./config";
 import { scValToString } from "./scval";
 import { EventDeduplicator } from "./eventDeduplicator";
+import { decodeOrderContractEventFields } from "./events";
 
 // ---------------------------------------------------------------------------
 // Real-time event indexer.
@@ -29,7 +30,7 @@ export interface IndexedEvent {
   symbol: string;
   /** Raw topics (including the symbol as topics[0]). */
   topics: xdr.ScVal[];
-  /** Decoded fields: topics[1..] as topic1..topicN plus data-map entries. */
+  /** Decoded topic fields, data-map fields, and validated canonical fields. */
   fields: Record<string, string>;
 }
 
@@ -65,6 +66,7 @@ export class PaymentEventIndexer {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private started = false;
+  private isPolling = false;
 
   /** Create an indexer using the configured contract and RPC defaults. */
   constructor(
@@ -127,6 +129,11 @@ export class PaymentEventIndexer {
 
   private async poll(callbacks: IndexerCallbacks): Promise<void> {
     if (!this.running) return;
+    // Guard against overlapping polls: if a previous `getEvents` request is
+    // still in flight (e.g. a slow RPC response), skip this tick so we never
+    // issue concurrent requests that could race cursor updates.
+    if (this.isPolling) return;
+    this.isPolling = true;
 
     try {
       const res = await this.fetchEvents();
@@ -143,7 +150,18 @@ export class PaymentEventIndexer {
       for (const raw of res.events) {
         if (!raw.inSuccessfulContractCall) continue;
         const decoded = this.decodeEvent(raw);
-        if (!decoded) continue;
+        if (!decoded) {
+          const firstTopic = raw.topic?.[0];
+          const symbol = firstTopic?.switch() === xdr.ScValType.scvSymbol()
+            ? firstTopic.sym().toString()
+            : "";
+          if (this.watchedSymbols.includes(symbol)) {
+            callbacks.onError?.(
+              new Error("Ignored malformed checkout contract event.")
+            );
+          }
+          continue;
+        }
         if (!this.seenIds.remember(raw.id)) continue;
 
         this.eventsSeen += 1;
@@ -160,6 +178,10 @@ export class PaymentEventIndexer {
       callbacks.onError?.(new Error(`getEvents failed: ${this.lastError}`));
       this.recoverFromRetentionError();
       callbacks.onStatus?.(this.status);
+    } finally {
+      // Clear the in-flight flag after both success and failure so a later
+      // tick can poll again.
+      this.isPolling = false;
     }
   }
 
@@ -188,6 +210,15 @@ export class PaymentEventIndexer {
   }
 
   private decodeEvent(raw: rpc.Api.EventResponse): IndexedEvent | null {
+    if (
+      !Number.isSafeInteger(raw.ledger) ||
+      raw.ledger <= 0 ||
+      !/^[a-f0-9]{64}$/i.test(raw.txHash) ||
+      !Array.isArray(raw.topic) ||
+      raw.topic.length === 0 ||
+      !raw.value
+    ) return null;
+
     const first = raw.topic[0];
     if (!first || first.switch() !== xdr.ScValType.scvSymbol()) return null;
     const symbol = first.sym().toString();
@@ -212,6 +243,10 @@ export class PaymentEventIndexer {
     } else {
       fields.value = scValToString(data);
     }
+
+    const eventFields = decodeOrderContractEventFields(symbol, raw.topic, data);
+    if (!eventFields) return null;
+    Object.assign(fields, eventFields);
 
     return {
       id: raw.id,

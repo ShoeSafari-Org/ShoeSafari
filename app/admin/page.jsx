@@ -9,6 +9,7 @@ import AdminGuard from "../../components/AdminGuard";
 import Link from "next/link";
 import { SiStellar } from "react-icons/si";
 import { MdInventory } from "react-icons/md";
+import { logClientError } from "../../lib/safeLogging";
 
 const ProductsAdminContent = () => {
   const [products, setProducts] = useState([]);
@@ -35,7 +36,7 @@ const ProductsAdminContent = () => {
       );
       setProducts(dataArray);
     } catch (error) {
-      console.error("Error fetching products: ", error);
+      logClientError("Error fetching products", error);
     }
   };
 
@@ -54,7 +55,7 @@ const ProductsAdminContent = () => {
       await deleteDoc(doc(db, "ShoeSafariProducts", id));
       setProducts(products.filter((product) => product.id !== id));
     } catch (error) {
-      console.error("Error deleting product: ", error);
+      logClientError("Error deleting product", error);
     }
   };
 

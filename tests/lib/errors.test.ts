@@ -18,6 +18,12 @@ describe("parseError", () => {
       code: "RPC_UNAVAILABLE",
       userMessage: expect.stringContaining("Stellar network"),
     });
+    expect(
+      parseError(new WalletError("invalid network config", "NETWORK_CONFIG_ERROR"))
+    ).toMatchObject({
+      code: "STELLAR_CONFIG_INVALID",
+      recoverable: false,
+    });
   });
 
   it("maps simulation and transaction rejection failures distinctly", () => {

@@ -10,6 +10,9 @@ built the way it is. It is written to be portable: anyone should be able to take
 this architecture, point it at their own tokens and merchant wallet, and run a
 non-custodial checkout that uses the Stellar public rail.
 
+For support steps when a submitted payment is pending or missing from the
+storefront, see the [payment reconciliation runbook](PAYMENT_RECONCILIATION.md).
+
 ---
 
 ## 1. System overview
@@ -226,6 +229,27 @@ ensureNetwork ─▶ assertPaymentReady ─▶ build invoke("pay")
 
 The returned `PayResult` carries the preflight fee report, the on-chain ledger,
 and the decoded receipt.
+
+#### Checkout states and recovery
+
+The page moves through these states while handling one quoted order:
+
+| State | What happens | Next state or action |
+| --- | --- | --- |
+| **Preparing** | Checkout verifies the signed quote, checks the wallet network, account, trustline and balance, then simulates and prepares the transaction. | Any failed check stops before wallet submission; correct the issue and request a current quote. |
+| **Awaiting signature** | Freighter asks the buyer to sign the prepared transaction. | Approval submits that signed transaction. A wallet rejection stops the attempt before submission. |
+| **Submitted / pending** | RPC accepts the transaction, and the browser saves its public hash and order reference in local storage while it waits for a final result. | A confirmed successful transaction proceeds to receipt verification. If polling or the browser is interrupted, use **Check saved payment status** to look up the same hash. |
+| **Confirmed** | The transaction succeeds and its payment event is decoded and checked against the order. | Checkout reports payment complete and clears the saved pending reference. |
+| **Failed** | The network reports a final failed result. | The saved reference is cleared; after confirming the failure, the buyer may start a new checkout attempt. |
+| **Uncertain** | RPC cannot be reached or polling times out after submission. This does not prove failure. | Keep the displayed transaction hash and check that same hash again. Do not submit another payment while the result is uncertain. |
+
+The browser's saved pending reference contains the hash and order metadata, not
+wallet secrets. A successful chain transaction is authoritative even if saving
+the off-chain order record later fails; use the
+[payment reconciliation runbook](PAYMENT_RECONCILIATION.md) to investigate.
+The checkout button remains unavailable while a saved payment is pending, so
+recovery checks the original transaction instead of automatically submitting
+a duplicate.
 
 ---
 

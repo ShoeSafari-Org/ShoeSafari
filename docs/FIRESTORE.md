@@ -146,14 +146,16 @@ in the repository or a browser bundle. After changing a claim, have the user
 sign in again or refresh their ID token. Removing the claim denies subsequent
 Firestore requests once Firebase issues the refreshed token.
 
-Run the Firestore rules tests locally with Java installed:
+Run the Firestore rules tests locally with Java installed. This is the same
+command used by the Firestore rules CI workflow:
 
 ```bash
-npx firebase-tools@13.35.1 --config firebase.firestore.json --project demo-shoesafari \
-  emulators:exec --only firestore "npx vitest run tests/rules/firestore.rules.test.js"
+npm run test:rules:firestore
 ```
 
-The emulator uses a `demo-` project ID and never accesses production data.
+The emulator uses the `demo-shoesafari` demo project ID and never contacts a
+production Firebase project or requires production credentials. Run both
+Firestore and Storage rules suites with `npm run test:rules`.
 Deploy the production rules separately with:
 
 ```bash

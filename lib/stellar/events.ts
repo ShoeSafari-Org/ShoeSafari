@@ -4,7 +4,8 @@ import { RPC_URL, TX_TIMEOUT_SECONDS, TX_POLL_INTERVAL_MS } from "./config";
 import { bytesToHex, scValToString } from "./scval";
 
 // ---------------------------------------------------------------------------
-// Payment event decoding.
+// Payment event decoding. The contract-wide entrypoints, event layouts, and
+// status values are pinned in contracts/checkout/interface/checkout-v1.json.
 //
 // The checkout contract emits (via #[contractevent]):
 //   topics: [Symbol("pay"), token, buyer, merchant, order_id]
@@ -20,6 +21,134 @@ export interface PaymentReceipt {
   amount?: string; // raw token units as decimal string
   txHash: string;
   ledger: number;
+}
+
+/**
+ * Decode the checkout contract's order events using their event-specific
+ * topic and data layouts. Invalid or incomplete events are ignored before
+ * they can become order rows or status transitions.
+ */
+export function decodeOrderContractEventFields(
+  symbol: string,
+  topics: xdr.ScVal[],
+  data: xdr.ScVal
+): Record<string, string> | null {
+  const dataFields = decodeEventDataMap(data);
+  if (!dataFields) return null;
+
+  const amount = positiveI128(dataFields.amount);
+  if (!amount) return null;
+
+  switch (symbol) {
+    case "pay": {
+      if (
+        topics.length !== 5 ||
+        !isAddress(topics[1]) ||
+        !isAccountAddress(topics[2]) ||
+        !isAccountAddress(topics[3]) ||
+        !isOrderId(topics[4])
+      ) return null;
+      return {
+        token: scValToString(topics[1]),
+        buyer: scValToString(topics[2]),
+        merchant: scValToString(topics[3]),
+        order_id: scValToString(topics[4]),
+        amount,
+      };
+    }
+    case "create_order": {
+      if (
+        topics.length !== 4 ||
+        !isAddress(topics[1]) ||
+        !isAccountAddress(topics[2]) ||
+        !isOrderId(topics[3])
+      ) return null;
+      const timestamp = unsignedU64(dataFields.timestamp);
+      if (!timestamp) return null;
+      return {
+        token: scValToString(topics[1]),
+        buyer: scValToString(topics[2]),
+        order_id: scValToString(topics[3]),
+        amount,
+        timestamp,
+      };
+    }
+    case "dispatch": {
+      if (
+        topics.length !== 3 ||
+        !isOrderId(topics[1]) ||
+        !isAccountAddress(topics[2])
+      ) return null;
+      return {
+        order_id: scValToString(topics[1]),
+        merchant: scValToString(topics[2]),
+        amount,
+      };
+    }
+    case "refund": {
+      if (
+        topics.length !== 3 ||
+        !isOrderId(topics[1]) ||
+        !isAccountAddress(topics[2])
+      ) return null;
+      return {
+        order_id: scValToString(topics[1]),
+        buyer: scValToString(topics[2]),
+        amount,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function decodeEventDataMap(data: xdr.ScVal): Record<string, xdr.ScVal> | null {
+  if (data.switch() !== xdr.ScValType.scvMap()) return null;
+  const fields: Record<string, xdr.ScVal> = {};
+  for (const entry of data.map() ?? []) {
+    if (entry.key().switch() !== xdr.ScValType.scvSymbol()) return null;
+    const key = entry.key().sym().toString();
+    if (fields[key]) return null;
+    fields[key] = entry.val();
+  }
+  return fields;
+}
+
+function positiveI128(value: xdr.ScVal | undefined): string | null {
+  if (!value || value.switch() !== xdr.ScValType.scvI128()) return null;
+  const amount = scValToString(value);
+  return /^\d+$/.test(amount) && BigInt(amount) > 0n ? amount : null;
+}
+
+function unsignedU64(value: xdr.ScVal | undefined): string | null {
+  if (!value || value.switch() !== xdr.ScValType.scvU64()) return null;
+  const timestamp = scValToString(value);
+  return /^\d+$/.test(timestamp) &&
+    BigInt(timestamp) > 0n &&
+    BigInt(timestamp) <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? timestamp
+    : null;
+}
+
+function isAddress(value: xdr.ScVal | undefined): value is xdr.ScVal {
+  return Boolean(value && value.switch() === xdr.ScValType.scvAddress());
+}
+
+function isAccountAddress(value: xdr.ScVal | undefined): value is xdr.ScVal {
+  if (!isAddress(value)) return false;
+  try {
+    return value.address().accountId() !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+function isOrderId(value: xdr.ScVal | undefined): value is xdr.ScVal {
+  return Boolean(
+    value &&
+      value.switch() === xdr.ScValType.scvBytes() &&
+      value.bytes().length === 32
+  );
 }
 
 /**
@@ -53,22 +182,50 @@ export async function waitForTransaction(
   );
 }
 
-/** Check a submitted transaction once so the buyer can explicitly resume later. */
+/**
+ * Resume checking a previously submitted transaction without resubmitting it.
+ * RPC errors and NOT_FOUND are transient while a transaction is propagating,
+ * so retry the same hash with bounded backoff and leave recovery data intact
+ * when the deadline expires.
+ */
 export async function checkTransactionStatus(hash: string) {
   const server = new rpc.Server(RPC_URL);
-  const result = await server.getTransaction(hash);
+  const deadline = Date.now() + TX_TIMEOUT_SECONDS * 1000;
+  let delayMs = TX_POLL_INTERVAL_MS;
+  let lastStatus: rpc.Api.GetTransactionResponse["status"] | undefined;
+  let lastError: unknown;
 
-  if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) {
-    return {
-      status: "SUCCESS" as const,
-      transaction: result,
-      receipt: decodePaymentEvent(result),
-    };
+  while (Date.now() < deadline) {
+    try {
+      const result = await server.getTransaction(hash);
+      lastStatus = result.status;
+      lastError = undefined;
+
+      if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) {
+        return {
+          status: "SUCCESS" as const,
+          transaction: result,
+          receipt: decodePaymentEvent(result),
+        };
+      }
+      if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
+        return { status: "FAILED" as const, transaction: result };
+      }
+    } catch (error) {
+      // Keep checking this same hash after temporary RPC failures. The caller
+      // can retry later if the bounded recovery window expires.
+      lastError = error;
+    }
+
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    await sleep(Math.min(delayMs, remainingMs));
+    delayMs = Math.min(delayMs * 2, 10_000);
   }
-  if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
-    return { status: "FAILED" as const, transaction: result };
-  }
-  return { status: result.status, transaction: result };
+
+  if (lastError) throw lastError;
+
+  return { status: lastStatus ?? rpc.Api.GetTransactionStatus.NOT_FOUND, transaction: null };
 }
 
 /**

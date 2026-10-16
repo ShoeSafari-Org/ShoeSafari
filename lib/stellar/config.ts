@@ -13,16 +13,53 @@ import { Networks } from "@stellar/stellar-sdk";
 //   NEXT_PUBLIC_NATIVE_ASSET_CONTRACT_ID = native XLM SAC contract id (C...)
 // ---------------------------------------------------------------------------
 
-export const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "testnet";
+export type StellarNetwork = "testnet" | "mainnet";
+
+export function isStellarNetwork(value: string): value is StellarNetwork {
+  return value === "testnet" || value === "mainnet";
+}
+
+export function expectedNetworkPassphrase(network: StellarNetwork): string {
+  return network === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
+}
+
+/** Return a safe diagnostic when the raw environment would otherwise be hidden by defaults. */
+export function networkConfigurationError(): string | null {
+  const configuredNetwork =
+    process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim() || "testnet";
+  if (!isStellarNetwork(configuredNetwork)) {
+    return "NEXT_PUBLIC_STELLAR_NETWORK must be either testnet or mainnet.";
+  }
+
+  const configuredPassphrase =
+    process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
+  if (
+    configuredPassphrase &&
+    configuredPassphrase !== expectedNetworkPassphrase(configuredNetwork)
+  ) {
+    return `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE does not match ${configuredNetwork}.`;
+  }
+
+  return null;
+}
+
+const configuredNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "testnet";
+export const NETWORK: StellarNetwork = isStellarNetwork(configuredNetwork)
+  ? configuredNetwork
+  : "testnet";
 export const IS_MAINNET = NETWORK === "mainnet";
 
 export const RPC_URL =
   process.env.NEXT_PUBLIC_STELLAR_RPC_URL ??
   (IS_MAINNET ? "https://soroban-rpc.stellar.org" : "https://soroban-testnet.stellar.org");
 
+const expectedPassphrase = expectedNetworkPassphrase(NETWORK);
+const configuredPassphrase =
+  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
 export const NETWORK_PASSPHRASE =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE ??
-  (IS_MAINNET ? Networks.PUBLIC : Networks.TESTNET);
+  configuredPassphrase === expectedPassphrase
+    ? configuredPassphrase
+    : expectedPassphrase;
 
 // Deployed checkout contract (see contracts/checkout + README).
 export const CHECKOUT_CONTRACT_ID = process.env.NEXT_PUBLIC_CHECKOUT_CONTRACT_ID ?? "";

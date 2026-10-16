@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { orderIdHash, payWithStellar } from "../lib/stellar/checkout";
+import { orderIdHash, payWithStellar, usdToRawUnits } from "../lib/stellar/checkout";
 import { connectWallet, currentAddress } from "../lib/stellar/freighter";
 import { parseError } from "../lib/errors";
-import { NETWORK } from "../lib/stellar/config";
+import { CHECKOUT_CONTRACT_ID, NETWORK, defaultToken } from "../lib/stellar/config";
 import { useNotification } from "./Notification";
 import { checkTransactionStatus } from "../lib/stellar/events";
 import {
@@ -16,7 +16,7 @@ import {
 /**
  * Pay the current cart total with USDC on Stellar (via Freighter).
  */
-const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disabled = false }) => {
+const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, validateBeforePay, disabled = false }) => {
   const { success, error: notifyError } = useNotification();
   const [publicKey, setPublicKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -27,6 +27,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
   const [result, setResult] = useState(null);
   const [recovery, setRecovery] = useState(null);
   const [recoveryLoaded, setRecoveryLoaded] = useState(false);
+  const submissionInFlight = useRef(false);
 
   const generatedOrderId = useMemo(() => `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, []);
   const effectiveOrderId = recovery?.orderId || orderId || generatedOrderId;
@@ -52,6 +53,11 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
   }, []);
 
   const handlePay = async () => {
+    // State updates disable the button on the next render; the ref closes the
+    // same-render window where multiple clicks could start two payments.
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
+
     const e2eMode =
       process.env.NODE_ENV !== "production" &&
       window.localStorage.getItem("__shoesafari_e2e") === "1";
@@ -59,6 +65,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
     setFeeEstimate("");
     setTransactionHash("");
     setResult(null);
+    const validationMessage = validateBeforePay?.();
+    if (validationMessage) {
+      setError(validationMessage);
+      setBusy(false);
+      return;
+    }
     setBusy(true);
     setMessage("Connecting wallet…");
 
@@ -69,6 +81,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         setPublicKey(key);
         if (!e2eMode) success("Your Freighter wallet is connected.", "Wallet connected");
       } catch (e) {
+        submissionInFlight.current = false;
         setBusy(false);
         const message = parseError(e).userMessage;
         setError(message);
@@ -95,18 +108,27 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
 
       if (e2eMode) {
         const amountRaw = BigInt(Math.round(Number(quote.totalUsd) * 10 ** 7));
+        const token = defaultToken();
         const mockResult = {
           hash: "a".repeat(64),
           status: "SUCCESS",
           receipt: {
             ledger: 123456,
             buyer: key,
-            token: "e2e-mock-token",
-            orderId: "e2e-mock-order-hash",
+            contractId: CHECKOUT_CONTRACT_ID,
+            token: token.contractId,
+            orderId: await orderIdHash(quote.orderId),
             amount: amountRaw.toString(),
+            txHash: "a".repeat(64),
           },
           amountRaw,
           amountUsd: Number(quote.totalUsd),
+          expectedPayment: {
+            buyerWallet: key,
+            tokenContract: token.contractId,
+            checkoutContractId: CHECKOUT_CONTRACT_ID,
+            amountRaw: amountRaw.toString(),
+          },
         };
         setResult(mockResult);
         setMessage("");
@@ -123,12 +145,27 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
         onStatus: (msg) => setMessage(msg),
         onFeeEstimate: (estimate) => setFeeEstimate(estimate),
         onSubmitted: (hash) => {
-          const pending = { hash, orderId: quote.orderId };
+          const token = defaultToken();
+          const pending = {
+            hash,
+            orderId: quote.orderId,
+            buyerWallet: key,
+            tokenContract: token.contractId,
+            checkoutContractId: CHECKOUT_CONTRACT_ID,
+            amountRaw: usdToRawUnits(Number(quote.totalUsd)).toString(),
+          };
           savePendingPayment(pending);
           setRecovery(pending);
           setTransactionHash(hash);
         },
       });
+      const token = defaultToken();
+      res.expectedPayment = {
+        buyerWallet: key,
+        tokenContract: token.contractId,
+        checkoutContractId: CHECKOUT_CONTRACT_ID,
+        amountRaw: usdToRawUnits(Number(quote.totalUsd)).toString(),
+      };
       clearPendingPayment();
       setRecovery(null);
       setResult(res);
@@ -141,6 +178,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
       notifyError(appError.userMessage, "Payment failed");
       setTransactionHash(appError.transactionHash || "");
     } finally {
+      submissionInFlight.current = false;
       setBusy(false);
     }
   };
@@ -166,6 +204,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, onSuccess, disa
           receipt,
           amountRaw,
           amountUsd: Number(amountRaw) / 10 ** 7,
+          expectedPayment: {
+            buyerWallet: recovery.buyerWallet,
+            tokenContract: recovery.tokenContract,
+            checkoutContractId: recovery.checkoutContractId,
+            amountRaw: recovery.amountRaw,
+          },
         };
         clearPendingPayment();
         setRecovery(null);

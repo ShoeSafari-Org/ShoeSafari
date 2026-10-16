@@ -203,6 +203,14 @@ const STELLAR_ERRORS: Record<string, AppError> = {
     recoverable: true,
     action: "Retry",
   },
+  InvalidNetworkConfiguration: {
+    code: "STELLAR_CONFIG_INVALID",
+    message: "Invalid Stellar network configuration",
+    userMessage:
+      "This store's Stellar network settings are invalid. Contact the store owner before trying again.",
+    severity: "error",
+    recoverable: false,
+  },
   RpcError: {
     code: "RPC_ERROR",
     message: "RPC server error",
@@ -220,6 +228,7 @@ const ERROR_CODE_MAP: Record<string, AppError> = {
   USER_REJECTED: STELLAR_ERRORS.UserRejected,
   WRONG_NETWORK: STELLAR_ERRORS.WrongNetwork,
   FREIGHTER_NETWORK_ERROR: STELLAR_ERRORS.NetworkError,
+  NETWORK_CONFIG_ERROR: STELLAR_ERRORS.InvalidNetworkConfiguration,
   FREIGHTER_SIGN_ERROR: STELLAR_ERRORS.SigningFailed,
   PAYMENT_NOT_READY: STELLAR_ERRORS.InsufficientBalance,
   ACCOUNT_NOT_FOUND: STELLAR_ERRORS.AccountNotFunded,
