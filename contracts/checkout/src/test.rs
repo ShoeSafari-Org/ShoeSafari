@@ -184,6 +184,44 @@ fn test_refund_returns_escrow_to_buyer() {
 }
 
 #[test]
+fn test_unauthorized_refund_preserves_escrow() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let attacker = Address::generate(&env);
+    let id = order_id(&env, 9);
+    client.pay(&token, &buyer, &id, &100_000);
+
+    let balances_before = (
+        usdc_balance(&env, &token, &buyer),
+        usdc_balance(&env, &token, &checkout),
+    );
+
+    // An unrelated address cannot authorize the merchant-only refund.
+    env.mock_auths(&[MockAuth {
+        address: &attacker,
+        invoke: &MockAuthInvoke {
+            contract: &client.address,
+            fn_name: "refund",
+            args: (id.clone(),).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_refund(&id).is_err());
+
+    assert_eq!(client.status(&id), Some(Status::Paid));
+    assert_eq!(
+        (
+            usdc_balance(&env, &token, &buyer),
+            usdc_balance(&env, &token, &checkout),
+        ),
+        balances_before
+    );
+}
+
+#[test]
 fn test_refund_after_dispatch_rejected() {
     let env = Env::default();
     env.mock_all_auths();
