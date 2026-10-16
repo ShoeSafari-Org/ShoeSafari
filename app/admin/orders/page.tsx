@@ -10,7 +10,8 @@ import {
   eventToOrder,
   OrderStatus,
 } from "../../../lib/stellar/orders";
-import { NETWORK, CHECKOUT_CONTRACT_ID } from "../../../lib/stellar/config";
+import { CHECKOUT_CONTRACT_ID } from "../../../lib/stellar/config";
+import { transactionExplorerUrl } from "../../../lib/stellar/explorer";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import {
   MdRefresh,
@@ -159,7 +160,7 @@ const OrderRow = ({
       </td>
       <td className="py-4 px-4 text-sm">
         <a
-          href={`https://stellar.expert/explorer/${NETWORK}/tx/${order.txHash}`}
+          href={transactionExplorerUrl(order.txHash) || undefined}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline font-mono text-xs"

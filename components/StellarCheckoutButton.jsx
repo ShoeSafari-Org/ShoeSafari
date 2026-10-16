@@ -7,9 +7,9 @@ import { parseError } from "../lib/errors";
 import {
   CHECKOUT_CONTRACT_ID,
   formatTokenAmount,
-  NETWORK,
   tokenForContract,
 } from "../lib/stellar/config";
+import { transactionExplorerUrl } from "../lib/stellar/explorer";
 import { useNotification } from "./Notification";
 import { checkTransactionStatus } from "../lib/stellar/events";
 import {
@@ -321,7 +321,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
           {transactionHash && (
             <a
               className="mt-1 inline-flex min-h-11 items-center justify-center px-2 underline"
-              href={`https://stellar.expert/explorer/${NETWORK === "mainnet" ? "public" : "testnet"}/tx/${transactionHash}`}
+              href={transactionExplorerUrl(transactionHash) || undefined}
               target="_blank"
               rel="noreferrer"
             >
@@ -340,7 +340,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
         >
           Paid on ledger {result.receipt ? result.receipt.ledger : "—"} · tx{" "}
           <a
-            href={`https://stellar.expert/explorer/${NETWORK === "mainnet" ? "public" : "testnet"}/tx/${result.hash}`}
+            href={transactionExplorerUrl(result.hash) || undefined}
             target="_blank"
             rel="noreferrer"
             className="underline"
