@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login, loginWithGoogle, signup } from "../../../lib/auth";
@@ -17,6 +17,8 @@ const AuthPage = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isGoogleLoggingIn, setIsGoogleLoggingIn] = useState(false);
+  const googleLoginInFlight = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -68,12 +70,19 @@ const AuthPage = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (isLoggingIn || isSigningUp || googleLoginInFlight.current) return;
+
+    googleLoginInFlight.current = true;
+    setIsGoogleLoggingIn(true);
     try {
       await loginWithGoogle();
       showToast("User logged in with Google successfully");
       router.push(getRedirectUrl());
     } catch (err) {
       showToast(err.message);
+    } finally {
+      googleLoginInFlight.current = false;
+      setIsGoogleLoggingIn(false);
     }
   };
 
@@ -188,7 +197,7 @@ const AuthPage = () => {
                 <button
                   type="submit"
                   className="w-full bg-red-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center justify-center"
-                  disabled={isLoggingIn || isSigningUp}
+                  disabled={isLoggingIn || isSigningUp || isGoogleLoggingIn}
                 >
                   {isLoggingIn || isSigningUp ? (
                     <>
@@ -207,11 +216,21 @@ const AuthPage = () => {
             <div className="flex justify-center items-center">
               <button
                 onClick={handleGoogleLogin}
-                className="w-full flex items-center bg-red-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-red-700 focus:outline-none "
+                type="button"
+                disabled={isLoggingIn || isSigningUp || isGoogleLoggingIn}
+                aria-busy={isGoogleLoggingIn}
+                className="w-full flex items-center bg-red-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-red-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
               >
-                <FcGoogle size={28} />
-                <span className="flex-grow text-center">
-                  Continue with Google
+                {isGoogleLoggingIn ? (
+                  <AiOutlineLoading3Quarters
+                    className="animate-spin mr-2"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <FcGoogle size={28} aria-hidden="true" />
+                )}
+                <span className="flex-grow text-center" aria-live="polite">
+                  {isGoogleLoggingIn ? "Connecting to Google..." : "Continue with Google"}
                 </span>
               </button>
             </div>
