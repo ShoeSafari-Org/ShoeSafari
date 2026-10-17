@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { db, storage } from "../../lib/firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { createProductImageStoragePath } from "../../lib/productImageStorage";
 import {
   SUPPORTED_PRODUCT_IMAGE_TYPES,
   validateProductImage,
@@ -74,8 +75,10 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
       let imageUrl = existingImageUrl;
 
       if (productImage) {
-        const imageRef = ref(storage, `products/${productImage.name}`);
-        const snapshot = await uploadBytes(imageRef, productImage);
+        const imageRef = ref(storage, createProductImageStoragePath());
+        const snapshot = await uploadBytes(imageRef, productImage, {
+          customMetadata: { originalFileName: productImage.name },
+        });
         imageUrl = await getDownloadURL(snapshot.ref);
       }
 
