@@ -510,16 +510,26 @@ const Checkout = () => {
               </div>
             )}
             {stage === 2 && (
-              <div className="bg-white p-4 rounded shadow-md h-full flex flex-col justify-center items-center">
-                <h2 className="text-6xl mb-4 text-center">Order Completed.</h2>
-                <p className="text-center">Your order has been placed successfully.</p>
+              <div className="w-full min-w-0 bg-white p-4 sm:p-6 rounded shadow-md h-full flex flex-col justify-center items-center">
+                <h2 className="text-3xl sm:text-5xl mb-4 text-center">Order Completed.</h2>
+                <p className="text-center break-words">Your order has been placed successfully.</p>
+                <dl className="mt-5 w-full max-w-md grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded border p-3 text-sm">
+                  <dt className="font-medium text-gray-600">Order</dt>
+                  <dd className="min-w-0 break-all">{orderId}</dd>
+                  {paymentHash && (
+                    <>
+                      <dt className="font-medium text-gray-600">Transaction</dt>
+                      <dd className="min-w-0 break-all font-mono">{paymentHash}</dd>
+                    </>
+                  )}
+                </dl>
                 {orderSaveFailed && paymentHash && (
                   <p className="mt-3 max-w-xl break-all text-center text-sm text-red-800" role="alert">
                     Payment was confirmed, but its order record could not be saved. Keep this
                     transaction hash for reconciliation: {paymentHash}
                   </p>
                 )}
-                <span className="text-center">Thanks for Shopping with us 🥰🥰🥰</span>
+                <span className="mt-4 text-center">Thanks for Shopping with us 🥰🥰🥰</span>
                 <Link
                   href="/shop"
                   className="mt-8 inline-flex min-h-11 items-center justify-center rounded-md bg-red-700 px-4 py-2 text-center hover:bg-red-500"
