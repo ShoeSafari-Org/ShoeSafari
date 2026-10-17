@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import TextField from "../../components/ui/TextField";
+import Button from "../../components/ui/Button";
 import { db, storage } from "../../lib/firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -132,9 +134,8 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           <label className="block text-gray-700 text-lg font-semibold">
             Product Name
           </label>
-          <input
+          <TextField
             type="text"
-            className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
             required
@@ -157,12 +158,11 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           <label className="block text-gray-700 text-lg font-semibold">
             Product Price
           </label>
-          <input
+          <TextField
             type="number"
             step="0.01"
             min="0"
             max="1000000"
-            className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             value={productPrice}
             onChange={(e) => {
               setProductPrice(e.target.value);
@@ -182,10 +182,9 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           <label className="block text-gray-700 text-lg font-semibold">
             Product Image
           </label>
-          <input
+          <TextField
             type="file"
             accept={SUPPORTED_PRODUCT_IMAGE_TYPES.join(",")}
-            className="w-full p-3 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             aria-describedby={imageError ? "edit-product-image-error" : undefined}
             onChange={(e) => {
               const file = e.target.files?.[0] || null;
@@ -211,7 +210,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
             />
           )}
         </div>
-        <button
+        <Button
           type="submit"
           className={`w-full py-3 mt-4 text-white font-bold bg-red-500 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 ${
             loading && "opacity-50 cursor-not-allowed"
@@ -219,7 +218,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           disabled={loading}
         >
           {loading ? "Updating Product..." : "Update Product"}
-        </button>
+        </Button>
       </form>
     </div>
   );
