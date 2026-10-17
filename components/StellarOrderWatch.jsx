@@ -18,6 +18,7 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
   const [matched, setMatched] = useState(null);
+  const [waitingTooLong, setWaitingTooLong] = useState(false);
   const indexerRef = useRef(null);
 
   useEffect(() => {
@@ -25,6 +26,8 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
 
     let cancelled = false;
     let indexer = null;
+    let timeoutId = null;
+    setWaitingTooLong(false);
 
     const start = async () => {
       const bytes = await hashOrderId(orderId);
@@ -33,6 +36,10 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
 
       indexer = new PaymentEventIndexer();
       indexerRef.current = indexer;
+
+      timeoutId = window.setTimeout(() => {
+        if (!cancelled) setWaitingTooLong(true);
+      }, 60_000);
 
       indexer.start({
         onStatus: (s) => {
@@ -47,6 +54,7 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
           if (event.symbol !== "pay") return;
           const orderHex = (event.fields.topic4 || "").toLowerCase();
           if (orderHex !== expected) return;
+          if (timeoutId) window.clearTimeout(timeoutId);
           setMatched(event);
           success(`Payment update received for order ${orderId}.`, "Order updated");
           if (onEvent) onEvent(event);
@@ -58,6 +66,7 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
 
     return () => {
       cancelled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
       if (indexer) indexer.stop();
       indexerRef.current = null;
     };
@@ -91,7 +100,12 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
         </div>
       ) : (
         <div className="mt-2 flex items-center gap-2 text-gray-600">
-          {connected ? (
+          {waitingTooLong ? (
+            <span>
+              Still waiting for confirmation for order {orderId}. A timeout does not confirm
+              failure; check the transaction before trying another payment.
+            </span>
+          ) : connected ? (
             <>
               <span className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
               Listening for on-chain events for order {orderId}…
