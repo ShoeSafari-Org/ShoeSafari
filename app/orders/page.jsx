@@ -202,17 +202,20 @@ export default function OrdersPage() {
 
       <div className="space-y-4">
         {orders.map((order) => (
-          <article key={order.id} className="border rounded-lg p-5 bg-white shadow-sm">
+          <article
+            key={order.id}
+            className="min-w-0 overflow-hidden border rounded-lg p-4 sm:p-5 bg-white shadow-sm"
+          >
             <div className="flex flex-wrap justify-between gap-3 mb-4">
               <div>
-                <h2 className="font-semibold">Order {order.orderId}</h2>
+                <h2 className="font-semibold break-all">Order {order.orderId}</h2>
                 <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
               </div>
               <span className={`h-fit rounded-full px-3 py-1 text-sm ${order.verifiedStatus ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}>
                 {order.verifiedStatus || "Awaiting on-chain verification"}
               </span>
             </div>
-            <div className="grid sm:grid-cols-3 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               <p>
                 <span className="text-gray-500">Total:</span> {formatOrderTotal(order)}
               </p>
@@ -241,7 +244,7 @@ export default function OrdersPage() {
                 href={transactionExplorerUrl(order.transactionHash) || undefined}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-block mt-4 text-sm text-blue-700 underline font-mono"
+                className="inline-block mt-4 max-w-full break-all text-sm text-blue-700 underline font-mono"
               >
                 View transaction {shortHash(order.transactionHash)}
               </a>
