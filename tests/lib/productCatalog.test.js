@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isProductPurchasable, normalizeProduct } from "../../lib/productCatalog";
+import {
+  filterProductsByCategory,
+  getProductCategories,
+  isProductPurchasable,
+  normalizeProduct,
+} from "../../lib/productCatalog";
 
 describe("normalizeProduct", () => {
   it("uses safe display fallbacks for incomplete Firestore documents", () => {
@@ -48,5 +53,24 @@ describe("normalizeProduct", () => {
   it("rejects malformed top-level document values safely", () => {
     expect(normalizeProduct(null, "bad")).toBeNull();
     expect(normalizeProduct([], "bad")).toBeNull();
+  });
+});
+
+
+describe("product category filtering", () => {
+  const products = [
+    normalizeProduct({ name: "Runner", price: 50, category: "Running" }, "runner"),
+    normalizeProduct({ name: "Boot", price: 80, category: " Boots " }, "boot"),
+    normalizeProduct({ name: "Legacy shoe", price: 40 }, "legacy"),
+  ];
+
+  it("filters categories without excluding legacy products from the all-products view", () => {
+    expect(filterProductsByCategory(products, "running").map((product) => product.id)).toEqual(["runner"]);
+    expect(filterProductsByCategory(products).map((product) => product.id)).toEqual(["runner", "boot", "legacy"]);
+  });
+
+  it("groups missing categories as Uncategorized and builds stable options", () => {
+    expect(getProductCategories(products)).toEqual(["Boots", "Running", "Uncategorized"]);
+    expect(filterProductsByCategory(products, "Uncategorized").map((product) => product.id)).toEqual(["legacy"]);
   });
 });

@@ -11,6 +11,7 @@ import {
 
 const EditProductForm = ({ productId, onProductUpdated }) => {
   const [productName, setProductName] = useState("");
+  const [productCategory, setProductCategory] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [available, setAvailable] = useState(true);
   const [productImage, setProductImage] = useState(null);
@@ -31,6 +32,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
         if (docSnap.exists()) {
           const productData = docSnap.data();
           setProductName(productData.name);
+          setProductCategory(typeof productData.category === "string" ? productData.category : "");
           setProductPrice(productData.price);
           setAvailable(productData.available !== false);
           setExistingImageUrl(productData.img);
@@ -82,6 +84,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
       const docRef = doc(db, "ShoeSafariProducts", productId);
       await updateDoc(docRef, {
         name: productName,
+        category: productCategory.trim(),
         price: Number(priceValidation.sanitized),
         img: imageUrl,
         available,
@@ -132,6 +135,19 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
             required
+          />
+        </div>
+        <div className="mb-6">
+          <label className="block text-gray-700 text-lg font-semibold" htmlFor="product-category">
+            Category
+          </label>
+          <input
+            id="product-category"
+            type="text"
+            className="w-full p-3 mt-2 border border-gray-300 rounded-md"
+            value={productCategory}
+            onChange={(event) => setProductCategory(event.target.value)}
+            placeholder="e.g. Running"
           />
         </div>
         <div className="mb-6">
