@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { db, storage } from "../../lib/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { createProductImageStoragePath } from "../../lib/productImageStorage";
 import Toast from "../../components/Toast";
 import {
   SUPPORTED_PRODUCT_IMAGE_TYPES,
@@ -50,8 +51,10 @@ const AddProductForm = ({ onProductAdded }) => {
       setLoading(true);
 
       // Upload the image to Firebase Storage
-      const imageRef = ref(storage, `products/${productImage.name}`);
-      const snapshot = await uploadBytes(imageRef, productImage);
+      const imageRef = ref(storage, createProductImageStoragePath());
+      const snapshot = await uploadBytes(imageRef, productImage, {
+        customMetadata: { originalFileName: productImage.name },
+      });
       const imageUrl = await getDownloadURL(snapshot.ref);
 
       // Add product details to Firestore
