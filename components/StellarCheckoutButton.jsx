@@ -191,9 +191,30 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
       if (onSuccess) onSuccess({ ...res, orderId: quote.orderId, items: quote.items });
     } catch (e) {
       const appError = parseError(e);
-      setError(appError.userMessage);
-      notifyError(appError.userMessage, "Payment failed");
-      setTransactionHash(appError.transactionHash || "");
+      const savedPayment = loadPendingPayment();
+      const submittedPaymentIsUnresolved =
+        Boolean(appError.transactionHash) &&
+        savedPayment?.hash === appError.transactionHash &&
+        appError.code !== "TX_FAILED";
+
+      if (submittedPaymentIsUnresolved) {
+        setRecovery(savedPayment);
+        setTransactionHash(savedPayment.hash);
+        setMessage("");
+        setError(
+          "Payment was submitted, but confirmation is still pending or unknown. Check this transaction's status before trying again.",
+        );
+      } else if (savedPayment?.hash === appError.transactionHash && appError.code === "TX_FAILED") {
+        clearPendingPayment();
+        setRecovery(null);
+        setError("The Stellar network confirmed that this payment failed. You can start a new attempt.");
+        notifyError("The Stellar network confirmed that this payment failed. You can start a new attempt.", "Payment failed");
+        setTransactionHash(appError.transactionHash || "");
+      } else {
+        setError(appError.userMessage);
+        notifyError(appError.userMessage, "Payment failed");
+        setTransactionHash(appError.transactionHash || "");
+      }
     } finally {
       submissionInFlight.current = false;
       setBusy(false);
@@ -238,8 +259,8 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
         clearPendingPayment();
         setRecovery(null);
         setMessage("");
-        setError("The saved payment failed on the Stellar network. You can try again.");
-        notifyError("The saved payment failed on the Stellar network. You can try again.", "Payment failed");
+        setError("The Stellar network confirmed that this payment failed. You can start a new attempt.");
+        notifyError("The Stellar network confirmed that this payment failed. You can start a new attempt.", "Payment failed");
       } else {
         setMessage("The transaction is not final yet. Check again shortly.");
       }
