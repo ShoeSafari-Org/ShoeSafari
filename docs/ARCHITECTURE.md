@@ -13,6 +13,24 @@ non-custodial checkout that uses the Stellar public rail.
 For support steps when a submitted payment is pending or missing from the
 storefront, see the [payment reconciliation runbook](PAYMENT_RECONCILIATION.md).
 
+## Contributor map
+
+Use this map to find each subsystem's entry point and its focused validation
+command. Run commands from the repository root unless the path says otherwise.
+
+| Subsystem | Entry point | Validation |
+| --- | --- | --- |
+| Storefront pages and shared UI | `app/` and `components/` | `npm run test` |
+| Shared app state and user flows | `context/` | `npm run test` |
+| Stellar wallet, transaction, and event helpers | `lib/stellar/` | `npm run test` |
+| Soroban checkout contract | `contracts/checkout/src/lib.rs` | `cd contracts/checkout && cargo test` |
+| Firestore and Storage access rules | `firestore.rules` and `storage.rules` | `npm run test:rules` |
+| Browser checkout and accessibility flows | `e2e/` | `npm run test:e2e` (accessibility: `npm run test:e2e:accessibility`) |
+
+For broader frontend checks, use `npm run lint`, `npm run type-check`, and
+`npm run build`. Contract formatting and lint checks are `cargo fmt -- --check`
+and `cargo clippy --all-targets -- -D warnings` from `contracts/checkout/`.
+
 ---
 
 ## 1. System overview
