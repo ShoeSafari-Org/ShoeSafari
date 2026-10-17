@@ -633,8 +633,13 @@ fn test_duplicate_dispatch_and_refund_preserve_all_balances() {
         usdc_balance(&env, &token, &escrow),
         usdc_balance(&env, &token, &merchant),
     );
+    // Both terminal states reject another dispatch and a cross-transition refund.
     assert_eq!(
         client.try_dispatch(&dispatched_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        client.try_refund(&dispatched_id),
         Err(Ok(Error::InvalidOrderStatus))
     );
     assert_eq!(
@@ -654,8 +659,13 @@ fn test_duplicate_dispatch_and_refund_preserve_all_balances() {
         usdc_balance(&env, &token, &escrow),
         usdc_balance(&env, &token, &merchant),
     );
+    // A refunded order cannot be refunded twice or dispatched afterward.
     assert_eq!(
         client.try_refund(&refunded_id),
+        Err(Ok(Error::InvalidOrderStatus))
+    );
+    assert_eq!(
+        client.try_dispatch(&refunded_id),
         Err(Ok(Error::InvalidOrderStatus))
     );
     assert_eq!(
