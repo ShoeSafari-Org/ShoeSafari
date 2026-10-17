@@ -28,6 +28,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
   const [message, setMessage] = useState("");
   const [feeEstimate, setFeeEstimate] = useState("");
   const [error, setError] = useState("");
+  const [errorDetails, setErrorDetails] = useState(null);
   const [transactionHash, setTransactionHash] = useState("");
   const [result, setResult] = useState(null);
   const [recovery, setRecovery] = useState(null);
@@ -72,6 +73,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
       process.env.NODE_ENV !== "production" &&
       window.localStorage.getItem("__shoesafari_e2e") === "1";
     setError("");
+    setErrorDetails(null);
     setFeeEstimate("");
     setTransactionHash("");
     setResult(null);
@@ -94,7 +96,9 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
       } catch (e) {
         submissionInFlight.current = false;
         setBusy(false);
-        const message = parseError(e).userMessage;
+        const appError = parseError(e);
+        const message = appError.userMessage;
+        setErrorDetails(appError);
         setError(message);
         notifyError(message, "Wallet connection failed");
         return;
@@ -191,6 +195,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
       if (onSuccess) onSuccess({ ...res, orderId: quote.orderId, items: quote.items });
     } catch (e) {
       const appError = parseError(e);
+      setErrorDetails(appError);
       setError(appError.userMessage);
       notifyError(appError.userMessage, "Payment failed");
       setTransactionHash(appError.transactionHash || "");
@@ -204,6 +209,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
     if (!recovery) return;
     setBusy(true);
     setError("");
+    setErrorDetails(null);
     setMessage("Checking submitted transaction…");
 
     try {
@@ -316,8 +322,16 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
       )}
 
       {error && (
-        <div className="text-xs text-red-600 text-center" role="alert" aria-live="polite">
-          <p>{error}</p>
+        <div
+          className="w-full rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900"
+          role="alert"
+          aria-live="polite"
+        >
+          <p className="font-semibold">{errorDetails?.code?.replaceAll("_", " ") || "Payment needs attention"}</p>
+          <p className="mt-1">{error}</p>
+          {errorDetails?.action && (
+            <p className="mt-1 text-xs">Next step: {errorDetails.action}</p>
+          )}
           {transactionHash && (
             <a
               className="mt-1 inline-flex min-h-11 items-center justify-center px-2 underline"
