@@ -82,6 +82,7 @@ timestamp, status }` and transitions `Pending → Paid → Shipped/Refunded`.
 - [Paying with Stellar (testnet)](#paying-with-stellar-testnet)
 - [Next.js Stellar integration tutorial](docs/NEXTJS_STELLAR_INTEGRATION.md)
 - [Testnet wallet walkthrough](docs/TESTNET_WALLET_WALKTHROUGH.md)
+- [Stellar and Soroban glossary](docs/GLOSSARY.md)
 - [Testnet checkout validation](docs/TESTNET_CHECKOUT.md)
 - [Environment Variables Reference](#environment-variables-reference)
 - [Stellar network configuration matrix](docs/NETWORK_CONFIGURATION.md)
