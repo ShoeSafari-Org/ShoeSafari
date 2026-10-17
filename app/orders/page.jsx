@@ -205,7 +205,7 @@ export default function OrdersPage() {
           <article key={order.id} className="border rounded-lg p-5 bg-white shadow-sm">
             <div className="flex flex-wrap justify-between gap-3 mb-4">
               <div>
-                <h2 className="font-semibold">Order {order.orderId}</h2>
+                <h2 className="font-semibold"><Link href={`/orders/${order.id}`} className="text-red-700 underline">Order {order.orderId}</Link></h2>
                 <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
               </div>
               <span className={`h-fit rounded-full px-3 py-1 text-sm ${order.verifiedStatus ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}>
