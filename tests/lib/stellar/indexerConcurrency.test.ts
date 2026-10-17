@@ -40,6 +40,7 @@ describe("PaymentEventIndexer poll concurrency guard", () => {
   });
 
   afterEach(() => {
+    window.localStorage.clear();
     vi.restoreAllMocks();
   });
 
@@ -51,9 +52,9 @@ describe("PaymentEventIndexer poll concurrency guard", () => {
     const callbacks = makeCallbacks();
 
     // First tick starts a request that never resolves yet.
-    const first = (indexer as any).poll(callbacks) as Promise<void>;
+    const first = (indexer as any).poll(callbacks, (indexer as any).generation) as Promise<void>;
     // Second tick fires while the first is still awaiting the RPC response.
-    const second = (indexer as any).poll(callbacks) as Promise<void>;
+    const second = (indexer as any).poll(callbacks, (indexer as any).generation) as Promise<void>;
 
     // The overlapping tick is a no-op and resolves immediately.
     await second;
@@ -67,7 +68,7 @@ describe("PaymentEventIndexer poll concurrency guard", () => {
     await first;
 
     expect((indexer as any).cursor).toBe("cursor-after-slow");
-    expect((indexer as any).isPolling).toBe(false);
+    expect((indexer as any).pollInFlight).toBe(false);
   });
 
   it("advances the cursor only once a delayed response completes", async () => {
@@ -76,11 +77,11 @@ describe("PaymentEventIndexer poll concurrency guard", () => {
     (indexer as any).server.getEvents = getEvents;
 
     const callbacks = makeCallbacks();
-    const poll = (indexer as any).poll(callbacks) as Promise<void>;
+    const poll = (indexer as any).poll(callbacks, (indexer as any).generation) as Promise<void>;
 
     // Still mid-flight: no cursor update yet.
     expect((indexer as any).cursor).toBeUndefined();
-    expect((indexer as any).isPolling).toBe(true);
+    expect((indexer as any).pollInFlight).toBe(true);
 
     pending.resolve(emptyResponse("cursor-1") as never);
     await poll;
@@ -98,13 +99,13 @@ describe("PaymentEventIndexer poll concurrency guard", () => {
     const callbacks = makeCallbacks();
 
     // First poll rejects; the error is handled and the flag is cleared.
-    await (indexer as any).poll(callbacks);
-    expect((indexer as any).isPolling).toBe(false);
+    await (indexer as any).poll(callbacks, (indexer as any).generation);
+    expect((indexer as any).pollInFlight).toBe(false);
     expect(callbacks.onError).toHaveBeenCalled();
     expect((indexer as any).cursor).toBeUndefined();
 
     // A later tick runs because the in-flight flag was reset in `finally`.
-    await (indexer as any).poll(callbacks);
+    await (indexer as any).poll(callbacks, (indexer as any).generation);
 
     expect(getEvents).toHaveBeenCalledTimes(2);
     expect((indexer as any).cursor).toBe("cursor-2");

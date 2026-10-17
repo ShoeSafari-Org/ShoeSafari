@@ -9,6 +9,7 @@ import {
 import { scValToString } from "./scval";
 import { EventDeduplicator } from "./eventDeduplicator";
 import { decodeOrderContractEventFields } from "./events";
+import { readIndexerCursor, writeIndexerCursor } from "./indexerCursor";
 
 // ---------------------------------------------------------------------------
 // Real-time event indexer.
@@ -79,6 +80,7 @@ export class PaymentEventIndexer {
   ) {
     this.server = new rpc.Server(opts.rpcUrl ?? RPC_URL);
     this.contractId = opts.contractId ?? CHECKOUT_CONTRACT_ID;
+    this.cursor = readIndexerCursor(this.contractId);
     this.pollMs = opts.pollMs ?? EVENT_POLL_INTERVAL_MS;
     this.watchedSymbols = opts.watchedSymbols ?? ["pay", "create_order", "dispatch", "refund"];
   }
@@ -124,7 +126,9 @@ export class PaymentEventIndexer {
       const latest = await this.server.getLatestLedger();
       if (!this.isActive(generation)) return;
       this.latestLedger = latest.sequence;
-      this.startLedger = Math.max(1, this.latestLedger - EVENT_START_LEDGER_BACKFILL);
+      if (!this.cursor) {
+        this.startLedger = Math.max(1, this.latestLedger - EVENT_START_LEDGER_BACKFILL);
+      }
       callbacks.onStatus?.(this.status);
     } catch (err) {
       if (!this.isActive(generation)) return;
@@ -153,11 +157,10 @@ export class PaymentEventIndexer {
       this.latestLedger = res.latestLedger;
       this.lastError = undefined;
 
-      if (this.startLedger !== undefined) {
-        this.startLedger = undefined;
-      }
-      if (res.cursor) {
+      if (res.cursor && res.cursor.trim()) {
         this.cursor = res.cursor;
+        this.startLedger = undefined;
+        writeIndexerCursor(this.contractId, res.cursor);
       }
 
       for (const raw of res.events) {
