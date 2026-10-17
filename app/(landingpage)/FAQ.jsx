@@ -6,12 +6,17 @@ const faqs = [
   {
     question: "What is Stellar and USDC?",
     answer:
-      "Stellar is a fast, low-cost blockchain network designed for payments. USDC is a stablecoin pegged to the US dollar — 1 USDC always equals $1. When you pay with USDC on Stellar, you get the speed of crypto with the stability of dollars.",
+      "Stellar is a blockchain network designed for payments. USDC is a dollar-referenced stablecoin, but its market price can fluctuate and its value is not guaranteed. Check the amount and network shown in your wallet before approving a payment.",
   },
   {
     question: "Do I need cryptocurrency experience?",
     answer:
       "Not at all! If you can install a browser extension and click 'approve,' you can pay with Stellar. Our checkout guides you through every step, and the Freighter wallet is designed to be beginner-friendly.",
+  },
+  {
+    question: "Is Stellar checkout live on mainnet?",
+    answer:
+      "This repository defaults to Stellar testnet. A production checkout requires the store operator to configure a mainnet network, token, and deployed checkout contract. Do not assume a store is accepting live Stellar payments unless its operator confirms that setup.",
   },
   {
     question: "How do I get USDC for my wallet?",
