@@ -1,0 +1,28 @@
+# Supply-chain hardening: these paths require maintainer review before merge.
+# Added after the PolinRider incident, in which a payload was injected into a
+# build-config file and spread via CI automation. Code owners here make review
+# of high-risk paths mandatory (enforce with "Require review from Code Owners"
+# in the main branch protection rule).
+
+# CI / automation and dev-environment config
+/.github/                 @zeemscript
+/.vscode/                 @zeemscript
+/.devcontainer/           @zeemscript
+
+# Dependency manifests and lifecycle scripts
+/package.json             @zeemscript
+/package-lock.json        @zeemscript
+
+# Build/tooling config files (where the payload was hidden)
+/*.config.js              @zeemscript
+/*.config.cjs             @zeemscript
+/*.config.mjs             @zeemscript
+/*.config.ts              @zeemscript
+/postcss.config.*         @zeemscript
+/tailwind.config.*        @zeemscript
+/next.config.*            @zeemscript
+
+# Static asset dirs where malicious font/binary files were planted
+/public/                  @zeemscript
+/static/                  @zeemscript
+/assets/                  @zeemscript
