@@ -71,6 +71,16 @@ impl MockToken {
     }
 }
 
+#[contract]
+pub struct RejectingToken;
+
+#[contractimpl]
+impl RejectingToken {
+    pub fn transfer(_env: Env, _from: Address, _to: Address, _amount: i128) {
+        panic!("transfer rejected");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -143,6 +153,25 @@ fn test_pay_escrows_then_dispatch_releases_to_merchant() {
 
     // A dispatched order is still considered paid (funds moved correctly).
     assert!(client.is_paid(&id));
+}
+
+#[test]
+fn test_rejected_transfer_does_not_mark_order_paid() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let token = env.register(RejectingToken, ());
+    let contract = env.register(Checkout, ());
+    let merchant = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let client = CheckoutClient::new(&env, &contract);
+    client.initialize(&merchant);
+    client.add_token(&token);
+
+    let id = order_id(&env, 247);
+    assert!(client.try_pay(&token, &buyer, &id, &10_000).is_err());
+    assert_eq!(client.order(&id), None);
+    assert!(!client.is_paid(&id));
 }
 
 #[test]
