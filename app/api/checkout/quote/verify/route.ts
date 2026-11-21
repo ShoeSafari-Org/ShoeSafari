@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { verifyCheckoutQuote } from "../../../../../lib/checkoutQuote";
+import {
+  CHECKOUT_QUOTE_MAX_SECRET_OVERLAP_MS,
+  verifyCheckoutQuote,
+} from "../../../../../lib/checkoutQuote";
 import { getFirebaseAdminDb } from "../../../../../lib/firebaseAdmin";
 import { isProductAvailable } from "../../../../../lib/productAvailability";
 import {
@@ -22,7 +25,17 @@ export async function POST(request: Request) {
 
   try {
     const { quoteToken } = await request.json();
-    const quote = verifyCheckoutQuote(quoteToken, secret);
+    const previousSecret = process.env.CHECKOUT_QUOTE_PREVIOUS_SECRET;
+    const configuredExpiry = Number(process.env.CHECKOUT_QUOTE_PREVIOUS_EXPIRES_AT);
+    const previousExpiresAt =
+      previousSecret && Number.isFinite(configuredExpiry)
+        ? Math.min(configuredExpiry, Date.now() + CHECKOUT_QUOTE_MAX_SECRET_OVERLAP_MS)
+        : undefined;
+    const quote = verifyCheckoutQuote(quoteToken, {
+      active: secret,
+      previous: previousSecret,
+      previousExpiresAt,
+    });
 
     if (quote.payment) {
       const expectedContract =

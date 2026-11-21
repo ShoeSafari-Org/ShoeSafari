@@ -87,4 +87,29 @@ describe("trusted checkout quotes", () => {
     );
     expect(() => verifyCheckoutQuote(token, secret, quote.expiresAt)).toThrow(/expired/i);
   });
+
+  it("accepts a previous secret only while its bounded overlap is active", () => {
+    const quote = createCheckoutQuote(
+      [{ productId: "boot", quantity: 1 }],
+      { boot: { name: "Boot", price: 10 } },
+      "SS-order",
+      1_000
+    );
+    const token = signCheckoutQuote(quote, "p".repeat(32));
+
+    expect(
+      verifyCheckoutQuote(token, {
+        active: "a".repeat(32),
+        previous: "p".repeat(32),
+        previousExpiresAt: 2_000,
+      }, 1_500).orderId
+    ).toBe("SS-order");
+    expect(() =>
+      verifyCheckoutQuote(token, {
+        active: "a".repeat(32),
+        previous: "p".repeat(32),
+        previousExpiresAt: 2_000,
+      }, 2_000)
+    ).toThrow(/signature/i);
+  });
 });

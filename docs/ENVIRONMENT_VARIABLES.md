@@ -34,6 +34,8 @@ and signing keys server-side without the `NEXT_PUBLIC_` prefix.
 | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | No | Firebase Analytics measurement ID. |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | No | Server-only Firebase Admin service-account JSON, used for trusted catalog reads. Never expose this value to the browser. |
 | `CHECKOUT_QUOTE_SECRET` | Yes for trusted checkout quotes | Server-only random HMAC key of at least 32 characters. Keep it in the deployment secret manager. |
+| `CHECKOUT_QUOTE_PREVIOUS_SECRET` | Optional during rotation | Previous server-only HMAC key accepted only until `CHECKOUT_QUOTE_PREVIOUS_EXPIRES_AT`; never used for signing. |
+| `CHECKOUT_QUOTE_PREVIOUS_EXPIRES_AT` | Optional during rotation | Unix timestamp in milliseconds for the bounded overlap window. Set it no more than one hour ahead; remove the previous secret after expiry. |
 | `FIREBASE_PROJECT_ID` | Only for admin script | Project ID used by `scripts/set-admin-claim.mjs`; set it in the trusted admin shell. |
 | `MONGO_DB_URI` | No | Optional MongoDB alternative; unused when the app uses Firestore. |
 

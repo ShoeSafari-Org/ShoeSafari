@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { isProductAvailable } from "./productAvailability";
 
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
+export const CHECKOUT_QUOTE_MAX_SECRET_OVERLAP_MS = 60 * 60 * 1000;
 const MAX_LINES = 50;
 const MAX_QUANTITY_PER_PRODUCT = 99;
 
@@ -117,16 +118,28 @@ export function signCheckoutQuote(quote: CheckoutQuote, secret: string): string 
 
 export function verifyCheckoutQuote(
   token: unknown,
-  secret: string,
+  secret: string | { active: string; previous?: string; previousExpiresAt?: number },
   now = Date.now()
 ): CheckoutQuote {
   if (typeof token !== "string") throw new Error("Invalid checkout quote.");
   const [payload, signature, extra] = token.split(".");
   if (!payload || !signature || extra) throw new Error("Invalid checkout quote.");
 
-  const expected = Buffer.from(signatureFor(payload, secret));
   const supplied = Buffer.from(signature);
-  if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
+  const secrets = typeof secret === "string" ? { active: secret } : secret;
+  const candidates = [secrets.active];
+  if (
+    secrets.previous &&
+    Number.isFinite(secrets.previousExpiresAt) &&
+    secrets.previousExpiresAt! > now
+  ) {
+    candidates.push(secrets.previous);
+  }
+  const valid = candidates.some((candidate) => {
+    const expected = Buffer.from(signatureFor(payload, candidate));
+    return expected.length === supplied.length && timingSafeEqual(expected, supplied);
+  });
+  if (!valid) {
     throw new Error("Invalid checkout quote signature.");
   }
 
