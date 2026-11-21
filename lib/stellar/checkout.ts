@@ -136,8 +136,8 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
       "Stellar network fee estimate unavailable. Fees are paid in XLM, separate from the USDC cart total."
     );
     throw new WalletError(
-      `Transaction simulation failed: ${report.error?.message ?? "unknown error"}`,
-      "TX_SIMULATION_ERROR"
+      `Transaction simulation failed (${report.error?.code ?? "unknown"}): ${report.error?.message ?? "unknown error"}`,
+      report.error?.code ?? "TX_SIMULATION_ERROR"
     );
   }
   const fee = await budgetFee(server, report);
