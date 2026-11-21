@@ -987,6 +987,36 @@ fn test_order_write_renews_persistent_ttl_below_threshold() {
 }
 
 #[test]
+fn test_admin_token_and_approval_storage_uses_ttl_policy_and_cleanup() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, _) = setup_usdc(&env);
+    let approver = Address::generate(&env);
+    client.set_approval_policy(&token, &50_000, &approver);
+
+    let (admin_ttl, token_ttl, policy_ttl) = env.as_contract(&client.address, || {
+        (
+            env.storage().persistent().get_ttl(&DataKey::Admin),
+            env.storage()
+                .persistent()
+                .get_ttl(&DataKey::TokenAllowed(token.clone())),
+            env.storage()
+                .persistent()
+                .get_ttl(&DataKey::ApprovalPolicy(token.clone())),
+        )
+    });
+    assert!(admin_ttl >= LEDGER_THRESHOLD);
+    assert!(token_ttl >= LEDGER_THRESHOLD);
+    assert!(policy_ttl >= LEDGER_THRESHOLD);
+
+    client.clear_approval_policy(&token);
+    client.remove_token(&token);
+    assert!(!client.is_token_allowed(&token));
+    assert!(client.approval_policy(&token).is_none());
+}
+
+#[test]
 fn test_unauthorized_dispatch() {
     let env = Env::default();
     env.mock_all_auths();
