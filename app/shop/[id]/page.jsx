@@ -1,16 +1,18 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { FaShoppingCart } from "react-icons/fa";
 import { useCart } from "../../../context/CartContext";
 import Modal from "../../../components/Modal";
 import Toast from "../../../components/Toast";
 import Cart from "../../../components/Cart";
 import { db } from "../../../lib/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { ProductImage } from "../../../components/OptimizedImage";
 import {
+  getRelatedProducts,
   isProductPurchasable,
   normalizeProduct,
 } from "../../../lib/productCatalog";
@@ -27,6 +29,7 @@ const ProductPage = ({ params }) => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "" });
   const { id } = params;
@@ -39,7 +42,22 @@ const ProductPage = ({ params }) => {
 
         if (docSnap.exists()) {
           const normalized = normalizeProduct(docSnap.data(), docSnap.id);
-          if (normalized) setProduct(normalized);
+          if (normalized) {
+            setProduct(normalized);
+            if (normalized.category.trim()) {
+              const relatedSnapshot = await getDocs(
+                query(
+                  collection(db, "ShoeSafariProducts"),
+                  where("category", "==", normalized.category),
+                  limit(6)
+                )
+              );
+              const candidates = relatedSnapshot.docs
+                .map((candidate) => normalizeProduct(candidate.data(), candidate.id))
+                .filter(Boolean);
+              setRelatedProducts(getRelatedProducts(candidates, normalized.id, normalized.category));
+            }
+          }
           else {
             setError(
               "This product information is incomplete. Please return to the catalog."
@@ -123,6 +141,20 @@ const ProductPage = ({ params }) => {
                 <FaShoppingCart /> <span className="px-2">Add to Cart</span>
               </button>
             </div>
+            {relatedProducts.length > 0 && (
+              <section className="mt-12" aria-labelledby="related-products-heading">
+                <h2 id="related-products-heading" className="mb-4 text-2xl font-bold">You may also like</h2>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  {relatedProducts.map((related) => (
+                    <Link key={related.id} href={`/shop/${related.id}`} className="rounded-lg border p-3 hover:shadow">
+                      <ProductImage src={related.img} alt={related.name} size="small" />
+                      <h3 className="mt-2 font-semibold">{related.name}</h3>
+                      <p>{related.price === null ? "Price unavailable" : `$${related.price}`}</p>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>
