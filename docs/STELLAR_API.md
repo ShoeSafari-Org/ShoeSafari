@@ -8,6 +8,11 @@ It is the reference for contract method signatures, argument order, event
 names, and order status values. Run `npm run check:checkout-interface` when
 changing the frontend decoder or the contract interface.
 
+Payment confirmation accepts only a successful transaction with a valid hash,
+ledger, five-topic `pay` event, positive amount, and the expected contract,
+buyer, token, order hash, and amount. Unrelated or malformed events are
+skipped, so a transaction cannot be credited from an ambiguous event.
+
 ## Payment
 
 ### `lib/stellar/checkout.ts`
