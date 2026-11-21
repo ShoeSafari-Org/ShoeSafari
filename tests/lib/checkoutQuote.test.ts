@@ -68,6 +68,20 @@ describe("trusted checkout quotes", () => {
     expect(() => createCheckoutQuote(items, catalog, "SS-order")).toThrow();
   });
 
+  it("rejects quantities above stock and releases expired reservations", () => {
+    expect(() => createCheckoutQuote(
+      [{ productId: "boot", quantity: 2 }],
+      { boot: { name: "Boot", price: 20, stockQuantity: 2, reservedQuantity: 1 } },
+      "SS-stock"
+    )).toThrow();
+
+    expect(createCheckoutQuote(
+      [{ productId: "boot", quantity: 2 }],
+      { boot: { name: "Boot", price: 20, stockQuantity: 2, reservedQuantity: 2, reservationExpiresAt: 1 } },
+      "SS-expired"
+    ).items[0].quantity).toBe(2);
+  });
+
   it("rejects a modified total and an expired signed quote", () => {
     const quote = createCheckoutQuote(
       [{ productId: "boot", quantity: 1 }],

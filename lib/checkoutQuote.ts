@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
-import { isProductAvailable } from "./productAvailability";
+import { canReserveQuantity, isProductAvailable } from "./productAvailability";
 
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
 const MAX_LINES = 50;
@@ -74,7 +74,7 @@ export function createCheckoutQuote(
   const items = [...quantities.entries()].map(([productId, quantity]) => {
     const product = products[productId];
     if (!product) throw new Error(`Product ${productId} is unavailable.`);
-    if (!isProductAvailable(product)) {
+    if (!isProductAvailable(product, now) || !canReserveQuantity(product, quantity, now)) {
       throw new Error(`Product ${productId} is unavailable.`);
     }
     const price = Number(product.price);
