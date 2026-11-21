@@ -15,6 +15,7 @@ import {
   NETWORK_PASSPHRASE,
 } from "./config";
 import { addressToScVal } from "./scval";
+import { recordRpcHealth } from "./rpcHealth";
 
 // ---------------------------------------------------------------------------
 // Pre-flight simulation utilities.
@@ -91,7 +92,15 @@ export async function simulateContractRead(
 ): Promise<xdr.ScVal | null> {
   const account = new Account(source ?? Keypair.random().publicKey(), "0");
   const tx = buildInvocationTransaction(account, contractId, fn, args);
-  const sim = await server.simulateTransaction(tx);
+  const started = performance.now();
+  let sim;
+  try {
+    sim = await server.simulateTransaction(tx);
+    recordRpcHealth("read", "success", performance.now() - started);
+  } catch (error) {
+    recordRpcHealth("read", "failure", performance.now() - started, error);
+    throw error;
+  }
   if (rpc.Api.isSimulationError(sim)) return null;
   return sim.result?.retval ?? null;
 }
@@ -128,7 +137,15 @@ export async function readTokenDecimals(
  * mutate the transaction; use `prepareAndReport` for the final tx.
  */
 export async function preflight(server: rpc.Server, tx: Transaction): Promise<SimulationReport> {
-  const sim = await server.simulateTransaction(tx);
+  const started = performance.now();
+  let sim;
+  try {
+    sim = await server.simulateTransaction(tx);
+    recordRpcHealth("simulate", "success", performance.now() - started);
+  } catch (error) {
+    recordRpcHealth("simulate", "failure", performance.now() - started, error);
+    throw error;
+  }
 
   if (rpc.Api.isSimulationError(sim)) {
     const diagnostics =
@@ -183,13 +200,16 @@ export async function prepareAndReport(
  * falls back to BASE_FEE when stats are unavailable.
  */
 export async function recommendedInclusionFee(server: rpc.Server): Promise<bigint> {
+  const started = performance.now();
   try {
     const stats = await server.getFeeStats();
+    recordRpcHealth("read", "success", performance.now() - started);
     const max = stats.sorobanInclusionFee?.max;
     if (typeof max === "string" && /^\d+$/.test(max)) {
       return BigInt(max);
     }
   } catch {
+    recordRpcHealth("read", "failure", performance.now() - started, "fee_stats");
     // ignore and fall through
   }
   return BigInt(BASE_FEE);
