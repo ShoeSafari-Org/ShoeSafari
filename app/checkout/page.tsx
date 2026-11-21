@@ -16,7 +16,7 @@ import {
   USDC_CONTRACT_ID,
 } from "../../lib/stellar/config";
 import { logClientError } from "../../lib/safeLogging";
-import { isShippingAddressComplete } from "../../lib/shippingAddress";
+import { validateShippingAddress } from "../../lib/shippingAddress";
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -101,7 +101,7 @@ const Checkout = () => {
         orderId: completedOrderId,
         result,
         expectedPayment: result.expectedPayment,
-        customer: formData,
+        customer: { ...formData, address: shippingValidation.address },
         userId: user?.uid || null,
         items: result.items || (Array.isArray(storedItems) ? storedItems : []),
       });
@@ -153,7 +153,8 @@ const Checkout = () => {
     Boolean(formData.firstName.trim()) &&
     Boolean(formData.lastName.trim()) &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim()) &&
-    isShippingAddressComplete(formData.address);
+    validateShippingAddress(formData.address).isValid;
+  const shippingValidation = validateShippingAddress(formData.address);
 
   useEffect(() => {
     let active = true;
@@ -420,6 +421,11 @@ const Checkout = () => {
                 {!customerDetailsComplete && (
                   <p className="text-sm text-gray-600" role="status">
                     Enter your name, email, street, city, region, postal code, and country to continue to payment.
+                  </p>
+                )}
+                {!shippingValidation.isValid && formData.address.country && (
+                  <p className="text-sm text-red-700" role="alert">
+                    {shippingValidation.errors.country || shippingValidation.errors.postalCode || "Enter a valid shipping address."}
                   </p>
                 )}
               </section>
