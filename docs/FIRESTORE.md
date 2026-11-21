@@ -22,6 +22,12 @@ quote. Do not put customer, payment, or order data in product documents. The
 quote endpoint reads catalog prices server-side and calculates the payable
 total; browser-submitted prices and totals are untrusted.
 
+Price changes are written to the admin-only
+`ShoeSafariProducts/{productId}/priceHistory` subcollection with the previous
+price, new price, Firebase admin identity, and server timestamp. History is
+retained with the product for auditability; order and quote snapshots remain
+immutable and do not depend on the current catalog price.
+
 ## `ShoeSafariOrders/{orderDocumentId}`
 
 `lib/orderStore.js` creates an order after a successful Stellar payment. The
