@@ -238,23 +238,38 @@ const OrdersManagementContent = () => {
     running: boolean;
     eventsSeen: number;
   }>({ running: false, eventsSeen: 0 });
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setSearchTerm(searchInput.trim().toLowerCase()),
+      250
+    );
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const mergeCommerceOrders = useCallback(async () => {
     if (!db) return;
     const snapshot = await getDocs(collection(db, "ShoeSafariOrders"));
-    const commerceOrders = new Map(
-      snapshot.docs.map((orderDoc) => [orderDoc.data().orderId, {
+    const commerceOrders = new Map<string, OrderEvent["commerce"]>();
+    snapshot.docs.forEach((orderDoc) => {
+      const data = orderDoc.data();
+      const commerce = {
         documentId: orderDoc.id,
-        customer: orderDoc.data().customer,
-        items: orderDoc.data().items,
-        userId: orderDoc.data().userId,
-        buyerWallet: orderDoc.data().buyerWallet,
-        status: orderDoc.data().status,
-        completedAt: orderDoc.data().completedAt,
-        updatedAt: orderDoc.data().updatedAt,
-        personalDataAnonymizedAt: orderDoc.data().personalDataAnonymizedAt,
-      }])
-    );
+        orderReference: data.orderId,
+        customer: data.customer,
+        items: data.items,
+        userId: data.userId,
+        buyerWallet: data.buyerWallet,
+        status: data.status,
+        completedAt: data.completedAt,
+        updatedAt: data.updatedAt,
+        personalDataAnonymizedAt: data.personalDataAnonymizedAt,
+      };
+      if (data.orderId) commerceOrders.set(data.orderId, commerce);
+      if (data.orderIdHash) commerceOrders.set(data.orderIdHash, commerce);
+    });
 
     setOrders((previous) => {
       const merged = new Map(previous);
@@ -445,13 +460,27 @@ const OrdersManagementContent = () => {
     (a, b) => b.timestamp - a.timestamp
   );
 
+  const visibleOrders = sortedOrders.filter((order) => {
+    if (
+      searchTerm &&
+      ![
+        order.orderId,
+        order.buyer,
+        order.txHash,
+        order.commerce?.orderReference || "",
+        order.commerce?.documentId || "",
+      ].some((value) => value.toLowerCase().includes(searchTerm))
+    ) return false;
+    return true;
+  });
+
   // Stats
   const stats = {
-    total: sortedOrders.length,
-    pending: sortedOrders.filter((o) => o.status === "Pending").length,
-    paid: sortedOrders.filter((o) => o.status === "Paid").length,
-    shipped: sortedOrders.filter((o) => o.status === "Shipped").length,
-    refunded: sortedOrders.filter((o) => o.status === "Refunded").length,
+    total: visibleOrders.length,
+    pending: visibleOrders.filter((o) => o.status === "Pending").length,
+    paid: visibleOrders.filter((o) => o.status === "Paid").length,
+    shipped: visibleOrders.filter((o) => o.status === "Shipped").length,
+    refunded: visibleOrders.filter((o) => o.status === "Refunded").length,
   };
 
   return (
@@ -558,16 +587,35 @@ const OrdersManagementContent = () => {
             <MdRefresh /> Refresh
           </button>
         </div>
+        <div className="px-6 py-4 border-b bg-gray-50">
+          <label className="block max-w-xl text-sm text-gray-700">
+            <span className="block mb-1 font-medium">Search reference, wallet, or transaction hash</span>
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search identifiers"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2"
+              aria-describedby="order-search-help"
+            />
+            <span id="order-search-help" className="sr-only">Search is applied after a short delay.</span>
+          </label>
+          <p className="mt-3 text-sm text-gray-600" role="status" aria-live="polite">
+            Showing {visibleOrders.length} of {sortedOrders.length} orders
+          </p>
+        </div>
 
         {isLoading ? (
           <div className="p-12 text-center">
             <AiOutlineLoading3Quarters className="animate-spin text-4xl text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">Loading orders from blockchain...</p>
           </div>
-        ) : sortedOrders.length === 0 ? (
+        ) : visibleOrders.length === 0 ? (
           <div className="p-12 text-center">
             <SiStellar className="text-6xl text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-2">No orders found</p>
+            <p className="text-gray-500 mb-2">
+              {sortedOrders.length === 0 ? "No orders found" : "No orders match the search"}
+            </p>
             <p className="text-gray-400 text-sm">
               Orders will appear here when customers pay with Stellar USDC
             </p>
@@ -601,7 +649,7 @@ const OrdersManagementContent = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedOrders.map((order) => (
+                {visibleOrders.map((order) => (
                   <OrderRow
                     key={order.orderId}
                     order={order}
