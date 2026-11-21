@@ -27,6 +27,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../lib/firebaseConfig";
 import {
   anonymizeStellarOrderPersonalData,
+  reconcileStellarOrderEvent,
   updateStellarOrderStatus,
 } from "../../../lib/orderStore";
 import { isOrderRetentionDue } from "../../../lib/orderRetention";
@@ -274,6 +275,9 @@ const OrdersManagementContent = () => {
       onEvent: (event: IndexedEvent) => {
         const order = eventToOrder(event);
         if (order) {
+          void reconcileStellarOrderEvent({ order, event }).catch((reconciliationError) =>
+            logClientError("Could not reconcile chain status to Firestore", reconciliationError)
+          );
           setOrders((prev) => {
             const newMap = new Map(prev);
             // Update existing order or add new one
