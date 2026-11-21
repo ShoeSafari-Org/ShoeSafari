@@ -4,21 +4,7 @@ import axe from "axe-core";
 async function expectAccessible(page: Page) {
   await page.addScriptTag({ content: axe.source });
   const violations = await page.evaluate(async () => {
-    const axeApi = (window as Window & {
-      axe: {
-        run: (
-          context: Document,
-          options: { runOnly: string[] }
-        ) => Promise<{
-          violations: Array<{
-            id: string;
-            impact: string | null;
-            help: string;
-            nodes: Array<{ target: string[]; failureSummary: string | null }>;
-          }>;
-        };
-      };
-    }).axe;
+    const axeApi = (window as Window & { axe: typeof axe }).axe;
     const results = await axeApi.run(document, {
       runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
     });
