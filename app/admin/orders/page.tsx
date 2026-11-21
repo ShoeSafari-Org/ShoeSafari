@@ -322,6 +322,17 @@ const OrdersManagementContent = () => {
 
   // Handle dispatch order
   const handleDispatch = useCallback(async (orderId: string) => {
+    const order = orders.get(orderId);
+    if (!order) return;
+    if (!window.confirm([
+      "Confirm dispatch: release escrow to the merchant?",
+      `Order: ${order.orderId}`,
+      `Buyer: ${order.buyer}`,
+      `Token: ${order.token} (${order.tokenSymbol})`,
+      `Amount: ${order.amount}`,
+      `Current status: ${order.status}`,
+      "Destination: merchant wallet configured on-chain",
+    ].join("\n"))) return;
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -331,14 +342,19 @@ const OrdersManagementContent = () => {
 
       if (result.success) {
         setSuccessMessage(
-          `Order ${truncateAddress(orderId)} dispatched successfully!`
+          `Order ${truncateAddress(orderId)} dispatched successfully. Transaction: ${result.txHash || "confirmed"}`
         );
         // Update local state
         setOrders((prev) => {
           const newMap = new Map(prev);
           const existing = newMap.get(orderId);
           if (existing) {
-            newMap.set(orderId, { ...existing, status: "Shipped" });
+            newMap.set(orderId, {
+              ...existing,
+              status: "Shipped",
+              txHash: result.txHash || existing.txHash,
+              ledger: result.ledger || existing.ledger,
+            });
           }
           return newMap;
         });
@@ -404,6 +420,17 @@ const OrdersManagementContent = () => {
 
   // Handle refund order
   const handleRefund = useCallback(async (orderId: string) => {
+    const order = orders.get(orderId);
+    if (!order) return;
+    if (!window.confirm([
+      "Confirm refund: return escrow to the buyer?",
+      `Order: ${order.orderId}`,
+      `Buyer: ${order.buyer}`,
+      `Token: ${order.token} (${order.tokenSymbol})`,
+      `Amount: ${order.amount}`,
+      `Current status: ${order.status}`,
+      "This action cannot be undone.",
+    ].join("\n"))) return;
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -413,14 +440,19 @@ const OrdersManagementContent = () => {
 
       if (result.success) {
         setSuccessMessage(
-          `Order ${truncateAddress(orderId)} refunded successfully!`
+          `Order ${truncateAddress(orderId)} refunded successfully. Transaction: ${result.txHash || "confirmed"}`
         );
         // Update local state
         setOrders((prev) => {
           const newMap = new Map(prev);
           const existing = newMap.get(orderId);
           if (existing) {
-            newMap.set(orderId, { ...existing, status: "Refunded" });
+            newMap.set(orderId, {
+              ...existing,
+              status: "Refunded",
+              txHash: result.txHash || existing.txHash,
+              ledger: result.ledger || existing.ledger,
+            });
           }
           return newMap;
         });
