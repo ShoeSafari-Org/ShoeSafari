@@ -11,6 +11,7 @@ import {
   validateProductImage,
   validatePrice,
 } from "../../lib/validation";
+import { validateProductDocument } from "../../lib/productCatalog";
 
 const EditProductForm = ({ productId, onProductUpdated }) => {
   const [productName, setProductName] = useState("");
@@ -86,14 +87,20 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
         imageUrl = await getDownloadURL(snapshot.ref);
       }
 
-      const docRef = doc(db, "ShoeSafariProducts", productId);
-      await updateDoc(docRef, {
+      const product = {
         name: productName,
         category: productCategory.trim(),
         price: Number(priceValidation.sanitized),
         img: imageUrl,
         available,
-      });
+      };
+      const productValidation = validateProductDocument(product, { requireImage: true });
+      if (!productValidation.isValid) {
+        throw new Error("Product fields are invalid: " + JSON.stringify(productValidation.errors));
+      }
+
+      const docRef = doc(db, "ShoeSafariProducts", productId);
+      await updateDoc(docRef, product);
 
       setSuccessMessage("Product updated successfully!");
       onProductUpdated();

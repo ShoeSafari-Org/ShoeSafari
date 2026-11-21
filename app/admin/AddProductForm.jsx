@@ -12,6 +12,7 @@ import {
   validateProductImage,
   validatePrice,
 } from "../../lib/validation";
+import { validateProductDocument } from "../../lib/productCatalog";
 
 const AddProductForm = ({ onProductAdded }) => {
   const [productName, setProductName] = useState("");
@@ -59,14 +60,20 @@ const AddProductForm = ({ onProductAdded }) => {
       });
       const imageUrl = await getDownloadURL(snapshot.ref);
 
-      // Add product details to Firestore
-      await addDoc(collection(db, "ShoeSafariProducts"), {
+      const product = {
         name: productName,
         category: productCategory.trim(),
         price: Number(priceValidation.sanitized),
-        img: imageUrl, // Save image URL to Firestore
+        img: imageUrl,
         available: true,
-      });
+      };
+      const productValidation = validateProductDocument(product, { requireImage: true });
+      if (!productValidation.isValid) {
+        throw new Error("Product fields are invalid: " + JSON.stringify(productValidation.errors));
+      }
+
+      // Add product details to Firestore
+      await addDoc(collection(db, "ShoeSafariProducts"), product);
 
       showToast("Product added successfully!");
       setProductName("");

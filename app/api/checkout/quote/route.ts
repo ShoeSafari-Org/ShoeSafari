@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createCheckoutQuote, signCheckoutQuote } from "../../../../lib/checkoutQuote";
 import { getFirebaseAdminDb } from "../../../../lib/firebaseAdmin";
+import { validateProductDocument } from "../../../../lib/productCatalog";
 import {
   NATIVE_ASSET_CONTRACT_ID,
   tokenForContract,
@@ -44,6 +45,16 @@ export async function POST(request: Request) {
         snapshot?.exists ? [[productIds[index], snapshot.data()]] : []
       )
     );
+    const invalidProducts = Object.entries(products).flatMap(([productId, product]) => {
+      const validation = validateProductDocument(product, { requireImage: true });
+      return validation.isValid ? [] : [{ productId, errors: validation.errors }];
+    });
+    if (invalidProducts.length) {
+      return NextResponse.json(
+        { error: "Product catalog validation failed.", fields: invalidProducts },
+        { status: 503 }
+      );
+    }
     const quote = createCheckoutQuote(requestedItems, products, body?.orderId);
     const asset = body?.paymentAsset ?? "USDC";
     if (asset !== "USDC" && asset !== "XLM") {
