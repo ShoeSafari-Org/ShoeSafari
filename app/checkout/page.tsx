@@ -17,6 +17,7 @@ import {
 } from "../../lib/stellar/config";
 import { logClientError } from "../../lib/safeLogging";
 import { isShippingAddressComplete } from "../../lib/shippingAddress";
+import { createCustomerOrderReference } from "../../lib/orderReference";
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -58,7 +59,7 @@ const Checkout = () => {
     setToast({ show: true, message });
   };
 
-  const [orderId] = useState(() => `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
+  const [orderId] = useState(() => createCustomerOrderReference());
 
   const handleStellarSuccess = async (result: {
     amountUsd: number | string;
@@ -509,7 +510,7 @@ const Checkout = () => {
                 />
                 <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
                 <p className="text-[11px] text-gray-700 text-center">
-                  Order #{orderId} · {paymentAsset} (testnet) is escrowed by a Soroban smart contract
+                  Customer reference {orderId} · {paymentAsset} (testnet) is escrowed by a Soroban smart contract
                   until we ship, then released to our merchant wallet. Refunds go straight back
                   on-chain. Payment is completed through Freighter.
                 </p>
