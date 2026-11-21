@@ -22,4 +22,6 @@ pub enum Error {
     OrderTermsMismatch = 8,
     /// The optional high-value approval policy is invalid or has conflicting signers.
     InvalidApprovalPolicy = 9,
+    /// New order creation and payments are paused by the merchant.
+    Paused = 10,
 }

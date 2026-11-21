@@ -11,6 +11,8 @@ pub const LEDGER_TO_EXTEND_TO: u32 = 10_000;
 pub enum DataKey {
     /// The merchant wallet that owns the contract and can dispatch/refund.
     Admin,
+    /// Whether new order creation and payments are paused for incident response.
+    Paused,
     /// An order registry entry, keyed by 32-byte order id.
     Order(BytesN<32>),
     /// Whether the given SEP-41 token contract is accepted by the merchant.
@@ -30,6 +32,15 @@ pub struct ApprovalPolicy {
 
 pub fn has_admin(env: &Env) -> bool {
     env.storage().persistent().has(&DataKey::Admin)
+}
+
+pub fn is_paused(env: &Env) -> bool {
+    env.storage().persistent().get(&DataKey::Paused).unwrap_or(false)
+}
+
+pub fn set_paused(env: &Env, paused: bool) {
+    env.storage().persistent().set(&DataKey::Paused, &paused);
+    extend_ttl(env, &DataKey::Paused);
 }
 
 pub fn get_admin(env: &Env) -> Result<Address, Error> {

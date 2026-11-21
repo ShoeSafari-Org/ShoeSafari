@@ -100,3 +100,10 @@ pub struct TokenAllowlistChangedV1 {
     /// Whether the token is allowed after this change.
     pub allowed: bool,
 }
+
+/// Versioned event emitted when the merchant changes the incident-response pause state.
+#[contractevent]
+pub struct PauseChangedV1 {
+    /// Whether new order creation and payments are paused.
+    pub paused: bool,
+}
