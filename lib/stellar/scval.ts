@@ -120,11 +120,20 @@ export function bytesToHex(bytes: Uint8Array): string {
     .join("");
 }
 
+/** The cross-language order-id encoding contract. */
+export const ORDER_ID_HASH_ALGORITHM = "SHA-256" as const;
+
 /**
- * SHA-256 a string order id into a 32-byte value accepted by the contract.
+ * UTF-8 encode the exact caller-provided string, then SHA-256 it into the
+ * 32-byte value accepted by the contract. No Unicode normalization is applied.
  */
 export async function hashOrderId(orderId: string): Promise<Uint8Array> {
   const data = new TextEncoder().encode(orderId);
-  const digest = await crypto.subtle.digest("SHA-256", data);
+  const digest = await crypto.subtle.digest(ORDER_ID_HASH_ALGORITHM, data);
   return new Uint8Array(digest);
+}
+
+/** Return the canonical lowercase hash for support and cross-language lookup. */
+export async function hashOrderIdHex(orderId: string): Promise<string> {
+  return bytesToHex(await hashOrderId(orderId));
 }
