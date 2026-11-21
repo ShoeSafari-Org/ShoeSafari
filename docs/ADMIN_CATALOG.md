@@ -48,3 +48,8 @@ Firebase Storage accepts only admin uploads and image content types under
 Never put service-account credentials, customer data, or payment secrets in a
 product record, image filename, or support report. Admin navigation in the UI
 does not replace the Firebase Firestore and Storage rules.
+
+Product surfaces use explicit image variants: 150px cards, 300px listing/detail
+images, and 500px large views. The Next.js image optimizer receives matching
+`width`, `sizes`, and quality hints, while the existing fallback image and alt
+text remain in effect when a source fails.
