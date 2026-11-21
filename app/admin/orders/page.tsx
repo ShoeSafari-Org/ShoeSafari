@@ -238,6 +238,36 @@ const OrdersManagementContent = () => {
     running: boolean;
     eventsSeen: number;
   }>({ running: false, eventsSeen: 0 });
+  const [statusFilter, setStatusFilter] = useState(() =>
+    typeof window === "undefined"
+      ? "All"
+      : new URLSearchParams(window.location.search).get("status") || "All"
+  );
+  const [tokenFilter, setTokenFilter] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("token") || ""
+  );
+  const [fromDate, setFromDate] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("from") || ""
+  );
+  const [toDate, setToDate] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("to") || ""
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (statusFilter !== "All") params.set("status", statusFilter);
+    if (tokenFilter) params.set("token", tokenFilter);
+    if (fromDate) params.set("from", fromDate);
+    if (toDate) params.set("to", toDate);
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }, [statusFilter, tokenFilter, fromDate, toDate]);
 
   const mergeCommerceOrders = useCallback(async () => {
     if (!db) return;
@@ -445,14 +475,23 @@ const OrdersManagementContent = () => {
     (a, b) => b.timestamp - a.timestamp
   );
 
+  const visibleOrders = sortedOrders.filter((order) => {
+    if (statusFilter !== "All" && order.status !== statusFilter) return false;
+    if (tokenFilter && order.tokenSymbol.toLowerCase() !== tokenFilter.toLowerCase()) return false;
+    if (fromDate && order.timestamp < new Date(`${fromDate}T00:00:00`).getTime()) return false;
+    if (toDate && order.timestamp > new Date(`${toDate}T23:59:59.999`).getTime()) return false;
+    return true;
+  });
+
   // Stats
   const stats = {
-    total: sortedOrders.length,
-    pending: sortedOrders.filter((o) => o.status === "Pending").length,
-    paid: sortedOrders.filter((o) => o.status === "Paid").length,
-    shipped: sortedOrders.filter((o) => o.status === "Shipped").length,
-    refunded: sortedOrders.filter((o) => o.status === "Refunded").length,
+    total: visibleOrders.length,
+    pending: visibleOrders.filter((o) => o.status === "Pending").length,
+    paid: visibleOrders.filter((o) => o.status === "Paid").length,
+    shipped: visibleOrders.filter((o) => o.status === "Shipped").length,
+    refunded: visibleOrders.filter((o) => o.status === "Refunded").length,
   };
+  const tokenOptions = Array.from(new Set(sortedOrders.map((order) => order.tokenSymbol))).sort();
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -559,12 +598,60 @@ const OrdersManagementContent = () => {
           </button>
         </div>
 
+        <div className="px-6 py-4 border-b bg-gray-50">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">Status</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2"
+              >
+                <option value="All">All statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Paid">Paid</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Refunded">Refunded</option>
+              </select>
+            </label>
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">Token</span>
+              <select
+                value={tokenFilter}
+                onChange={(event) => setTokenFilter(event.target.value)}
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2"
+              >
+                <option value="">All tokens</option>
+                {tokenOptions.map((token) => <option key={token} value={token}>{token}</option>)}
+              </select>
+            </label>
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">From</span>
+              <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="w-full rounded border border-gray-300 bg-white px-3 py-2" />
+            </label>
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">To</span>
+              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="w-full rounded border border-gray-300 bg-white px-3 py-2" />
+            </label>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter("All"); setTokenFilter(""); setFromDate(""); setToDate(""); }}
+              className="rounded border border-gray-400 px-3 py-2 text-sm text-gray-700 hover:bg-white"
+            >
+              Clear filters
+            </button>
+          </div>
+          <p className="mt-3 text-sm text-gray-600" role="status" aria-live="polite">
+            Showing {visibleOrders.length} of {sortedOrders.length} orders
+          </p>
+        </div>
+
         {isLoading ? (
           <div className="p-12 text-center">
             <AiOutlineLoading3Quarters className="animate-spin text-4xl text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">Loading orders from blockchain...</p>
           </div>
-        ) : sortedOrders.length === 0 ? (
+        ) : visibleOrders.length === 0 ? (
           <div className="p-12 text-center">
             <SiStellar className="text-6xl text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 mb-2">No orders found</p>
@@ -601,7 +688,7 @@ const OrdersManagementContent = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedOrders.map((order) => (
+                {visibleOrders.map((order) => (
                   <OrderRow
                     key={order.orderId}
                     order={order}
