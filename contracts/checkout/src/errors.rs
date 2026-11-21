@@ -22,4 +22,6 @@ pub enum Error {
     OrderTermsMismatch = 8,
     /// The optional high-value approval policy is invalid or has conflicting signers.
     InvalidApprovalPolicy = 9,
+    /// Pagination cursor or page size is outside the supported bounds.
+    InvalidPagination = 10,
 }
