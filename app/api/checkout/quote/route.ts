@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { createCheckoutQuote, signCheckoutQuote } from "../../../../lib/checkoutQuote";
+import {
+  createCheckoutQuote,
+  MAX_QUOTE_REQUEST_BYTES,
+  signCheckoutQuote,
+  validateCheckoutQuoteRequest,
+} from "../../../../lib/checkoutQuote";
 import { getFirebaseAdminDb } from "../../../../lib/firebaseAdmin";
 import {
   NATIVE_ASSET_CONTRACT_ID,
@@ -17,7 +22,17 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (Buffer.byteLength(rawBody, "utf8") > MAX_QUOTE_REQUEST_BYTES) {
+      return NextResponse.json({ error: "Checkout request is too large." }, { status: 400 });
+    }
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid checkout request." }, { status: 400 });
+    }
+    const validated = validateCheckoutQuoteRequest(body);
     const secret = process.env.CHECKOUT_QUOTE_SECRET;
     if (!secret || secret.length < 32) {
       return NextResponse.json(
@@ -26,10 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const requestedItems = body?.items;
-    if (!Array.isArray(requestedItems)) {
-      return NextResponse.json({ error: "Checkout items are required." }, { status: 400 });
-    }
+    const requestedItems = validated.items;
 
     const db = getFirebaseAdminDb();
     const productIds = [...new Set(requestedItems.map((item) => item?.productId))];
@@ -44,11 +56,8 @@ export async function POST(request: Request) {
         snapshot?.exists ? [[productIds[index], snapshot.data()]] : []
       )
     );
-    const quote = createCheckoutQuote(requestedItems, products, body?.orderId);
-    const asset = body?.paymentAsset ?? "USDC";
-    if (asset !== "USDC" && asset !== "XLM") {
-      return NextResponse.json({ error: "Choose USDC or XLM to pay." }, { status: 400 });
-    }
+    const quote = createCheckoutQuote(requestedItems, products, validated.orderId);
+    const asset = validated.paymentAsset;
     if (asset === "XLM") {
       const spot = await fetchXlmSpotPrice();
       quote.payment = {

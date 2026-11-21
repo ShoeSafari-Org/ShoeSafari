@@ -2,6 +2,7 @@ import {
   CHECKOUT_QUOTE_TTL_MS,
   createCheckoutQuote,
   signCheckoutQuote,
+  validateCheckoutQuoteRequest,
   verifyCheckoutQuote,
 } from "../../lib/checkoutQuote";
 
@@ -66,6 +67,41 @@ describe("trusted checkout quotes", () => {
     [[{ productId: "boot", quantity: 0 }], products],
   ])("rejects unavailable products and invalid quantities", (items, catalog) => {
     expect(() => createCheckoutQuote(items, catalog, "SS-order")).toThrow();
+  });
+
+  it.each([
+    { items: [{ productId: "boot", quantity: 1, nested: { value: "x" } }], orderId: "SS-order" },
+    { items: [{ productId: "boot", quantity: 1 }], orderId: "SS-order", extra: "x" },
+    { items: [{ productId: "boot", quantity: 1 }], orderId: "SS-order", paymentAsset: "BTC" },
+  ])("rejects requests with an invalid shape", (request) => {
+    expect(() => validateCheckoutQuoteRequest(request)).toThrow(/invalid|choose/i);
+  });
+
+  it("rejects more than the allowed quantity for a product before catalog access", () => {
+    expect(() =>
+      validateCheckoutQuoteRequest({
+        items: [
+          { productId: "boot", quantity: 99 },
+          { productId: "boot", quantity: 1 },
+        ],
+        orderId: "SS-order",
+      })
+    ).toThrow(/too large/i);
+  });
+
+  it("rejects oversized line lists and product identifiers", () => {
+    expect(() =>
+      validateCheckoutQuoteRequest({
+        items: Array.from({ length: 51 }, (_, index) => ({ productId: `boot-${index}`, quantity: 1 })),
+        orderId: "SS-order",
+      })
+    ).toThrow(/between 1 and 50/i);
+    expect(() =>
+      validateCheckoutQuoteRequest({
+        items: [{ productId: "x".repeat(129), quantity: 1 }],
+        orderId: "SS-order",
+      })
+    ).toThrow(/invalid/i);
   });
 
   it("rejects a modified total and an expired signed quote", () => {

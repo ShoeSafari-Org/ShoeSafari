@@ -1,9 +1,22 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { isProductAvailable } from "./productAvailability";
+import {
+  MAX_ORDER_ID_LENGTH,
+  MAX_PRODUCT_ID_LENGTH,
+  MAX_QUOTE_LINES,
+  MAX_QUOTE_REQUEST_BYTES,
+  MAX_QUANTITY_PER_PRODUCT,
+} from "./checkoutQuoteLimits";
+
+export {
+  MAX_ORDER_ID_LENGTH,
+  MAX_PRODUCT_ID_LENGTH,
+  MAX_QUOTE_LINES,
+  MAX_QUOTE_REQUEST_BYTES,
+  MAX_QUANTITY_PER_PRODUCT,
+} from "./checkoutQuoteLimits";
 
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
-const MAX_LINES = 50;
-const MAX_QUANTITY_PER_PRODUCT = 99;
 
 export interface RequestedQuoteItem {
   productId: string;
@@ -35,29 +48,48 @@ export interface CheckoutQuote {
   };
 }
 
-export function createCheckoutQuote(
-  requestedItems: unknown,
-  products: Record<string, Record<string, unknown> | undefined>,
-  orderId: unknown,
-  now = Date.now()
-): CheckoutQuote {
+export interface CheckoutQuoteRequest {
+  items: RequestedQuoteItem[];
+  orderId: string;
+  paymentAsset: "USDC" | "XLM";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function validateCheckoutQuoteRequest(body: unknown): CheckoutQuoteRequest {
   if (
-    !Array.isArray(requestedItems) ||
-    requestedItems.length === 0 ||
-    requestedItems.length > MAX_LINES
+    !isRecord(body) ||
+    Object.keys(body).some((key) => !["items", "orderId", "paymentAsset"].includes(key))
   ) {
+    throw new Error("Invalid checkout request.");
+  }
+  if (!Array.isArray(body.items) || body.items.length === 0 || body.items.length > MAX_QUOTE_LINES) {
     throw new Error("Add between 1 and 50 products to checkout.");
   }
-  if (typeof orderId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(orderId)) {
+  if (
+    typeof body.orderId !== "string" ||
+    body.orderId.length > MAX_ORDER_ID_LENGTH ||
+    !/^[A-Za-z0-9_-]{1,128}$/.test(body.orderId)
+  ) {
     throw new Error("Invalid order reference.");
+  }
+  const paymentAsset = body.paymentAsset;
+  if (paymentAsset !== undefined && paymentAsset !== "USDC" && paymentAsset !== "XLM") {
+    throw new Error("Choose USDC or XLM to pay.");
   }
 
   const quantities = new Map<string, number>();
-  for (const item of requestedItems as RequestedQuoteItem[]) {
+  for (const item of body.items) {
+    if (!isRecord(item) || Object.keys(item).some((key) => key !== "productId" && key !== "quantity")) {
+      throw new Error("A product or quantity is invalid.");
+    }
     if (
-      !item ||
       typeof item.productId !== "string" ||
+      item.productId.length > MAX_PRODUCT_ID_LENGTH ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(item.productId) ||
+      typeof item.quantity !== "number" ||
       !Number.isInteger(item.quantity) ||
       item.quantity < 1 ||
       item.quantity > MAX_QUANTITY_PER_PRODUCT
@@ -69,6 +101,25 @@ export function createCheckoutQuote(
       throw new Error("A product quantity is too large.");
     }
     quantities.set(item.productId, quantity);
+  }
+
+  return {
+    items: body.items as RequestedQuoteItem[],
+    orderId: body.orderId,
+    paymentAsset: paymentAsset ?? "USDC",
+  };
+}
+
+export function createCheckoutQuote(
+  requestedItems: unknown,
+  products: Record<string, Record<string, unknown> | undefined>,
+  orderId: unknown,
+  now = Date.now()
+): CheckoutQuote {
+  const request = validateCheckoutQuoteRequest({ items: requestedItems, orderId });
+  const quantities = new Map<string, number>();
+  for (const item of request.items as RequestedQuoteItem[]) {
+    quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
   }
 
   const items = [...quantities.entries()].map(([productId, quantity]) => {
