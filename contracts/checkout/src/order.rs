@@ -1,5 +1,8 @@
 use soroban_sdk::{contracttype, Address};
 
+/// Pending orders must be paid or explicitly cleaned up within fifteen minutes.
+pub const PENDING_ORDER_TTL_SECONDS: u64 = 15 * 60;
+
 /// Lifecycle of an order.
 ///
 /// * `Pending`  - buyer called `create_order`; nothing escrowed yet.

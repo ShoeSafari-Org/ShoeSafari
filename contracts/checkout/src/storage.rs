@@ -66,6 +66,12 @@ pub fn set_order(env: &Env, order_id: &BytesN<32>, order: &Order) {
     extend_ttl(env, &DataKey::Order(order_id.clone()));
 }
 
+pub fn remove_order(env: &Env, order_id: &BytesN<32>) {
+    env.storage()
+        .persistent()
+        .remove(&DataKey::Order(order_id.clone()));
+}
+
 pub fn is_token_allowed(env: &Env, token: &Address) -> bool {
     env.storage()
         .persistent()

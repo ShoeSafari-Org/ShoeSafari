@@ -22,4 +22,6 @@ pub enum Error {
     OrderTermsMismatch = 8,
     /// The optional high-value approval policy is invalid or has conflicting signers.
     InvalidApprovalPolicy = 9,
+    /// A pending order has not reached its expiry yet, or is already paid.
+    PendingOrderExpired = 10,
 }
