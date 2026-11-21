@@ -14,6 +14,7 @@ import { addressToScVal, bytes32ToScVal, hashOrderId, i128ToScVal } from "./scva
 import { assertPaymentReady } from "./account";
 import { buildInvocationTransaction, budgetFee, prepareAndReport } from "./simulate";
 import { formatStroopsAsXlm } from "./fees";
+import { recordCheckoutMetric, type CheckoutMetricStage } from "./checkoutMetrics";
 
 export { fundTestnetAccount } from "./account";
 
@@ -54,6 +55,30 @@ export interface PayResult {
 
 function status(s: string): void {
   console.log(`[stellar] ${s}`);
+}
+
+function checkoutNetwork(): "testnet" | "mainnet" | "unknown" {
+  if (/testnet/i.test(NETWORK_PASSPHRASE)) return "testnet";
+  if (/public|mainnet/i.test(NETWORK_PASSPHRASE)) return "mainnet";
+  return "unknown";
+}
+
+async function measured<T>(stage: CheckoutMetricStage, token: TokenConfig, run: () => Promise<T>): Promise<T> {
+  const started = performance.now();
+  try {
+    const result = await run();
+    recordCheckoutMetric(
+      { stage, network: checkoutNetwork(), token: token.symbol, outcome: "success" },
+      performance.now() - started
+    );
+    return result;
+  } catch (error) {
+    recordCheckoutMetric(
+      { stage, network: checkoutNetwork(), token: token.symbol, outcome: "failure" },
+      performance.now() - started
+    );
+    throw error;
+  }
 }
 
 /**
@@ -105,17 +130,19 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
 
   // 1. Network guard.
   onStatus("Checking Freighter network…");
-  await ensureNetwork();
+  await measured("readiness", token, () => ensureNetwork());
 
   const server = new rpc.Server(RPC_URL);
 
   // 2. Account readiness: funded, trustline present, balance sufficient.
   onStatus("Checking account readiness…");
-  const readiness = await assertPaymentReady(server, publicKey, {
-    token,
-    requiredRaw: amountRaw,
-    strict: true,
-  });
+  const readiness = await measured("readiness", token, () =>
+    assertPaymentReady(server, publicKey, {
+      token,
+      requiredRaw: amountRaw,
+      strict: true,
+    })
+  );
 
   // 3. Build the invocation.
   onStatus("Building payment transaction…");
@@ -130,7 +157,9 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   // 4. Pre-flight simulation (surfaces errors early) + prepare.
   onStatus("Simulating transaction…");
   onFeeEstimate?.("Estimating Stellar network fee…");
-  const { tx: prepared, report } = await prepareAndReport(server, tx);
+  const { tx: prepared, report } = await measured("simulation", token, () =>
+    prepareAndReport(server, tx)
+  );
   if (!report.ok || !readiness.account) {
     onFeeEstimate?.(
       "Stellar network fee estimate unavailable. Fees are paid in XLM, separate from the USDC cart total."
@@ -150,23 +179,26 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   onStatus(feeEstimate);
 
   onStatus("Verifying current checkout quote…");
-  const quoteResponse = await fetch("/api/checkout/quote/verify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ quoteToken: options.quoteToken }),
+  const quoteBody = await measured("quote", token, async () => {
+    const quoteResponse = await fetch("/api/checkout/quote/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quoteToken: options.quoteToken }),
+    });
+    const body = await quoteResponse.json();
+    if (
+      !quoteResponse.ok ||
+      body.quote?.orderId !== orderId ||
+      body.quote?.totalUsd !== amountUsd ||
+      body.quote?.expiresAt <= Date.now()
+    ) {
+      throw new WalletError(
+        body.error || "The checkout quote expired or no longer matches this order.",
+        "QUOTE_INVALID"
+      );
+    }
+    return body;
   });
-  const quoteBody = await quoteResponse.json();
-  if (
-    !quoteResponse.ok ||
-    quoteBody.quote?.orderId !== orderId ||
-    quoteBody.quote?.totalUsd !== amountUsd ||
-    quoteBody.quote?.expiresAt <= Date.now()
-  ) {
-    throw new WalletError(
-      quoteBody.error || "The checkout quote expired or no longer matches this order.",
-      "QUOTE_INVALID"
-    );
-  }
   if (
     (quoteBody.quote.payment &&
       (quoteBody.quote.payment.tokenContractId !== token.contractId ||
@@ -181,7 +213,9 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
 
   // 5. Sign with Freighter.
   onStatus("Waiting for Freighter signature…");
-  const signedXdr = await signWithFreighter(prepared.toXDR(), publicKey);
+  const signedXdr = await measured("signing", token, () =>
+    signWithFreighter(prepared.toXDR(), publicKey)
+  );
   const signedTx = TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
   const signedTransactionHash = signedTx.hash().toString("hex");
 
@@ -189,7 +223,7 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   onStatus("Submitting transaction…");
   let sendResponse;
   try {
-    sendResponse = await server.sendTransaction(signedTx);
+    sendResponse = await measured("submission", token, () => server.sendTransaction(signedTx));
   } catch (error) {
     // RPC may have accepted the transaction before the connection failed.
     onSubmitted?.(signedTransactionHash);
@@ -215,7 +249,7 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
   // 7. Wait for final state and decode the payment event.
   let txResult;
   try {
-    txResult = await waitForTransaction(sendResponse.hash);
+    txResult = await measured("confirmation", token, () => waitForTransaction(sendResponse.hash));
   } catch (error) {
     const diagnosticMessage = error instanceof Error ? error.message : String(error);
     const code = /timeout|did not reach a final state/i.test(diagnosticMessage)
