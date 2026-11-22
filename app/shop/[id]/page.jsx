@@ -10,6 +10,7 @@ import { db } from "../../../lib/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { ProductImage } from "../../../components/OptimizedImage";
+import MoneyDisplay from "../../../components/MoneyDisplay";
 import {
   isProductPurchasable,
   normalizeProduct,
@@ -97,7 +98,7 @@ const ProductPage = ({ params }) => {
             />
             <div className="flex space-x-4 items-center my-4">
               <h2 className="text-4xl">
-                {product.price === null ? "Price unavailable" : `$${product.price}`}
+                {product.price === null ? "Price unavailable" : <MoneyDisplay amount={product.price} />}
               </h2>
               <p aria-label="Product availability">
                 {product.available === false ? "Unavailable" : "Available"}
@@ -158,7 +159,7 @@ const ProductPage = ({ params }) => {
                   />
                 </div>
                 <span className="ml-4">{item.name}</span>
-                <span className="ml-4">${item.price}</span>
+                <MoneyDisplay amount={item.price} className="ml-4" />
                 <span className="ml-4 text-sm" aria-label="Cart item availability">
                   {item.available === false ? "Unavailable" : "Available"}
                 </span>
@@ -176,7 +177,7 @@ const ProductPage = ({ params }) => {
           <div>
             {cartItems.length > 0 && <strong>Total:</strong>}
             {totalPrice ? (
-              <span className="ml-2 font-bold ">${totalPrice.toFixed(2)}</span>
+              <MoneyDisplay amount={totalPrice} className="ml-2 font-bold" />
             ) : (
               ""
             )}
