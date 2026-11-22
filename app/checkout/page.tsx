@@ -7,6 +7,7 @@ import StellarCheckoutButton from "../../components/StellarCheckoutButton";
 import StellarWalletButton from "../../components/StellarWalletButton";
 import StellarOrderWatch from "../../components/StellarOrderWatch";
 import { SiStellar } from "react-icons/si";
+import CheckoutBadge from "../../components/CheckoutBadge";
 import { saveStellarOrder, validateStellarOrderReceipt } from "../../lib/orderStore";
 import { useAuth } from "../../lib/AuthContext";
 import {
@@ -288,6 +289,7 @@ const Checkout = () => {
           <div className="order-2 mb-2 flex w-full flex-col items-center justify-center gap-3 rounded-md p-3 text-center md:order-1 md:mb-0 md:w-1/2 md:p-4">
             <SiStellar className="h-12 w-12 text-red-700" aria-hidden="true" />
             <h2 className="text-lg font-semibold">Pay with Stellar</h2>
+            <CheckoutBadge asset={paymentAsset} />
             <p className="max-w-sm text-sm text-gray-800">
               Connect Freighter and pay in USDC or XLM. Card payments are not currently supported.
             </p>
@@ -445,6 +447,7 @@ const Checkout = () => {
                 )}
                 <fieldset className="flex flex-col gap-2" aria-describedby="payment-asset-help">
                   <legend className="font-semibold">Choose a payment asset</legend>
+                  <CheckoutBadge asset={paymentAsset} />
                   {(["USDC", "XLM"] as const).map((asset) => (
                     <label key={asset} className="flex min-h-11 items-center gap-2">
                       <input
