@@ -49,6 +49,11 @@ vi.mock("../../components/StellarCheckoutButton", () => ({
           receipt: { token: "USDC", orderId: "stellar-order-1", amount: "799900000" },
           orderId: "stellar-order-1",
           items: [],
+          expectedPayment: {
+            buyerWallet: "GABC",
+            tokenContract: USDC_CONTRACT_ID,
+            amountRaw: "799900000",
+          },
         })
       }
     >
@@ -155,6 +160,36 @@ describe("Checkout Stellar payment", () => {
           },
         },
         userId: "customer-1",
+      }),
+    );
+  });
+
+  it("persists a server-quoted payment after the mocked ledger settles", async () => {
+    render(<Checkout />);
+    for (const [label, value] of [
+      ["First Name", "Ada"],
+      ["Last Name", "Lovelace"],
+      ["Email", "ada@example.com"],
+      ["Address line 1", "1 Example Street"],
+      ["City", "London"],
+      ["State / region", "Greater London"],
+      ["Postal code", "SW1A 1AA"],
+      ["Country", "United Kingdom"],
+    ]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    }
+
+    const payButton = screen.getByRole("button", { name: "Pay with Stellar (USDC)" });
+    await waitFor(() => expect(payButton).toBeEnabled());
+    fireEvent.click(payButton);
+
+    await waitFor(() => expect(mocks.saveStellarOrder).toHaveBeenCalled());
+    expect(mocks.saveStellarOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedPayment: expect.objectContaining({
+          tokenContract: USDC_CONTRACT_ID,
+          amountRaw: "799900000",
+        }),
       }),
     );
   });
