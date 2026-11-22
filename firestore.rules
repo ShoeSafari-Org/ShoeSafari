@@ -54,6 +54,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /ShoeSafariOrderNotes/{noteId} {
+      allow read, create, update: if isAdmin();
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
