@@ -17,10 +17,24 @@ forms create and update these fields:
 | `img` | string | Yes | Firebase Storage download URL used for the product image. |
 | `available` | boolean, optional | No | Whether customers can buy the product. Only `false` means unavailable; legacy records without this field remain available. New products default to `true`. |
 
+Optional inventory fields support bounded stock without changing legacy records:
+`stockQuantity` is the total unit count, `reservedQuantity` is the count held
+for an unexpired checkout reservation, and `reservationExpiresAt` is the
+reservation expiry time in milliseconds. Quote creation rejects quantities
+above available stock and treats expired reservations as released. A separate
+atomic reservation write should update these fields after a valid quote and
+before payment submission.
+
 The product document ID is used as the catalog product ID and in the checkout
 quote. Do not put customer, payment, or order data in product documents. The
 quote endpoint reads catalog prices server-side and calculates the payable
 total; browser-submitted prices and totals are untrusted.
+
+Price changes are written to the admin-only
+`ShoeSafariProducts/{productId}/priceHistory` subcollection with the previous
+price, new price, Firebase admin identity, and server timestamp. History is
+retained with the product for auditability; order and quote snapshots remain
+immutable and do not depend on the current catalog price.
 
 ## `ShoeSafariOrders/{orderDocumentId}`
 

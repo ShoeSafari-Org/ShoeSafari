@@ -10,6 +10,7 @@ import {
   eventToOrder,
   OrderStatus,
 } from "../../../lib/stellar/orders";
+import { currentAddress } from "../../../lib/stellar/freighter";
 import { CHECKOUT_CONTRACT_ID } from "../../../lib/stellar/config";
 import { transactionExplorerUrl } from "../../../lib/stellar/explorer";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
@@ -28,6 +29,7 @@ import { db } from "../../../lib/firebaseConfig";
 import {
   addOrderSupportNote,
   anonymizeStellarOrderPersonalData,
+  recordStellarOrderAction,
   updateOrderSupportNote,
   updateStellarOrderStatus,
 } from "../../../lib/orderStore";
@@ -275,6 +277,12 @@ const OrdersManagementContent = () => {
     running: boolean;
     eventsSeen: number;
   }>({ running: false, eventsSeen: 0 });
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchTerm(searchInput.trim().toLowerCase()), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
   const [statusFilter, setStatusFilter] = useState(() =>
     typeof window === "undefined"
       ? "All"
@@ -452,6 +460,9 @@ const OrdersManagementContent = () => {
       `Current status: ${order.status}`,
       "Destination: merchant wallet configured on-chain",
     ].join("\n"))) return;
+    const operatorWallet = await currentAddress().catch(() => null);
+    void recordStellarOrderAction({ orderId, action: "dispatch", phase: "attempted", operatorWallet })
+      .catch((auditError) => logClientError("Could not record dispatch attempt", auditError));
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -460,6 +471,14 @@ const OrdersManagementContent = () => {
       const result = await dispatchOrder(orderId);
 
       if (result.success) {
+        void recordStellarOrderAction({
+          orderId,
+          action: "dispatch",
+          phase: "succeeded",
+          operatorWallet,
+          txHash: result.txHash,
+          ledger: result.ledger,
+        }).catch((auditError) => logClientError("Could not record dispatch success", auditError));
         setSuccessMessage(
           `Order ${truncateAddress(orderId)} dispatched successfully. Transaction: ${result.txHash || "confirmed"}`
         );
@@ -484,6 +503,13 @@ const OrdersManagementContent = () => {
           );
         }
       } else {
+        void recordStellarOrderAction({
+          orderId,
+          action: "dispatch",
+          phase: "failed",
+          operatorWallet,
+          reason: result.error,
+        }).catch((auditError) => logClientError("Could not record dispatch failure", auditError));
         setError(result.error || "Failed to dispatch order");
       }
     } catch (err) {
@@ -550,6 +576,9 @@ const OrdersManagementContent = () => {
       `Current status: ${order.status}`,
       "This action cannot be undone.",
     ].join("\n"))) return;
+    const operatorWallet = await currentAddress().catch(() => null);
+    void recordStellarOrderAction({ orderId, action: "refund", phase: "attempted", operatorWallet })
+      .catch((auditError) => logClientError("Could not record refund attempt", auditError));
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -558,6 +587,14 @@ const OrdersManagementContent = () => {
       const result = await refundOrder(orderId);
 
       if (result.success) {
+        void recordStellarOrderAction({
+          orderId,
+          action: "refund",
+          phase: "succeeded",
+          operatorWallet,
+          txHash: result.txHash,
+          ledger: result.ledger,
+        }).catch((auditError) => logClientError("Could not record refund success", auditError));
         setSuccessMessage(
           `Order ${truncateAddress(orderId)} refunded successfully. Transaction: ${result.txHash || "confirmed"}`
         );
@@ -582,6 +619,13 @@ const OrdersManagementContent = () => {
           );
         }
       } else {
+        void recordStellarOrderAction({
+          orderId,
+          action: "refund",
+          phase: "failed",
+          operatorWallet,
+          reason: result.error,
+        }).catch((auditError) => logClientError("Could not record refund failure", auditError));
         setError(result.error || "Failed to refund order");
       }
     } catch (err) {
@@ -597,6 +641,7 @@ const OrdersManagementContent = () => {
   );
 
   const visibleOrders = sortedOrders.filter((order) => {
+    if (searchTerm && ![order.orderId, order.buyer, order.txHash, order.commerce?.orderReference || "", order.commerce?.documentId || ""].some((value) => value.toLowerCase().includes(searchTerm))) return false;
     if (statusFilter !== "All" && order.status !== statusFilter) return false;
     if (tokenFilter && order.tokenSymbol.toLowerCase() !== tokenFilter.toLowerCase()) return false;
     if (fromDate && order.timestamp < new Date(`${fromDate}T00:00:00`).getTime()) return false;
@@ -719,6 +764,13 @@ const OrdersManagementContent = () => {
           </button>
         </div>
 
+        <div className="px-6 py-4 border-b bg-gray-50">
+          <label className="block max-w-xl text-sm text-gray-700">
+            <span className="block mb-1 font-medium">Search reference, wallet, or transaction hash</span>
+            <input type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search identifiers" className="w-full rounded border border-gray-300 bg-white px-3 py-2" aria-describedby="order-search-help" />
+            <span id="order-search-help" className="sr-only">Search is applied after a short delay.</span>
+          </label>
+        </div>
         <div className="px-6 py-4 border-b bg-gray-50">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
             <label className="text-sm text-gray-700">
