@@ -6,6 +6,7 @@
  */
 
 import {
+  DEPLOYMENT_METADATA,
   expectedNetworkPassphrase,
   isStellarNetwork,
   type StellarNetwork,
@@ -245,6 +246,7 @@ export function validateEnv(): EnvConfig {
 
 export type EnvironmentDiagnostics = {
   stellarNetwork: "testnet" | "mainnet" | "unknown";
+  deployment: typeof DEPLOYMENT_METADATA;
   requiredVariables: { name: string; configured: boolean }[];
 };
 
@@ -261,6 +263,7 @@ export function getEnvironmentDiagnostics(): EnvironmentDiagnostics {
 
   return {
     stellarNetwork,
+    deployment: DEPLOYMENT_METADATA,
     requiredVariables: Object.values(REQUIRED_ENV).map(({ name }) => ({
       name,
       configured: Boolean(process.env[name]?.trim()),

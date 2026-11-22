@@ -4,21 +4,7 @@ import axe from "axe-core";
 async function expectAccessible(page: Page) {
   await page.addScriptTag({ content: axe.source });
   const violations = await page.evaluate(async () => {
-    const axeApi = (window as Window & {
-      axe: {
-        run: (
-          context: Document,
-          options: { runOnly: string[] }
-        ) => Promise<{
-          violations: Array<{
-            id: string;
-            impact: string | null;
-            help: string;
-            nodes: Array<{ target: string[]; failureSummary: string | null }>;
-          }>;
-        };
-      };
-    }).axe;
+    const axeApi = (window as Window & { axe: typeof axe }).axe;
     const results = await axeApi.run(document, {
       runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
     });
@@ -63,8 +49,14 @@ test("login route meets the serious and critical accessibility baseline", async 
 
 test("cart dialog meets the serious and critical accessibility baseline", async ({ page }) => {
   await page.goto("/shop");
-  await page.getByRole("button", { name: "Open shopping cart, 0 items" }).click();
-  await expect(page.getByRole("heading", { name: "Cart Items" })).toBeVisible();
+  const cartTrigger = page.getByRole("button", { name: "Open shopping cart, 0 items" });
+  await cartTrigger.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close dialog" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(cartTrigger).toBeFocused();
   await expectAccessible(page);
 });
 
