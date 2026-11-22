@@ -141,6 +141,21 @@ describe("StellarCheckoutButton", () => {
     expect(screen.getByRole("button", { name: /Pay with USDC/ })).toBeDisabled();
   });
 
+  it("keeps an uncertain RPC result recoverable without resubmitting", async () => {
+    mocks.pendingPayment = pending;
+    mocks.checkTransactionStatus.mockResolvedValue({ status: "PENDING", transaction: { ledger: 7 } });
+    render(
+      <StellarCheckoutButton amountUsd={1} orderId="order-1" quoteToken="quote-token" />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Check saved payment status" }));
+
+    await waitFor(() => expect(mocks.checkTransactionStatus).toHaveBeenCalledWith(HASH));
+    expect(screen.getByRole("button", { name: "Check saved payment status" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Pay with USDC/ })).toBeDisabled();
+    expect(mocks.payWithStellar).not.toHaveBeenCalled();
+  });
+
   it("allows a new payment only after recovery reports a terminal failure", async () => {
     mocks.pendingPayment = pending;
     mocks.checkTransactionStatus.mockResolvedValue({ status: "FAILED", transaction: {} });
