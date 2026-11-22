@@ -10,6 +10,23 @@ service cloud.firestore {
       return signedIn() && request.auth.token.admin == true;
     }
 
+    function isOrderOwner() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnerAnonymization() {
+      return isOrderOwner() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'customer', 'userId', 'buyerWallet', 'personalDataAnonymizedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.userId == null &&
+        request.resource.data.buyerWallet == null &&
+        request.resource.data.customer == {
+          firstName: '', lastName: '', email: '', address: ''
+        } &&
+        request.resource.data.personalDataAnonymizedAt != null;
+    }
+
     match /ShoeSafariProducts/{productId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -20,7 +37,14 @@ service cloud.firestore {
         (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if (signedIn() && request.resource.data.userId == request.auth.uid) ||
         (!signedIn() && request.resource.data.userId == null);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || isOwnerAnonymization();
+      allow delete: if isAdmin();
+    }
+
+    match /ShoeSafariDeletionRequests/{requestId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update: if isAdmin();
+      allow delete: if false;
     }
 
     match /{document=**} {
