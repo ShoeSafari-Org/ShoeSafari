@@ -1,0 +1,34 @@
+{
+  "fixtures": "local-only",
+  "products": [
+    {
+      "id": "fixture-trail-runner",
+      "name": "Fixture Trail Runner",
+      "price": 79.99,
+      "img": "/fixture/trail-runner.jpg",
+      "available": true
+    },
+    {
+      "id": "fixture-city-sneaker",
+      "name": "Fixture City Sneaker",
+      "price": 54.5,
+      "img": "/fixture/city-sneaker.jpg",
+      "available": true
+    }
+  ],
+  "orders": [
+    {
+      "orderId": "SS-fixture-0001",
+      "status": "Paid",
+      "amountUsd": 79.99,
+      "transactionHash": "fixture-transaction-hash"
+    }
+  ],
+  "users": [
+    {
+      "uid": "fixture-user-0001",
+      "email": "customer@example.test",
+      "wallet": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
+    }
+  ]
+}
