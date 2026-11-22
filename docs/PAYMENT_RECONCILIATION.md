@@ -50,7 +50,22 @@ contracts/checkout/README.md documents their topics and data. An event from
 another contract, an unrelated transfer, or a create_order event alone does
 not prove that funds were paid into escrow.
 
-## 4. Decide what to do
+## 4. Handle duplicate-looking submissions
+
+Treat each transaction hash as separate evidence. For every successful-looking
+submission, compare the decoded `pay` event's order hash, buyer, token, amount,
+and contract ID with the intended order. A second successful payment for the
+same order is not automatically a refund: preserve both hashes, stop further
+checkout attempts, and escalate to an authorized maintainer for a customer-safe
+resolution. Never refund, dispatch, or edit an order merely because two wallet
+prompts appeared.
+
+If one transaction is successful and another is pending, wait for the pending
+transaction's terminal result before calling it a duplicate. If one failed,
+record the failed hash separately and use only the verified successful event
+for reconciliation.
+
+## 5. Decide what to do
 
 | On-chain result | Action |
 | --- | --- |
@@ -65,7 +80,7 @@ Only an authorized maintainer should update off-chain order data, and only
 after the on-chain evidence has been recorded. Never submit dispatch or refund
 transactions merely to make a UI status match.
 
-## 5. Escalate with limited metadata
+## 6. Escalate with limited metadata
 
 Record only what is needed to investigate: order ID, transaction hash, network,
 checkout contract ID, token contract ID, expected and observed amount/status,
