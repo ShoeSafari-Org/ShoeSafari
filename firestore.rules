@@ -15,6 +15,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /AdminClaimAudit/{auditId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /ShoeSafariOrders/{orderId} {
       allow read: if isAdmin() ||
         (signedIn() && resource.data.userId == request.auth.uid);
