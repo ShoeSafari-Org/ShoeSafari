@@ -21,6 +21,7 @@ import { searchProducts } from "../../lib/productSearch";
 import { ProductGridSkeleton } from "../../components/Skeleton";
 import EmptyState from "../../components/EmptyState";
 import { ProductImage } from "../../components/OptimizedImage";
+import MoneyDisplay from "../../components/MoneyDisplay";
 import {
   filterProductsByCategory,
   getProductCategories,
@@ -135,9 +136,35 @@ export default function Products() {
   const categories = getProductCategories(products);
   const categoryProducts = filterProductsByCategory(products, selectedCategory);
   const filteredProducts = searchProducts(categoryProducts, searchTerm);
+  const productListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.map((product, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `/shop/${product.id}`,
+      item: {
+        "@type": "Product",
+        name: product.name,
+        image: product.img,
+        offers: product.price === null ? undefined : {
+          "@type": "Offer",
+          priceCurrency: "USD",
+          price: product.price,
+          availability: product.available === false
+            ? "https://schema.org/OutOfStock"
+            : "https://schema.org/InStock",
+        },
+      },
+    })),
+  };
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productListSchema) }}
+      />
       <div className="w-full max-w-screen-xl mx-auto py-8">
         <Cart itemCount={itemCount} onClick={openModal} />
         <section className="h-[70vh] overflow-auto">
@@ -222,7 +249,7 @@ export default function Products() {
                     />
                     <h1 className="text-xl font-bold">{prod.name}</h1>
                     <h2 className="text-lg">
-                      {prod.price === null ? "Price unavailable" : `$${prod.price}`}
+                      {prod.price === null ? "Price unavailable" : <MoneyDisplay amount={prod.price} />}
                     </h2>
                     <p className="text-sm" aria-label="Product availability">
                       {prod.available === false ? "Unavailable" : "Available"}
@@ -319,7 +346,7 @@ export default function Products() {
                   />
                 </div>
                 <span className="ml-4">{item.name}</span>
-                <span className="ml-4">${item.price}</span>
+                <MoneyDisplay amount={item.price} className="ml-4" />
                 <span className="ml-4 text-sm" aria-label="Cart item availability">
                   {item.available === false ? "Unavailable" : "Available"}
                 </span>
@@ -336,7 +363,7 @@ export default function Products() {
         <div className="flex justify-between items-center mt-4 mx-5 sm:mx-10">
           <div>
             {cartItems.length > 0 && <strong>Total:</strong>}
-            {totalPrice ? <span className="ml-2 font-bold ">${totalPrice.toFixed(2)}</span> : ""}
+            {totalPrice ? <MoneyDisplay amount={totalPrice} className="ml-2 font-bold" /> : ""}
           </div>
           {cartItems.length > 0 && (
             <button

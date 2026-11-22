@@ -69,6 +69,9 @@ formatted UI value. For example, the client currently converts `$12.34` to
 `formatTokenAmount` from `lib/stellar/config.ts` when displaying an on-chain
 raw amount; never infer display decimals from the amount itself.
 
+Use the [SEP-41 token onboarding checklist](../../docs/SEP41_TOKEN_ONBOARDING.md)
+when adding a new supported token.
+
 | Function         | Params                                                                     | Returns                | Description                                                        |
 | ---------------- | -------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------ |
 | `initialize`     | `merchant: Address`                                                        | `Result<(), Error>`    | Set the merchant wallet (one-time, deployer signs)                 |

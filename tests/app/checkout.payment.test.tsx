@@ -158,4 +158,27 @@ describe("Checkout Stellar payment", () => {
       }),
     );
   });
+
+  it("preserves the confirmed payment when order persistence fails", async () => {
+    mocks.saveStellarOrder.mockRejectedValueOnce(new Error("Firestore unavailable"));
+    render(<Checkout />);
+
+    fireEvent.change(screen.getByLabelText("First Name"), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByLabelText("Last Name"), { target: { value: "Lovelace" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ada@example.com" } });
+    fireEvent.change(screen.getByLabelText("Address line 1"), { target: { value: "1 Example Street" } });
+    fireEvent.change(screen.getByLabelText("City"), { target: { value: "London" } });
+    fireEvent.change(screen.getByLabelText("State / region"), { target: { value: "Greater London" } });
+    fireEvent.change(screen.getByLabelText("Postal code"), { target: { value: "SW1A 1AA" } });
+    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "United Kingdom" } });
+
+    const payButton = screen.getByRole("button", { name: "Pay with Stellar (USDC)" });
+    await waitFor(() => expect(payButton).toBeEnabled());
+    fireEvent.click(payButton);
+
+    expect(await screen.findByText("Order Completed.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("stellar-transaction-hash");
+    expect(screen.queryByRole("button", { name: "Pay with Stellar (USDC)" })).toBeNull();
+    expect(mocks.saveStellarOrder).toHaveBeenCalledTimes(1);
+  });
 });
