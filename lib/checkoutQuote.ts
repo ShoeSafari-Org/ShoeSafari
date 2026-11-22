@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
-import { isProductAvailable } from "./productAvailability";
+import { canReserveQuantity, isProductAvailable } from "./productAvailability";
 import { MAX_ORDER_ID_LENGTH, MAX_PRODUCT_ID_LENGTH, MAX_QUOTE_LINES, MAX_QUOTE_REQUEST_BYTES, MAX_QUANTITY_PER_PRODUCT } from "./checkoutQuoteLimits";
 export { MAX_ORDER_ID_LENGTH, MAX_PRODUCT_ID_LENGTH, MAX_QUOTE_LINES, MAX_QUOTE_REQUEST_BYTES, MAX_QUANTITY_PER_PRODUCT } from "./checkoutQuoteLimits";
+import { canReserveQuantity, isProductAvailable } from "./productAvailability";
 import { isCustomerOrderReference } from "./orderReference";
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
 export const CHECKOUT_QUOTE_SCHEMA_VERSION = 1;
@@ -113,7 +114,7 @@ export function createCheckoutQuote(
   const items = [...quantities.entries()].map(([productId, quantity]) => {
     const product = products[productId];
     if (!product) throw new Error(`Product ${productId} is unavailable.`);
-    if (!isProductAvailable(product)) {
+    if (!isProductAvailable(product, now) || !canReserveQuantity(product, quantity, now)) {
       throw new Error(`Product ${productId} is unavailable.`);
     }
     const price = Number(product.price);
