@@ -23,5 +23,7 @@ pub enum Error {
     /// The optional high-value approval policy is invalid or has conflicting signers.
     InvalidApprovalPolicy = 9,
     /// New order creation and payments are paused by the merchant.
-    Paused = 10,
+    Paused = 11,
+    /// The allowlisted token does not expose the supported seven-decimal precision.
+    InvalidTokenMetadata = 10,
 }
