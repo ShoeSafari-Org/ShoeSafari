@@ -259,7 +259,13 @@ export async function payWithStellar(options: PayOptions): Promise<PayResult> {
         : "RPC_UNAVAILABLE";
     throw new WalletError(diagnosticMessage, code, sendResponse.hash || signedTransactionHash);
   }
-  const receipt = decodePaymentEvent(txResult);
+  const receipt = decodePaymentEvent(txResult, {
+    contractId: CHECKOUT_CONTRACT_ID,
+    token: token.contractId,
+    buyer: publicKey,
+    orderId: hexOf(orderBytes),
+    amount: amountRaw.toString(),
+  });
 
   return {
     hash: sendResponse.hash,
