@@ -36,6 +36,7 @@
     "test:e2e": "playwright test",
     "test:e2e:accessibility": "playwright test e2e/accessibility.spec.tsx",
     "test:e2e:install": "playwright install chromium",
+    "test:release:smoke": "RUN_TESTNET_SMOKE=1 ./scripts/testnet-release-smoke.sh",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
