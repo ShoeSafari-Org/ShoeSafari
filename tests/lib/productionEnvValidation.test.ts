@@ -36,6 +36,7 @@ describe("validateProductionEnvironment", () => {
     expect(errors).toContain("NEXT_PUBLIC_STELLAR_RPC_URL is required for mainnet");
     expect(errors).toContain("NEXT_PUBLIC_USDC_CONTRACT_ID is required for mainnet");
     expect(errors).toContain("NEXT_PUBLIC_NATIVE_ASSET_CONTRACT_ID is required for mainnet");
+    expect(errors).toContain("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE is required for mainnet");
   });
 
   it("accepts a complete mainnet configuration", () => {
@@ -50,6 +51,27 @@ describe("validateProductionEnvironment", () => {
         NEXT_PUBLIC_NATIVE_ASSET_CONTRACT_ID: "C-mainnet-xlm",
       })
     ).toEqual([]);
+  });
+
+  it("rejects testnet token defaults on mainnet", () => {
+    const errors = validateProductionEnvironment({
+      ...requiredTestnetConfig,
+      NEXT_PUBLIC_STELLAR_NETWORK: "mainnet",
+      NEXT_PUBLIC_STELLAR_RPC_URL: "https://rpc.example.test",
+      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE:
+        "Public Global Stellar Network ; September 2015",
+      NEXT_PUBLIC_USDC_CONTRACT_ID:
+        "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      NEXT_PUBLIC_NATIVE_ASSET_CONTRACT_ID:
+        "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    });
+
+    expect(errors).toContain(
+      "NEXT_PUBLIC_USDC_CONTRACT_ID must not use the testnet default on mainnet"
+    );
+    expect(errors).toContain(
+      "NEXT_PUBLIC_NATIVE_ASSET_CONTRACT_ID must not use the testnet default on mainnet"
+    );
   });
 
   it("rejects unsupported networks and mismatched passphrases", () => {
