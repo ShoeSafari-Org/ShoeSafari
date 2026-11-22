@@ -33,6 +33,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /ShoeSafariProducts/{productId}/priceHistory/{historyId} {
+      allow read, write: if isAdmin();
+    }
+
     match /AdminClaimAudit/{auditId} {
       allow read: if isAdmin();
       allow write: if false;
@@ -57,6 +61,11 @@ service cloud.firestore {
     match /ShoeSafariOrderNotes/{noteId} {
       allow read, create, update: if isAdmin();
       allow delete: if false;
+    }
+
+    match /ShoeSafariOrderActions/{actionId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /{document=**} {

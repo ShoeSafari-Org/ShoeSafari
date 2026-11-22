@@ -29,6 +29,14 @@ The current product fields are documented in the
 Firebase Storage accepts only admin uploads and image content types under
 5 MiB; see the [Storage rules guide](STORAGE.md).
 
+## Storefront pagination
+
+The storefront reads the `ShoeSafariProducts` collection in bounded pages of
+24 documents. Each page uses the Firestore document ID as an explicit,
+deterministic ordering key and passes the last document as the cursor for the
+next page. This keeps catalog reads bounded and remains stable when products
+have duplicate or missing display names. Search and category filters continue
+to apply to the products currently loaded in the storefront page.
 ## Catalog search
 
 Search uses a deterministic client-side fallback over the loaded catalog page.
