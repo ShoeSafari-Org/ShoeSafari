@@ -33,6 +33,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /ShoeSafariProducts/{productId}/priceHistory/{historyId} {
+      allow read, write: if isAdmin();
+    }
+
     match /AdminClaimAudit/{auditId} {
       allow read: if isAdmin();
       allow write: if false;
