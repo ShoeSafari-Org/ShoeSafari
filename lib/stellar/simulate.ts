@@ -137,14 +137,22 @@ export async function readTokenDecimals(
  * mutate the transaction; use `prepareAndReport` for the final tx.
  */
 export async function preflight(server: rpc.Server, tx: Transaction): Promise<SimulationReport> {
-  const started = performance.now();
-  let sim;
+const started = performance.now();
+  let sim: Awaited<ReturnType<rpc.Server["simulateTransaction"]>>;
   try {
     sim = await server.simulateTransaction(tx);
     recordRpcHealth("simulate", "success", performance.now() - started);
   } catch (error) {
     recordRpcHealth("simulate", "failure", performance.now() - started, error);
-    throw error;
+    return {
+      ok: false,
+      error: {
+        message: "The simulation service returned an invalid response.",
+        code: "SIMULATION_RPC_ERROR",
+        diagnostics: [error instanceof Error ? error.message : String(error)],
+      },
+    };
+  }
   }
 
   if (rpc.Api.isSimulationError(sim)) {
