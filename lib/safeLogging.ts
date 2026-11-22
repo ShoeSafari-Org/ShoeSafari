@@ -36,6 +36,14 @@ export function safeErrorForLogging(
     typeof error === "object" && error !== null
       ? (error as Record<string, unknown>)
       : undefined;
+  const nestedResponse =
+    record?.response && typeof record.response === "object"
+      ? (record.response as Record<string, unknown>)
+      : undefined;
+  const nestedData =
+    nestedResponse?.data && typeof nestedResponse.data === "object"
+      ? (nestedResponse.data as Record<string, unknown>)
+      : undefined;
   const rawMessage =
     error instanceof Error
       ? error.message
@@ -43,6 +51,8 @@ export function safeErrorForLogging(
         ? error
         : typeof record?.message === "string"
           ? record.message
+          : typeof nestedData?.message === "string"
+            ? nestedData.message
           : "An unexpected error occurred";
   const rawName =
     error instanceof Error
@@ -57,6 +67,8 @@ export function safeErrorForLogging(
       ? record.transactionHash
       : typeof record?.hash === "string"
         ? record.hash
+        : typeof nestedData?.hash === "string"
+          ? nestedData.hash
         : undefined);
   const messageHash = rawMessage.match(TRANSACTION_HASH)?.[0];
   const normalizedHash = rawHash?.match(TRANSACTION_HASH)?.[0] ?? messageHash;
