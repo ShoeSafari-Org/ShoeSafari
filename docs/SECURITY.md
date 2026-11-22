@@ -1,5 +1,9 @@
 # Customer data retention and deletion
 
+For the checkout quote signing format, trust boundaries, expiry, replay
+handling, and secret rotation guidance, see
+[Checkout quote signing and verification](CHECKOUT_QUOTE_THREAT_MODEL.md).
+
 ## Retention period
 
 The merchant retains direct customer details in a Firestore order for one year
