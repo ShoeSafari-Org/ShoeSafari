@@ -1,22 +1,10 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { isProductAvailable } from "./productAvailability";
-import {
-  MAX_ORDER_ID_LENGTH,
-  MAX_PRODUCT_ID_LENGTH,
-  MAX_QUOTE_LINES,
-  MAX_QUOTE_REQUEST_BYTES,
-  MAX_QUANTITY_PER_PRODUCT,
-} from "./checkoutQuoteLimits";
-
-export {
-  MAX_ORDER_ID_LENGTH,
-  MAX_PRODUCT_ID_LENGTH,
-  MAX_QUOTE_LINES,
-  MAX_QUOTE_REQUEST_BYTES,
-  MAX_QUANTITY_PER_PRODUCT,
-} from "./checkoutQuoteLimits";
-
+import { MAX_ORDER_ID_LENGTH, MAX_PRODUCT_ID_LENGTH, MAX_QUOTE_LINES, MAX_QUOTE_REQUEST_BYTES, MAX_QUANTITY_PER_PRODUCT } from "./checkoutQuoteLimits";
+export { MAX_ORDER_ID_LENGTH, MAX_PRODUCT_ID_LENGTH, MAX_QUOTE_LINES, MAX_QUOTE_REQUEST_BYTES, MAX_QUANTITY_PER_PRODUCT } from "./checkoutQuoteLimits";
+import { isCustomerOrderReference } from "./orderReference";
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
+export const CHECKOUT_QUOTE_SCHEMA_VERSION = 1;
 
 export interface RequestedQuoteItem {
   productId: string;
@@ -32,6 +20,7 @@ export interface QuotedItem {
 }
 
 export interface CheckoutQuote {
+  schemaVersion: number;
   quoteId: string;
   orderId: string;
   items: QuotedItem[];
@@ -68,11 +57,10 @@ export function validateCheckoutQuoteRequest(body: unknown): CheckoutQuoteReques
   if (!Array.isArray(body.items) || body.items.length === 0 || body.items.length > MAX_QUOTE_LINES) {
     throw new Error("Add between 1 and 50 products to checkout.");
   }
-  if (
-    typeof body.orderId !== "string" ||
-    body.orderId.length > MAX_ORDER_ID_LENGTH ||
-    !/^[A-Za-z0-9_-]{1,128}$/.test(body.orderId)
-  ) {
+if (
+    typeof body.orderId !== "string" || body.orderId.length > MAX_ORDER_ID_LENGTH ||
+    !/^[A-Za-z0-9_-]{1,128}$/.test(body.orderId) || !isCustomerOrderReference(body.orderId)
+  )
     throw new Error("Invalid order reference.");
   }
   const paymentAsset = body.paymentAsset;
@@ -153,6 +141,7 @@ export function createCheckoutQuote(
   }
 
   return {
+    schemaVersion: CHECKOUT_QUOTE_SCHEMA_VERSION,
     quoteId: randomUUID(),
     orderId,
     items,
@@ -181,12 +170,19 @@ export function verifyCheckoutQuote(
     throw new Error("Invalid checkout quote signature.");
   }
 
-  let quote: CheckoutQuote;
+  let parsed: Partial<CheckoutQuote>;
   try {
-    quote = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
   } catch {
     throw new Error("Invalid checkout quote payload.");
   }
+  if (parsed.schemaVersion !== undefined && parsed.schemaVersion !== CHECKOUT_QUOTE_SCHEMA_VERSION) {
+    throw new Error("Unsupported checkout quote version. Return to checkout and request a new quote.");
+  }
+  if (!Array.isArray(parsed.items) || typeof parsed.orderId !== "string" || typeof parsed.quoteId !== "string") {
+    throw new Error("Invalid checkout quote schema. Return to checkout and request a new quote.");
+  }
+  const quote = { ...parsed, schemaVersion: CHECKOUT_QUOTE_SCHEMA_VERSION } as CheckoutQuote;
   if (!Number.isFinite(quote.expiresAt) || quote.expiresAt <= now) {
     throw new Error("This checkout quote has expired. Return to your cart and try again.");
   }

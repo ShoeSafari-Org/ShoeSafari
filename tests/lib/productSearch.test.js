@@ -20,4 +20,11 @@ describe("searchProducts", () => {
     expect(searchProducts(products, "  ")).toBe(products);
     expect(searchProducts(products, "missing")).toEqual([]);
   });
+
+  it("supports a one-character typo and hides unpublished products", () => {
+    expect(searchProducts([
+      ...products,
+      { id: "3", name: "Trail Runner", available: false },
+    ], "Trai Rnner").map((product) => product.id)).toEqual(["1"]);
+  });
 });

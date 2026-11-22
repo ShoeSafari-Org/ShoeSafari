@@ -74,6 +74,7 @@ const StellarWalletButton = ({ onConnect = null }) => {
           type="button"
           onClick={handleConnect}
           disabled={loading}
+          aria-busy={loading}
           className="min-h-11 w-full flex justify-center items-center gap-2 border-2 border-red-600 text-red-600 bg-white py-2 rounded hover:bg-red-50 transition-colors disabled:opacity-60"
         >
           {loading ? (
@@ -104,7 +105,12 @@ const StellarWalletButton = ({ onConnect = null }) => {
           </button>
         </div>
       )}
-      {error && <span className="text-xs text-red-600 text-center">{error}</span>}
+      {loading && (
+        <p className="sr-only" role="status" aria-live="polite">
+          Connecting to your Stellar wallet.
+        </p>
+      )}
+      {error && <span className="text-xs text-red-600 text-center" role="alert">{error}</span>}
     </div>
   );
 };
