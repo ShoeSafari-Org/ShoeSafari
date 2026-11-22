@@ -8,6 +8,74 @@ use soroban_sdk::testutils::{Address as _, Events, Ledger as _, MockAuth, MockAu
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
 use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, IntoVal};
 
+#[test]
+fn test_shared_scval_fixtures_round_trip() {
+    use soroban_sdk::xdr::{Limits, ReadXdr, ScVal, ScValType, WriteXdr};
+
+    let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+        "../interface/scval-fixtures.json"
+    ))
+    .expect("shared ScVal fixture JSON must remain valid");
+
+    for name in [
+        "address",
+        "tokenAddress",
+        "bytes32",
+        "i128",
+        "i128Negative",
+        "optionNone",
+        "optionSomeAddress",
+        "map",
+    ] {
+        let hex = fixtures["values"][name]["xdr"]
+            .as_str()
+            .expect("fixture value must contain XDR hex");
+        let bytes = hex_bytes(hex);
+        let value = ScVal::from_xdr(bytes.as_slice(), Limits::none())
+            .expect("fixture XDR must decode as ScVal");
+        assert_eq!(value.to_xdr(Limits::none()).unwrap(), bytes);
+    }
+
+    assert_eq!(
+        ScVal::from_xdr(
+            hex_bytes(fixtures["values"]["optionNone"]["xdr"].as_str().unwrap()),
+            Limits::none()
+        )
+        .unwrap()
+        .switch(),
+        ScValType::ScvVec
+    );
+
+    for name in ["pay", "create_order"] {
+        let event = &fixtures["events"][name];
+        let topics = event["topics"].as_array().unwrap();
+        assert!(!topics.is_empty());
+        for topic_hex in topics {
+            let topic_hex = topic_hex.as_str().unwrap();
+            let topic = ScVal::from_xdr(
+                hex_bytes(topic_hex),
+                Limits::none(),
+            )
+            .expect("event topic fixture must decode as ScVal");
+            assert_eq!(topic.to_xdr(Limits::none()).unwrap(), hex_bytes(topic_hex));
+        }
+        let data = ScVal::from_xdr(
+            hex_bytes(event["data"].as_str().unwrap()),
+            Limits::none(),
+        )
+        .expect("event data fixture must decode as ScVal");
+        assert_eq!(data.switch(), ScValType::ScvMap);
+    }
+}
+
+fn hex_bytes(hex: &str) -> Vec<u8> {
+    assert!(hex.len() % 2 == 0, "fixture XDR hex must have even length");
+    (0..hex.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&hex[index..index + 2], 16).unwrap())
+        .collect()
+}
+
 use crate::errors::Error;
 use crate::order::{Status, PENDING_ORDER_TTL_SECONDS};
 use crate::storage::{DataKey, LEDGER_THRESHOLD};
@@ -143,6 +211,30 @@ fn test_pay_escrows_then_dispatch_releases_to_merchant() {
 
     // A dispatched order is still considered paid (funds moved correctly).
     assert!(client.is_paid(&id));
+}
+
+#[test]
+fn test_order_lifecycle_preserves_escrow_invariants_for_boundary_amounts() {
+    for (index, amount) in [1_i128, 100_000, 999_999].iter().enumerate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, token, merchant, buyer) = setup_usdc(&env);
+        let checkout = client.address.clone();
+        let id = order_id(&env, (40 + index) as u8);
+        let initial_total = usdc_balance(&env, &token, &buyer);
+
+        client.pay(&token, &buyer, &id, amount);
+        assert_eq!(client.status(&id), Some(Status::Paid));
+        assert_eq!(
+            usdc_balance(&env, &token, &buyer) + usdc_balance(&env, &token, &checkout),
+            initial_total
+        );
+
+        client.dispatch(&id);
+        assert_eq!(client.status(&id), Some(Status::Shipped));
+        assert_eq!(usdc_balance(&env, &token, &checkout), 0);
+        assert_eq!(usdc_balance(&env, &token, &merchant), *amount);
+    }
 }
 
 #[test]
@@ -649,6 +741,38 @@ fn test_duplicate_payment_attempt_has_no_second_transfer_or_event() {
 }
 
 #[test]
+fn test_escrow_balance_invariant_across_dispatch_and_refund() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let dispatch_id = order_id(&env, 248);
+    let refund_id = order_id(&env, 249);
+
+    client.pay(&token, &buyer, &dispatch_id, &40_000);
+    assert_eq!(
+        (usdc_balance(&env, &token, &buyer), usdc_balance(&env, &token, &checkout), usdc_balance(&env, &token, &merchant)),
+        (960_000, 40_000, 0)
+    );
+    client.dispatch(&dispatch_id);
+    assert_eq!(
+        (usdc_balance(&env, &token, &buyer), usdc_balance(&env, &token, &checkout), usdc_balance(&env, &token, &merchant)),
+        (960_000, 0, 40_000)
+    );
+
+    client.pay(&token, &buyer, &refund_id, &25_000);
+    assert_eq!(usdc_balance(&env, &token, &checkout), 25_000);
+    client.refund(&refund_id);
+    assert_eq!(
+        (usdc_balance(&env, &token, &buyer), usdc_balance(&env, &token, &checkout), usdc_balance(&env, &token, &merchant)),
+        (1_000_000, 0, 40_000)
+    );
+    assert_eq!(client.try_dispatch(&dispatch_id), Err(Ok(Error::OrderAlreadyPaid)));
+    assert_eq!(client.try_refund(&refund_id), Err(Ok(Error::InvalidOrderStatus)));
+}
+
+#[test]
 fn test_duplicate_pay_after_dispatch_rejected() {
     let env = Env::default();
     env.mock_all_auths();
@@ -946,6 +1070,25 @@ fn test_merchant_rotation_denies_old_and_allows_new_merchant() {
 }
 
 #[test]
+fn test_merchant_rotation_preserves_pending_order_until_payment() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let new_merchant = Address::generate(&env);
+    let id = order_id(&env, 45);
+    client.create_order(&buyer, &id, &token, &60_000);
+    client.set_merchant(&new_merchant);
+
+    assert_eq!(client.merchant(), new_merchant);
+    assert_eq!(client.status(&id), Some(Status::Pending));
+    client.pay(&token, &buyer, &id, &60_000);
+    client.dispatch(&id);
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+    assert_eq!(usdc_balance(&env, &token, &new_merchant), 60_000);
+}
+
+#[test]
 fn test_events_emitted() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1016,6 +1159,36 @@ fn test_order_write_renews_persistent_ttl_below_threshold() {
     });
 
     assert!(order_ttl(&env, &client.address, &id) >= ttl_before_age);
+}
+
+#[test]
+fn test_admin_token_and_approval_storage_uses_ttl_policy_and_cleanup() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, _) = setup_usdc(&env);
+    let approver = Address::generate(&env);
+    client.set_approval_policy(&token, &50_000, &approver);
+
+    let (admin_ttl, token_ttl, policy_ttl) = env.as_contract(&client.address, || {
+        (
+            env.storage().persistent().get_ttl(&DataKey::Admin),
+            env.storage()
+                .persistent()
+                .get_ttl(&DataKey::TokenAllowed(token.clone())),
+            env.storage()
+                .persistent()
+                .get_ttl(&DataKey::ApprovalPolicy(token.clone())),
+        )
+    });
+    assert!(admin_ttl >= LEDGER_THRESHOLD);
+    assert!(token_ttl >= LEDGER_THRESHOLD);
+    assert!(policy_ttl >= LEDGER_THRESHOLD);
+
+    client.clear_approval_policy(&token);
+    client.remove_token(&token);
+    assert!(!client.is_token_allowed(&token));
+    assert!(client.approval_policy(&token).is_none());
 }
 
 #[test]

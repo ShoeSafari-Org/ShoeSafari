@@ -23,5 +23,7 @@ pub enum Error {
     /// The optional high-value approval policy is invalid or has conflicting signers.
     InvalidApprovalPolicy = 9,
     /// A pending order has not reached its expiry yet, or is already paid.
-    PendingOrderExpired = 10,
+    PendingOrderExpired = 11,
+    /// The allowlisted token does not expose the supported seven-decimal precision.
+    InvalidTokenMetadata = 10,
 }

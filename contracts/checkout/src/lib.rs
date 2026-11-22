@@ -25,6 +25,8 @@ use crate::order::PENDING_ORDER_TTL_SECONDS;
 #[contract]
 pub struct Checkout;
 
+pub const SUPPORTED_TOKEN_DECIMALS: u32 = 7;
+
 #[contractimpl]
 impl Checkout {
     /// Initialize the contract with the merchant's Stellar public key.
@@ -63,6 +65,13 @@ impl Checkout {
     pub fn add_token(env: Env, token: Address) -> Result<(), Error> {
         let admin = get_admin(&env)?;
         admin.require_auth();
+        // Checkout amounts use the seven-decimal precision of Stellar assets.
+        // Reject tokens with incompatible or malformed SEP-41 metadata before
+        // they can be used for escrow.
+        let decimals = TokenClient::new(&env, &token).decimals();
+        if decimals != SUPPORTED_TOKEN_DECIMALS {
+            return Err(Error::InvalidTokenMetadata);
+        }
         if !is_token_allowed(&env, &token) {
             set_token_allowed(&env, &token, true);
             TokenAllowlistChangedV1 {
