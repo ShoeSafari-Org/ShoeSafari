@@ -17,6 +17,8 @@ import {
   USDC_CONTRACT_ID,
 } from "../../lib/stellar/config";
 import { logClientError } from "../../lib/safeLogging";
+import { isShippingAddressComplete } from "../../lib/shippingAddress";
+import { MAX_PRODUCT_ID_LENGTH, MAX_QUOTE_LINES, MAX_QUANTITY_PER_PRODUCT } from "../../lib/checkoutQuoteLimits";
 import { validateShippingAddress, isShippingAddressComplete } from "../../lib/shippingAddress";
 import { createCustomerOrderReference } from "../../lib/orderReference";
 
@@ -192,10 +194,21 @@ const Checkout = () => {
 
         const quantities = new Map<string, number>();
         for (const item of storedItems) {
-          if (typeof item?.id !== "string" || !item.id) {
+          if (
+            typeof item?.id !== "string" ||
+            item.id.length > MAX_PRODUCT_ID_LENGTH ||
+            !/^[A-Za-z0-9_-]{1,128}$/.test(item.id)
+          ) {
             throw new Error("A cart item is missing its product reference.");
           }
-          quantities.set(item.id, (quantities.get(item.id) || 0) + 1);
+          const quantity = (quantities.get(item.id) || 0) + 1;
+          if (quantity > MAX_QUANTITY_PER_PRODUCT) {
+            throw new Error("A product quantity is too large.");
+          }
+          quantities.set(item.id, quantity);
+        }
+        if (quantities.size > MAX_QUOTE_LINES) {
+          throw new Error("Add between 1 and 50 products to checkout.");
         }
 
         const response = await fetch("/api/checkout/quote", {
