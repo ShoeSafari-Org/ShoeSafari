@@ -22,4 +22,6 @@ pub enum Error {
     OrderTermsMismatch = 8,
     /// The optional high-value approval policy is invalid or has conflicting signers.
     InvalidApprovalPolicy = 9,
+    /// The allowlisted token does not expose the supported seven-decimal precision.
+    InvalidTokenMetadata = 10,
 }
