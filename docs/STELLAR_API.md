@@ -8,6 +8,11 @@ It is the reference for contract method signatures, argument order, event
 names, and order status values. Run `npm run check:checkout-interface` when
 changing the frontend decoder or the contract interface.
 
+Pre-signing simulation errors are normalized into stable user-safe categories
+for token rejection, missing orders, invalid order state, RPC failures, and
+generic simulation failures. Raw RPC/contract diagnostics remain available to
+diagnostic logging only and are not rendered in the shopper-facing message.
+
 ## Payment
 
 ### `lib/stellar/checkout.ts`
