@@ -7,7 +7,25 @@ service cloud.firestore {
     }
 
     function isAdmin() {
+      // Client-side guards are UX only; this custom claim is the data boundary.
       return signedIn() && request.auth.token.admin == true;
+    }
+
+    function isOrderOwner() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnerAnonymization() {
+      return isOrderOwner() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'customer', 'userId', 'buyerWallet', 'personalDataAnonymizedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.userId == null &&
+        request.resource.data.buyerWallet == null &&
+        request.resource.data.customer == {
+          firstName: '', lastName: '', email: '', address: ''
+        } &&
+        request.resource.data.personalDataAnonymizedAt != null;
     }
 
     match /ShoeSafariProducts/{productId} {
@@ -19,12 +37,30 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /AdminClaimAudit/{auditId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /ShoeSafariOrders/{orderId} {
+      // Order ids are not secrets: ownership is checked against the document.
       allow read: if isAdmin() ||
         (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if (signedIn() && request.resource.data.userId == request.auth.uid) ||
         (!signedIn() && request.resource.data.userId == null);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || isOwnerAnonymization();
+      allow delete: if isAdmin();
+    }
+
+    match /ShoeSafariDeletionRequests/{requestId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /ShoeSafariOrderNotes/{noteId} {
+      allow read, create, update: if isAdmin();
+      allow delete: if false;
     }
 
     match /{document=**} {
