@@ -238,6 +238,52 @@ export function paymentAssetsForCheckout(network: StellarNetwork = NETWORK): Tok
 // trustline/balance checks and for building `pay` invocations.
 export const SUPPORTED_TOKENS: TokenConfig[] = paymentAssetsForCheckout();
 
+export interface DeploymentMetadata {
+  readonly commitSha: string;
+  readonly deploymentId: string;
+  readonly environment: string;
+  readonly network: StellarNetwork;
+  readonly rpcUrl: string;
+  readonly checkoutContractId: string;
+  readonly tokenContracts: readonly {
+    readonly symbol: string;
+    readonly contractId: string;
+  }[];
+}
+
+function safeRpcUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return "unconfigured";
+  }
+}
+
+/**
+ * Build-time deployment identity and public payment configuration.
+ * Keep this explicit: do not add arbitrary environment variables here.
+ */
+export const DEPLOYMENT_METADATA: DeploymentMetadata = Object.freeze({
+  commitSha:
+    process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+    process.env.NEXT_PUBLIC_BUILD_COMMIT_SHA?.trim() ||
+    "local-development",
+  deploymentId:
+    process.env.VERCEL_DEPLOYMENT_ID?.trim() ||
+    process.env.NEXT_PUBLIC_DEPLOYMENT_ID?.trim() ||
+    "local-development",
+  environment: process.env.VERCEL_ENV?.trim() || "development",
+  network: NETWORK,
+  rpcUrl: safeRpcUrl(RPC_URL),
+  checkoutContractId: CHECKOUT_CONTRACT_ID || "unconfigured",
+  tokenContracts: Object.freeze(
+    SUPPORTED_TOKENS.map(({ symbol, contractId }) =>
+      Object.freeze({ symbol, contractId: contractId || "unconfigured" })
+    )
+  ),
+});
+
 /** Default payment token (used by the checkout flow unless overridden). */
 export function defaultToken(): TokenConfig {
   return SUPPORTED_TOKENS.find((token) => token.assetId === "USDC") ?? SUPPORTED_TOKENS[0];
