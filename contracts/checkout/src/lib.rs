@@ -12,13 +12,14 @@ use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, MuxedAddress, Ve
 use crate::errors::Error;
 use crate::events::{
     MerchantChangedV1, OrderCreated, OrderRefunded, OrderShipped, PaymentReceived,
-    TokenAllowlistChangedV1,
+    TokenAllowlistChangedV1, PauseChangedV1,
 };
 use crate::order::{Order, Status};
 use crate::storage::{
     append_order_index, get_admin, get_approval_policy, get_order, has_admin, is_token_allowed,
-    order_index_at, order_index_count, remove_approval_policy, set_admin,
-    set_approval_policy as store_approval_policy, set_order, set_token_allowed, ApprovalPolicy,
+    is_paused as store_is_paused, order_index_at, order_index_count, remove_approval_policy,
+    set_admin, set_approval_policy as store_approval_policy, set_order,
+    set_paused as store_set_paused, set_token_allowed, ApprovalPolicy,
 };
 
 /// Maximum number of records returned by a single merchant lookup.
@@ -59,6 +60,21 @@ impl Checkout {
     /// Read the merchant wallet that owns the contract.
     pub fn merchant(env: Env) -> Result<Address, Error> {
         get_admin(&env)
+    }
+
+    /// Pause or resume new order creation and payments. Existing paid orders
+    /// remain dispatchable or refundable while paused.
+    pub fn set_paused(env: Env, paused: bool) -> Result<(), Error> {
+        let admin = get_admin(&env)?;
+        admin.require_auth();
+        store_set_paused(&env, paused);
+        PauseChangedV1 { paused }.publish(&env);
+        Ok(())
+    }
+
+    /// Read the incident-response pause state.
+    pub fn is_paused(env: Env) -> bool {
+        store_is_paused(&env)
     }
 
     /// Approve a SEP-41 token contract for payments. Only the merchant can
@@ -160,6 +176,10 @@ impl Checkout {
     ) -> Result<(), Error> {
         buyer.require_auth();
 
+        if store_is_paused(&env) {
+            return Err(Error::Paused);
+        }
+
         if amount <= 0 {
             return Err(Error::InvalidAmount);
         }
@@ -220,6 +240,10 @@ impl Checkout {
         // actionable contract-state error when the merchant has not configured
         // the checkout contract yet.
         let merchant = get_admin(&env)?;
+
+        if store_is_paused(&env) {
+            return Err(Error::Paused);
+        }
 
         if amount <= 0 {
             return Err(Error::InvalidAmount);

@@ -196,6 +196,26 @@ fn age_order_below_ttl_threshold(env: &Env, current_ttl: u32) {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn test_pause_blocks_new_orders_but_keeps_release_paths_available() {
+    let env = Env::default();
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let id = order_id(&env, 240);
+
+    assert!(!client.is_paused());
+    client.set_paused(&true);
+    assert!(client.is_paused());
+    assert_eq!(client.try_create_order(&buyer, &id, &token, &10_000), Err(Ok(Error::Paused)));
+    assert_eq!(client.try_pay(&token, &buyer, &id, &10_000), Err(Ok(Error::Paused)));
+
+    client.set_paused(&false);
+    client.pay(&token, &buyer, &id, &10_000);
+    client.set_paused(&true);
+    client.dispatch(&id);
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+    assert_eq!(usdc_balance(&env, &token, &merchant), 10_000);
+}
+
+#[test]
 fn test_pay_escrows_then_dispatch_releases_to_merchant() {
     let env = Env::default();
     env.mock_all_auths();

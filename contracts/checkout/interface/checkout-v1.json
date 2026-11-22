@@ -5,6 +5,8 @@
     { "name": "initialize", "arguments": ["merchant: Address"], "returns": "Result<(), Error>" },
     { "name": "set_merchant", "arguments": ["new_merchant: Address"], "returns": "Result<(), Error>" },
     { "name": "merchant", "arguments": [], "returns": "Result<Address, Error>" },
+    { "name": "set_paused", "arguments": ["paused: bool"], "returns": "Result<(), Error>" },
+    { "name": "is_paused", "arguments": [], "returns": "bool" },
     { "name": "add_token", "arguments": ["token: Address"], "returns": "Result<(), Error>" },
     { "name": "remove_token", "arguments": ["token: Address"], "returns": "Result<(), Error>" },
     { "name": "set_approval_policy", "arguments": ["token: Address", "threshold: i128", "approver: Address"], "returns": "Result<(), Error>" },
@@ -26,7 +28,8 @@
     { "type": "OrderShipped", "name": "dispatch", "topics": ["order_id", "merchant"], "data": ["amount"] },
     { "type": "OrderRefunded", "name": "refund", "topics": ["order_id", "buyer"], "data": ["amount"] },
     { "type": "MerchantChangedV1", "name": "merchant_changed_v1", "topics": ["previous_merchant", "new_merchant"], "data": [] },
-    { "type": "TokenAllowlistChangedV1", "name": "token_allowlist_changed_v1", "topics": ["token"], "data": ["allowed"] }
+    { "type": "TokenAllowlistChangedV1", "name": "token_allowlist_changed_v1", "topics": ["token"], "data": ["allowed"] },
+    { "type": "PauseChangedV1", "name": "pause_changed_v1", "topics": [], "data": ["paused"] }
   ],
   "statuses": [
     { "name": "Pending", "value": 0 },

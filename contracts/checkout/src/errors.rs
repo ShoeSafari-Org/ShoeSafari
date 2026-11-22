@@ -24,6 +24,8 @@ pub enum Error {
     InvalidApprovalPolicy = 9,
     /// Pagination cursor or page size is outside the supported bounds.
     InvalidPagination = 11,
+    /// New order creation and payments are paused by the merchant.
+    Paused = 12,
     /// The allowlisted token does not expose the supported seven-decimal precision.
     InvalidTokenMetadata = 10,
 }
