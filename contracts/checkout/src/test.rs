@@ -1006,6 +1006,25 @@ fn test_merchant_rotation_denies_old_and_allows_new_merchant() {
 }
 
 #[test]
+fn test_merchant_rotation_preserves_pending_order_until_payment() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let new_merchant = Address::generate(&env);
+    let id = order_id(&env, 45);
+    client.create_order(&buyer, &id, &token, &60_000);
+    client.set_merchant(&new_merchant);
+
+    assert_eq!(client.merchant(), new_merchant);
+    assert_eq!(client.status(&id), Some(Status::Pending));
+    client.pay(&token, &buyer, &id, &60_000);
+    client.dispatch(&id);
+    assert_eq!(client.status(&id), Some(Status::Shipped));
+    assert_eq!(usdc_balance(&env, &token, &new_merchant), 60_000);
+}
+
+#[test]
 fn test_events_emitted() {
     let env = Env::default();
     env.mock_all_auths();
