@@ -25,14 +25,12 @@ export function expectedNetworkPassphrase(network: StellarNetwork): string {
 
 /** Return a safe diagnostic when the raw environment would otherwise be hidden by defaults. */
 export function networkConfigurationError(): string | null {
-  const configuredNetwork =
-    process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim() || "testnet";
+  const configuredNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim() || "testnet";
   if (!isStellarNetwork(configuredNetwork)) {
     return "NEXT_PUBLIC_STELLAR_NETWORK must be either testnet or mainnet.";
   }
 
-  const configuredPassphrase =
-    process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
+  const configuredPassphrase = process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
   if (
     configuredPassphrase &&
     configuredPassphrase !== expectedNetworkPassphrase(configuredNetwork)
@@ -54,12 +52,9 @@ export const RPC_URL =
   (IS_MAINNET ? "https://soroban-rpc.stellar.org" : "https://soroban-testnet.stellar.org");
 
 const expectedPassphrase = expectedNetworkPassphrase(NETWORK);
-const configuredPassphrase =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
+const configuredPassphrase = process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
 export const NETWORK_PASSPHRASE =
-  configuredPassphrase === expectedPassphrase
-    ? configuredPassphrase
-    : expectedPassphrase;
+  configuredPassphrase === expectedPassphrase ? configuredPassphrase : expectedPassphrase;
 
 // Deployed checkout contract (see contracts/checkout + README).
 export const CHECKOUT_CONTRACT_ID = process.env.NEXT_PUBLIC_CHECKOUT_CONTRACT_ID ?? "";
@@ -120,6 +115,52 @@ export const SUPPORTED_TOKENS: TokenConfig[] = [
     isNative: true,
   },
 ];
+
+export interface DeploymentMetadata {
+  readonly commitSha: string;
+  readonly deploymentId: string;
+  readonly environment: string;
+  readonly network: StellarNetwork;
+  readonly rpcUrl: string;
+  readonly checkoutContractId: string;
+  readonly tokenContracts: readonly {
+    readonly symbol: string;
+    readonly contractId: string;
+  }[];
+}
+
+function safeRpcUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return "unconfigured";
+  }
+}
+
+/**
+ * Build-time deployment identity and public payment configuration.
+ * Keep this explicit: do not add arbitrary environment variables here.
+ */
+export const DEPLOYMENT_METADATA: DeploymentMetadata = Object.freeze({
+  commitSha:
+    process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+    process.env.NEXT_PUBLIC_BUILD_COMMIT_SHA?.trim() ||
+    "local-development",
+  deploymentId:
+    process.env.VERCEL_DEPLOYMENT_ID?.trim() ||
+    process.env.NEXT_PUBLIC_DEPLOYMENT_ID?.trim() ||
+    "local-development",
+  environment: process.env.VERCEL_ENV?.trim() || "development",
+  network: NETWORK,
+  rpcUrl: safeRpcUrl(RPC_URL),
+  checkoutContractId: CHECKOUT_CONTRACT_ID || "unconfigured",
+  tokenContracts: Object.freeze(
+    SUPPORTED_TOKENS.map(({ symbol, contractId }) =>
+      Object.freeze({ symbol, contractId: contractId || "unconfigured" })
+    )
+  ),
+});
 
 /** Default payment token (used by the checkout flow unless overridden). */
 export function defaultToken(): TokenConfig {
