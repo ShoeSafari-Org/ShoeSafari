@@ -77,6 +77,7 @@ pub fn set_token_allowed(env: &Env, token: &Address, allowed: bool) {
     let key = DataKey::TokenAllowed(token.clone());
     if allowed {
         env.storage().persistent().set(&key, &true);
+        extend_ttl(env, &key);
     } else {
         env.storage().persistent().remove(&key);
     }
