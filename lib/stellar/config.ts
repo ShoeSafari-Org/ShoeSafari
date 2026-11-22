@@ -25,14 +25,12 @@ export function expectedNetworkPassphrase(network: StellarNetwork): string {
 
 /** Return a safe diagnostic when the raw environment would otherwise be hidden by defaults. */
 export function networkConfigurationError(): string | null {
-  const configuredNetwork =
-    process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim() || "testnet";
+  const configuredNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim() || "testnet";
   if (!isStellarNetwork(configuredNetwork)) {
     return "NEXT_PUBLIC_STELLAR_NETWORK must be either testnet or mainnet.";
   }
 
-  const configuredPassphrase =
-    process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
+  const configuredPassphrase = process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
   if (
     configuredPassphrase &&
     configuredPassphrase !== expectedNetworkPassphrase(configuredNetwork)
@@ -54,12 +52,9 @@ export const RPC_URL =
   (IS_MAINNET ? "https://soroban-rpc.stellar.org" : "https://soroban-testnet.stellar.org");
 
 const expectedPassphrase = expectedNetworkPassphrase(NETWORK);
-const configuredPassphrase =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
+const configuredPassphrase = process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
 export const NETWORK_PASSPHRASE =
-  configuredPassphrase === expectedPassphrase
-    ? configuredPassphrase
-    : expectedPassphrase;
+  configuredPassphrase === expectedPassphrase ? configuredPassphrase : expectedPassphrase;
 
 // Deployed checkout contract (see contracts/checkout + README).
 export const CHECKOUT_CONTRACT_ID = process.env.NEXT_PUBLIC_CHECKOUT_CONTRACT_ID ?? "";
@@ -68,7 +63,7 @@ export const CHECKOUT_CONTRACT_ID = process.env.NEXT_PUBLIC_CHECKOUT_CONTRACT_ID
 export const TESTNET_USDC_CONTRACT_ID = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 // Set NEXT_PUBLIC_USDC_CONTRACT_ID to the mainnet USDC SAC contract id.
 export const USDC_CONTRACT_ID =
-  process.env.NEXT_PUBLIC_USDC_CONTRACT_ID ?? TESTNET_USDC_CONTRACT_ID;
+  process.env.NEXT_PUBLIC_USDC_CONTRACT_ID ?? (IS_MAINNET ? "" : TESTNET_USDC_CONTRACT_ID);
 
 // Testnet USDC is issued by Circle's classic testnet issuer (trustline only
 // needed for non-native assets; native XLM needs no trustline).
@@ -88,9 +83,22 @@ export const NATIVE_ASSET_CONTRACT_ID =
   process.env.NEXT_PUBLIC_NATIVE_ASSET_CONTRACT_ID ??
   (IS_MAINNET ? MAINNET_NATIVE_ASSET_CONTRACT_ID : TESTNET_NATIVE_ASSET_CONTRACT_ID);
 
-// All tokens accepted by the checkout contract's whitelist. The merchant adds
-// each token on-chain via `add_token`; the frontend uses this registry for
-// trustline/balance checks and for building `pay` invocations.
+export type PaymentAssetId = "USDC" | "XLM";
+
+export interface PaymentAssetFeatures {
+  /** The asset may be selected in the customer checkout. */
+  checkout: boolean;
+  /** The asset requires a classic Stellar trustline before payment. */
+  requiresTrustline: boolean;
+  /** The asset amount needs a live USD exchange-rate quote. */
+  liveUsdQuote: boolean;
+}
+
+export interface PaymentAssetDisplay {
+  label: string;
+  description: string;
+}
+
 export interface TokenConfig {
   contractId: string;
   symbol: string;
@@ -101,29 +109,138 @@ export interface TokenConfig {
   /** Classic asset code + issuer used for trustline checks. */
   assetCode?: string;
   assetIssuer?: string;
+  assetId?: PaymentAssetId;
+  network?: StellarNetwork;
+  display?: PaymentAssetDisplay;
+  features?: PaymentAssetFeatures;
 }
 
-export const SUPPORTED_TOKENS: TokenConfig[] = [
-  {
-    contractId: USDC_CONTRACT_ID,
-    symbol: "USDC",
-    name: "USD Coin",
-    decimals: 7,
-    assetCode: "USDC",
-    assetIssuer: TESTNET_USDC_ISSUER,
-  },
-  {
-    contractId: NATIVE_ASSET_CONTRACT_ID,
-    symbol: "XLM",
-    name: "Stellar Lumens",
-    decimals: 7,
-    isNative: true,
-  },
-];
+/**
+ * The source of truth for customer-facing payment assets. Keep entries for
+ * both networks here so adding an asset cannot silently use a testnet
+ * contract on mainnet. A missing mainnet USDC id is intentional until it is
+ * explicitly configured via NEXT_PUBLIC_USDC_CONTRACT_ID.
+ */
+export const PAYMENT_ASSET_REGISTRY: Record<StellarNetwork, TokenConfig[]> = {
+  testnet: [
+    {
+      assetId: "USDC",
+      contractId: TESTNET_USDC_CONTRACT_ID,
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 7,
+      network: "testnet",
+      assetCode: "USDC",
+      assetIssuer: TESTNET_USDC_ISSUER,
+      display: {
+        label: "USDC (default)",
+        description: "USDC is priced at one US dollar per token.",
+      },
+      features: { checkout: true, requiresTrustline: true, liveUsdQuote: false },
+    },
+    {
+      assetId: "XLM",
+      contractId: TESTNET_NATIVE_ASSET_CONTRACT_ID,
+      symbol: "XLM",
+      name: "Stellar Lumens",
+      decimals: 7,
+      network: "testnet",
+      isNative: true,
+      display: {
+        label: "Native XLM",
+        description:
+          "XLM uses a time-limited USD quote. The merchant must whitelist the native XLM Stellar Asset Contract.",
+      },
+      features: { checkout: true, requiresTrustline: false, liveUsdQuote: true },
+    },
+  ],
+  mainnet: [
+    {
+      assetId: "USDC",
+      contractId: USDC_CONTRACT_ID,
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 7,
+      network: "mainnet",
+      assetCode: "USDC",
+      assetIssuer: process.env.NEXT_PUBLIC_USDC_ISSUER ?? "",
+      display: {
+        label: "USDC (default)",
+        description: "USDC is priced at one US dollar per token.",
+      },
+      features: { checkout: true, requiresTrustline: true, liveUsdQuote: false },
+    },
+    {
+      assetId: "XLM",
+      contractId: MAINNET_NATIVE_ASSET_CONTRACT_ID,
+      symbol: "XLM",
+      name: "Stellar Lumens",
+      decimals: 7,
+      network: "mainnet",
+      isNative: true,
+      display: {
+        label: "Native XLM",
+        description: "XLM uses a time-limited USD quote.",
+      },
+      features: { checkout: true, requiresTrustline: false, liveUsdQuote: true },
+    },
+  ],
+};
+
+export function validatePaymentAssetRegistry(
+  registry: Record<StellarNetwork, TokenConfig[]> = PAYMENT_ASSET_REGISTRY
+): string[] {
+  const errors: string[] = [];
+  for (const network of ["testnet", "mainnet"] as const) {
+    const seenIds = new Set<string>();
+    for (const [index, asset] of (registry[network] ?? []).entries()) {
+      const prefix = `${network}[${index}]`;
+      if (!asset.assetId || seenIds.has(asset.assetId))
+        errors.push(`${prefix}.assetId must be unique`);
+      if (asset.assetId) seenIds.add(asset.assetId);
+      if (!asset.contractId) errors.push(`${prefix}.contractId is required`);
+      if (asset.network !== network) errors.push(`${prefix}.network must be ${network}`);
+      if (!asset.symbol || !asset.name) errors.push(`${prefix}.symbol and name are required`);
+      if (!Number.isInteger(asset.decimals) || asset.decimals < 0)
+        errors.push(`${prefix}.decimals must be a non-negative integer`);
+      if (!asset.display?.label || !asset.display.description)
+        errors.push(`${prefix}.display rules are required`);
+      if (
+        !asset.features ||
+        Object.values(asset.features).some((flag) => typeof flag !== "boolean")
+      ) {
+        errors.push(`${prefix}.features must define boolean capability flags`);
+      }
+      if (asset.features?.requiresTrustline && (!asset.assetCode || !asset.assetIssuer)) {
+        errors.push(`${prefix}.assetCode and assetIssuer are required for trustline assets`);
+      }
+    }
+  }
+  return errors;
+}
+
+export function paymentAssetsForNetwork(network: StellarNetwork = NETWORK): TokenConfig[] {
+  return PAYMENT_ASSET_REGISTRY[network].filter(
+    (asset) =>
+      validatePaymentAssetRegistry({
+        testnet: network === "testnet" ? [asset] : [],
+        mainnet: network === "mainnet" ? [asset] : [],
+      }).length === 0
+  );
+}
+
+export function paymentAssetsForCheckout(network: StellarNetwork = NETWORK): TokenConfig[] {
+  return paymentAssetsForNetwork(network).filter((asset) => asset.features?.checkout);
+}
+
+// All tokens accepted by the checkout contract's whitelist. The merchant adds
+// each token on-chain via `add_token`; the frontend uses this registry for
+// trustline/balance checks and for building `pay` invocations.
+export const SUPPORTED_TOKENS: TokenConfig[] = paymentAssetsForCheckout();
 
 /** Default payment token (used by the checkout flow unless overridden). */
 export function defaultToken(): TokenConfig {
-  return SUPPORTED_TOKENS[0];
+  return SUPPORTED_TOKENS.find((token) => token.assetId === "USDC") ?? SUPPORTED_TOKENS[0];
 }
 
 /** Find the supported token configuration for a Stellar contract ID. */
