@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCart } from "../../context/CartContext";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,7 +8,15 @@ import Cart from "../../components/Cart";
 import Modal from "../../components/Modal";
 import Toast from "../../components/Toast";
 import { db } from "../../lib/firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  documentId,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  startAfter,
+} from "firebase/firestore";
 import { searchProducts } from "../../lib/productSearch";
 import { ProductGridSkeleton } from "../../components/Skeleton";
 import EmptyState from "../../components/EmptyState";
@@ -20,6 +28,8 @@ import {
   isProductPurchasable,
   normalizeProduct,
 } from "../../lib/productCatalog";
+
+const PRODUCTS_PAGE_SIZE = 24;
 
 export default function Products() {
   const {
@@ -38,6 +48,39 @@ export default function Products() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastProductDoc, setLastProductDoc] = useState(null);
+  const [pageCursors, setPageCursors] = useState([]);
+  const [hasNextPage, setHasNextPage] = useState(false);
+
+  const fetchProducts = useCallback(async (cursor = null) => {
+    try {
+      if (!db) {
+        throw new Error("Product catalog is not configured.");
+      }
+
+      const constraints = [
+        orderBy(documentId()),
+        limit(PRODUCTS_PAGE_SIZE),
+      ];
+      if (cursor) constraints.push(startAfter(cursor));
+
+      const snapshot = await getDocs(
+        query(collection(db, "ShoeSafariProducts"), ...constraints)
+      );
+      setProducts(
+        snapshot.docs
+          .map((productDoc) => normalizeProduct(productDoc.data(), productDoc.id))
+          .filter(Boolean)
+      );
+      setLastProductDoc(snapshot.docs.at(-1) ?? null);
+      setHasNextPage(snapshot.docs.length === PRODUCTS_PAGE_SIZE);
+      setError(null);
+    } catch {
+      setError("We couldn't load products right now. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (
@@ -52,31 +95,27 @@ export default function Products() {
           img: "/images/shoe1.png",
         },
       ]);
+      setHasNextPage(false);
       setIsLoading(false);
       return;
     }
-
-    const fetchProducts = async () => {
-      try {
-        if (!db) {
-          throw new Error("Product catalog is not configured.");
-        }
-
-        const snapshot = await getDocs(collection(db, "ShoeSafariProducts"));
-        setProducts(
-          snapshot.docs
-            .map((productDoc) => normalizeProduct(productDoc.data(), productDoc.id))
-            .filter(Boolean)
-        );
-      } catch {
-        setError("We couldn't load products right now. Please try again later.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
+
+  const goToNextPage = async () => {
+    if (!lastProductDoc || !hasNextPage) return;
+    setIsLoading(true);
+    setPageCursors((cursors) => [...cursors, lastProductDoc]);
+    await fetchProducts(lastProductDoc);
+  };
+
+  const goToPreviousPage = async () => {
+    if (pageCursors.length === 0) return;
+    const previousCursor = pageCursors.at(-1);
+    setIsLoading(true);
+    setPageCursors((cursors) => cursors.slice(0, -1));
+    await fetchProducts(previousCursor);
+  };
 
   const showToast = (message) => {
     setToast({ show: true, message });
@@ -241,6 +280,27 @@ export default function Products() {
                 </div>
               ))}
             </div>
+          )}
+
+          {!isLoading && !error && (pageCursors.length > 0 || hasNextPage) && (
+            <nav className="mt-8 flex justify-center gap-3" aria-label="Product pages">
+              <button
+                type="button"
+                onClick={goToPreviousPage}
+                disabled={pageCursors.length === 0}
+                className="rounded border border-gray-400 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={goToNextPage}
+                disabled={!hasNextPage}
+                className="rounded border border-gray-400 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </nav>
           )}
         </section>
       </div>

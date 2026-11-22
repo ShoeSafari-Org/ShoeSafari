@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from "react";
 import TextField from "../../components/ui/TextField";
 import Button from "../../components/ui/Button";
-import { db, storage } from "../../lib/firebaseConfig";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { auth, db, storage } from "../../lib/firebaseConfig";
+import { collection, doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { createProductImageStoragePath } from "../../lib/productImageStorage";
 import {
@@ -25,6 +25,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [imageError, setImageError] = useState("");
   const [priceError, setPriceError] = useState("");
+  const [originalPrice, setOriginalPrice] = useState(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -38,6 +39,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
           setProductName(productData.name);
           setProductCategory(typeof productData.category === "string" ? productData.category : "");
           setProductPrice(productData.price);
+          setOriginalPrice(Number(productData.price));
           setAvailable(productData.available !== false);
           setExistingImageUrl(productData.img);
         } else {
@@ -87,6 +89,7 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
         imageUrl = await getDownloadURL(snapshot.ref);
       }
 
+      const docRef = doc(db, "ShoeSafariProducts", productId);
       const product = {
         name: productName,
         category: productCategory.trim(),
@@ -99,8 +102,17 @@ const EditProductForm = ({ productId, onProductUpdated }) => {
         throw new Error("Product fields are invalid: " + JSON.stringify(productValidation.errors));
       }
 
-      const docRef = doc(db, "ShoeSafariProducts", productId);
-      await updateDoc(docRef, product);
+      const batch = writeBatch(db);
+      batch.update(docRef, product);
+      if (product.price !== originalPrice) {
+        batch.set(doc(collection(docRef, "priceHistory")), {
+          previousPrice: originalPrice,
+          price: product.price,
+          changedBy: auth?.currentUser?.uid || auth?.currentUser?.email || "unknown-admin",
+          changedAt: serverTimestamp(),
+        });
+      }
+      await batch.commit();
 
       setSuccessMessage("Product updated successfully!");
       onProductUpdated();

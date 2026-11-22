@@ -17,7 +17,8 @@
     { "name": "refund", "arguments": ["order_id: BytesN<32>"], "returns": "Result<(), Error>" },
     { "name": "order", "arguments": ["order_id: BytesN<32>"], "returns": "Option<Order>" },
     { "name": "status", "arguments": ["order_id: BytesN<32>"], "returns": "Option<Status>" },
-    { "name": "is_paid", "arguments": ["order_id: BytesN<32>"], "returns": "bool" }
+    { "name": "is_paid", "arguments": ["order_id: BytesN<32>"], "returns": "bool" },
+    { "name": "orders_page", "arguments": ["cursor: u32", "limit: u32"], "returns": "Result<(Vec<BytesN<32>>, Option<u32>), Error>" }
   ],
   "events": [
     { "type": "PaymentReceived", "name": "pay", "topics": ["token", "buyer", "merchant", "order_id"], "data": ["amount"] },
