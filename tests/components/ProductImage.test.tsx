@@ -22,4 +22,9 @@ describe("ProductImage", () => {
     fireEvent.error(image);
     expect(image).toHaveAttribute("src", "/images/notfoundimage.png");
   });
+
+  it("uses the small card variant dimensions", () => {
+    render(<ProductImage src="https://example.com/shoe.jpg" alt="Trail runner" size="small" />);
+    expect(screen.getByRole("img", { name: "Trail runner" })).toHaveAttribute("width", "150");
+  });
 });

@@ -22,6 +22,26 @@ contracts and test assets only; do not use production funds or customer data.
    signing as soon as you select **Ship** or **Refund**, so check the row and
    action before continuing in Freighter.
 
+## Escrow liquidity preflight (read-only)
+
+Before a high-value dispatch or a customer refund, reconcile the expected
+escrow with the checkout contract on the same network:
+
+1. List every `Paid` order in the admin page and total each token separately
+   in raw units. Do not compare USDC and XLM by display value.
+2. In the Stellar explorer or an RPC read-only tool, inspect the checkout
+   contract's balance for that token. Compare the result with the outstanding
+   `Paid` total plus the expected network fee; never use a wallet balance as a
+   substitute for the contract balance.
+3. If the balance is lower than the outstanding total, or the token, contract,
+   network, or event history does not match, stop. Do not dispatch or refund
+   until an authorized maintainer reconciles the discrepancy.
+
+Read-only checks do not require a merchant signature. A dispatch or refund is
+the first state-changing action and must still pass the network, status, and
+approval checks below. Never request or share a seed phrase, secret key, or
+private key to perform the preflight.
+
 ## Dispatch an order
 
 1. Select **Ship** for the verified `Paid` order.

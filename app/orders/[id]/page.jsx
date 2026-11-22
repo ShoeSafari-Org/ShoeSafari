@@ -7,6 +7,8 @@ import { doc, getDoc } from "firebase/firestore";
 import EmptyState from "../../../components/EmptyState";
 import { useAuth } from "../../../lib/AuthContext";
 import { db } from "../../../lib/firebaseConfig";
+import { NETWORK } from "../../../lib/stellar/config";
+import { transactionExplorerUrl } from "../../../lib/stellar/explorer";
 
 const formatDate = (value) => {
   const date = value?.toDate?.() ?? (value ? new Date(value) : null);
@@ -30,14 +32,22 @@ export default function OrderDetailPage() {
     }
 
     getDoc(doc(db, "ShoeSafariOrders", id))
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         if (!active) return;
         if (!snapshot.exists()) {
           setUnavailable(true);
           return;
         }
-        // Firestore rules permit this read only to the owner (or an admin).
-        setOrder({ id: snapshot.id, ...snapshot.data() });
+        const data = snapshot.data();
+        const tokenResult = await user.getIdTokenResult();
+        const isAdmin = tokenResult.claims.admin === true;
+        // Rules remain the boundary; this check prevents accidentally rendering
+        // a cross-user record if a client configuration is ever too permissive.
+        if (!isAdmin && data.userId !== user.uid) {
+          setUnavailable(true);
+          return;
+        }
+        setOrder({ id: snapshot.id, ...data });
       })
       .catch(() => {
         if (active) setUnavailable(true);
@@ -68,21 +78,50 @@ export default function OrderDetailPage() {
     : address && typeof address === "object"
       ? [address.addressLine1, address.addressLine2, address.city, address.region, address.postalCode, address.country].filter(Boolean).join(", ")
       : "Not available";
+  const explorerUrl = transactionExplorerUrl(order.transactionHash);
+  const downloadReceipt = () => {
+    const receipt = {
+      informational: true,
+      orderReference: order.orderId || order.id,
+      token: order.tokenContract || "Unavailable",
+      amountRaw: order.amountRaw || "Unavailable",
+      amountUsd: order.amountUsd ?? null,
+      ledger: order.ledger ?? null,
+      transactionHash: order.transactionHash || null,
+      network: NETWORK,
+      explorerUrl,
+    };
+    const blob = new Blob([JSON.stringify(receipt, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${receipt.orderReference || "stellar-order"}-receipt.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <main className="mx-auto mt-12 max-w-3xl px-4 pb-12">
       <Link href="/orders" className="text-sm text-red-700 underline">← Your orders</Link>
       <h1 className="mt-5 text-3xl font-bold">Order details</h1>
-      <p className="mt-2 text-gray-600">Order {order.orderId || order.id}</p>
+      <p className="mt-2 text-gray-600">Customer reference: {order.orderId || order.id}</p>
       <section className="mt-6 rounded-lg border bg-white p-5">
         <h2 className="font-semibold">Payment and fulfillment</h2>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           <div><dt className="text-sm text-gray-500">Last recorded status</dt><dd>{order.status || "Pending"}</dd></div>
           <div><dt className="text-sm text-gray-500">Order date</dt><dd>{formatDate(order.createdAt)}</dd></div>
           <div><dt className="text-sm text-gray-500">Total</dt><dd>{order.amountUsd != null ? `$${Number(order.amountUsd).toFixed(2)} USD` : "Unavailable"}</dd></div>
-          <div><dt className="text-sm text-gray-500">Payment transaction</dt><dd className="break-all">{order.transactionHash || "Unavailable"}</dd></div>
+          <div><dt className="text-sm text-gray-500">Payment token</dt><dd className="break-all">{order.tokenContract || "Unavailable"}</dd></div>
+          <div><dt className="text-sm text-gray-500">Raw amount</dt><dd>{order.amountRaw || "Unavailable"}</dd></div>
+          <div><dt className="text-sm text-gray-500">Ledger</dt><dd>{order.ledger || "Unavailable"}</dd></div>
+          <div><dt className="text-sm text-gray-500">Payment transaction</dt><dd className="break-all">{explorerUrl ? <a className="text-red-700 underline" href={explorerUrl} target="_blank" rel="noreferrer">{order.transactionHash}</a> : "Unavailable"}</dd></div>
         </dl>
         <p className="mt-4 text-xs text-gray-500">The status shown here is the last saved order status; refresh your orders page to check Stellar for an updated status.</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button type="button" onClick={downloadReceipt} className="rounded bg-red-700 px-4 py-2 text-white">Download informational receipt</button>
+          <button type="button" onClick={() => window.print()} className="rounded border border-red-700 px-4 py-2 text-red-700">Print receipt</button>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">This receipt is informational; the Stellar transaction and contract remain the payment authority.</p>
       </section>
       <section className="mt-5 rounded-lg border bg-white p-5">
         <h2 className="font-semibold">Items</h2>

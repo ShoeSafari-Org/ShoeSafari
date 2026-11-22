@@ -52,4 +52,21 @@ describe("Storage authorization", () => {
     await assertFails(deleteObject(customerImage));
     await assertSucceeds(deleteObject(adminImage));
   });
+
+  it("rejects traversal-like paths, nested paths, and invalid image content", async () => {
+    const adminStorage = testEnv.authenticatedContext("admin", { admin: true }).storage();
+
+    await assertFails(
+      uploadBytes(ref(adminStorage, "products/nested/catalog.png"), imageBytes, imageMetadata),
+    );
+    await assertFails(
+      uploadBytes(ref(adminStorage, "../private/escape.png"), imageBytes, imageMetadata),
+    );
+    await assertFails(
+      uploadBytes(ref(adminStorage, "products/catalog.txt"), imageBytes, { contentType: "text/plain" }),
+    );
+    await assertFails(
+      uploadBytes(ref(adminStorage, "products/too-large.png"), new Uint8Array(5 * 1024 * 1024), imageMetadata),
+    );
+  });
 });

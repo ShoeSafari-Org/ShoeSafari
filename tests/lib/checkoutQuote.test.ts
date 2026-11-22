@@ -42,6 +42,17 @@ describe("trusted checkout quotes", () => {
     ]);
     expect(quote.totalUsd).toBe(169.97);
     expect(quote.expiresAt).toBe(1000 + CHECKOUT_QUOTE_TTL_MS);
+    expect(quote.schemaVersion).toBe(1);
+  });
+
+  it("accepts legacy signed quotes without a version and rejects unsupported versions", () => {
+    const quote = createCheckoutQuote([{ productId: "boot", quantity: 1 }], products, "legacy");
+    const { schemaVersion, ...legacyQuote } = quote;
+    const legacyToken = signCheckoutQuote(legacyQuote as typeof quote, secret);
+    expect(verifyCheckoutQuote(legacyToken, secret).schemaVersion).toBe(1);
+
+    const unsupported = signCheckoutQuote({ ...quote, schemaVersion: 99 }, secret);
+    expect(() => verifyCheckoutQuote(unsupported, secret)).toThrow(/unsupported.*version/i);
   });
 
   it("keeps legacy products without availability purchasable", () => {
@@ -66,6 +77,20 @@ describe("trusted checkout quotes", () => {
     [[{ productId: "boot", quantity: 0 }], products],
   ])("rejects unavailable products and invalid quantities", (items, catalog) => {
     expect(() => createCheckoutQuote(items, catalog, "SS-order")).toThrow();
+  });
+
+  it("rejects quantities above stock and releases expired reservations", () => {
+    expect(() => createCheckoutQuote(
+      [{ productId: "boot", quantity: 2 }],
+      { boot: { name: "Boot", price: 20, stockQuantity: 2, reservedQuantity: 1 } },
+      "SS-stock"
+    )).toThrow();
+
+    expect(createCheckoutQuote(
+      [{ productId: "boot", quantity: 2 }],
+      { boot: { name: "Boot", price: 20, stockQuantity: 2, reservedQuantity: 2, reservationExpiresAt: 1 } },
+      "SS-expired"
+    ).items[0].quantity).toBe(2);
   });
 
   it("rejects a modified total and an expired signed quote", () => {

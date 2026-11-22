@@ -13,6 +13,55 @@ non-custodial checkout that uses the Stellar public rail.
 For support steps when a submitted payment is pending or missing from the
 storefront, see the [payment reconciliation runbook](PAYMENT_RECONCILIATION.md).
 
+## End-to-end contributor map
+
+Start with the request boundary and follow the arrows when tracing a checkout:
+
+```text
+browser
+  -> app/checkout/page.tsx
+  -> lib/stellar/checkout.ts
+  -> lib/stellar/simulate.ts  (preflight; no transaction is signed yet)
+  -> Freighter                   (buyer signs in the browser)
+  -> Soroban RPC
+  -> contracts/checkout/src/lib.rs
+  -> SEP-41 token contract       (escrow transfer)
+  -> lib/stellar/indexer.ts      (payment/dispatch/refund events)
+  -> app/orders/[id]/page.jsx    (customer-facing status)
+```
+
+The trust boundaries are deliberate: the browser may build and sign a
+transaction, but it never receives a secret key or becomes the source of truth
+for payment state. The Soroban contract is authoritative for ownership,
+amount, token, and lifecycle status. Firestore stores storefront metadata and
+order presentation data; it must not be used to infer that funds moved. RPC
+responses and indexed events are untrusted input until decoded and matched to
+the expected contract and order.
+
+### Recommended reading order
+
+1. [Local setup](LOCAL_SETUP.md) and [network configuration](NETWORK_CONFIGURATION.md)
+   to choose a safe testnet environment.
+2. [`app/checkout/page.tsx`](../app/checkout/page.tsx) to see the user-facing
+   flow and its loading/error states.
+3. [`lib/stellar/checkout.ts`](../lib/stellar/checkout.ts) and
+   [`lib/stellar/simulate.ts`](../lib/stellar/simulate.ts) to follow transaction
+   construction and preflight validation.
+4. [`contracts/checkout/src/lib.rs`](../contracts/checkout/src/lib.rs) to verify
+   authorization, escrow transitions, and emitted events.
+5. [`lib/stellar/indexer.ts`](../lib/stellar/indexer.ts) and
+   [payment reconciliation](PAYMENT_RECONCILIATION.md) to understand how the
+   UI observes and repairs delayed or missing confirmations.
+
+### Focused validation commands
+
+From the repository root, use `npm run test` for storefront and utility tests,
+`npm run test:rules` for Firestore/Storage rules, and `npm run type-check` for
+the TypeScript graph. For contract changes, run `cd contracts/checkout &&
+cargo test` plus `cargo fmt -- --check`. Browser-only changes additionally use
+`npm run test:e2e`; keep those tests on testnet fixtures and never production
+funds.
+
 ## Contributor map
 
 Use this map to find each subsystem's entry point and its focused validation

@@ -242,6 +242,8 @@ const ERROR_CODE_MAP: Record<string, AppError> = {
   RPC_UNAVAILABLE: STELLAR_ERRORS.RpcUnavailable,
   TX_RPC_ERROR: STELLAR_ERRORS.RpcUnavailable,
   NETWORK_ERROR: STELLAR_ERRORS.RpcUnavailable,
+  SIMULATION_RPC_ERROR: STELLAR_ERRORS.RpcUnavailable,
+  SIMULATION_MALFORMED_RESPONSE: STELLAR_ERRORS.SimulationFailed,
 };
 
 // =============================================================================
@@ -414,6 +416,15 @@ function parseErrorMessage(message: string, transactionHash?: string): AppError 
   });
 
   if (lowerMessage.includes("simulation") || lowerMessage.includes("preflight")) {
+    if (lowerMessage.includes("token not allowed") || lowerMessage.includes("token_not_allowed")) {
+      return withDiagnostic(STELLAR_ERRORS.TokenNotAllowed);
+    }
+    if (lowerMessage.includes("order not found") || lowerMessage.includes("order mismatch")) {
+      return withDiagnostic(STELLAR_ERRORS.OrderNotFound);
+    }
+    if (lowerMessage.includes("invalid order status")) {
+      return withDiagnostic(STELLAR_ERRORS.InvalidOrderStatus);
+    }
     return withDiagnostic(STELLAR_ERRORS.SimulationFailed);
   }
   if (

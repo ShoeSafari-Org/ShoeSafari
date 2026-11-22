@@ -42,9 +42,21 @@ export const CartProvider = ({ children }) => {
 
   const persistCart = (items) => {
     const summary = getCartSummary(items);
-    localStorage.setItem("cartItems", JSON.stringify(items));
-    localStorage.setItem("itemCount", String(summary.itemCount));
-    localStorage.setItem("totalPrice", String(summary.totalPrice));
+    const previous = ["cartItems", "itemCount", "totalPrice"].map((key) => [
+      key,
+      localStorage.getItem(key),
+    ]);
+    try {
+      localStorage.setItem("cartItems", JSON.stringify(items));
+      localStorage.setItem("itemCount", String(summary.itemCount));
+      localStorage.setItem("totalPrice", String(summary.totalPrice));
+    } catch (error) {
+      previous.forEach(([key, value]) => {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      });
+      throw error;
+    }
   };
 
   const restoreLatestCart = useCallback(() => {
@@ -74,9 +86,16 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product) => {
     if (!isProductAvailable(product) || !isProductPurchasable(product)) return false;
-    const updatedItems = [...cartItemsRef.current, product];
+    const previousItems = cartItemsRef.current;
+    const updatedItems = [...previousItems, product];
     updateCartState(updatedItems);
-    persistCart(updatedItems);
+    try {
+      persistCart(updatedItems);
+    } catch {
+      updateCartState(previousItems);
+      setCartRecoveryMessage("Your cart could not be saved. Please try again.");
+      return false;
+    }
     return true;
   };
 
@@ -86,8 +105,14 @@ export const CartProvider = ({ children }) => {
 
     const updatedItems = [...cartItemsRef.current];
     updatedItems.splice(index, 1);
+    const previousItems = cartItemsRef.current;
     updateCartState(updatedItems);
-    persistCart(updatedItems);
+    try {
+      persistCart(updatedItems);
+    } catch {
+      updateCartState(previousItems);
+      setCartRecoveryMessage("Your cart could not be saved. Please try again.");
+    }
   };
 
   const clearCart = () => {

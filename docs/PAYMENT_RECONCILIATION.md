@@ -17,7 +17,12 @@ If a hash is unavailable, use the order ID and the expected checkout contract
 to locate the transaction through the relevant network's explorer or event
 history. Do not infer payment from a screenshot or an unsigned wallet prompt.
 
-## 2. Check the correct network
+Record the expected checkout terms before checking the chain: network, checkout
+contract ID, buyer wallet, token contract ID, and raw token amount. The human
+readable order ID is not itself the on-chain payment reference; the contract
+stores its SHA-256 hash as a 32-byte order ID.
+
+## 2. Perform read-only checks on the correct network
 
 Open the hash using the explorer for the network that was used:
 
@@ -28,6 +33,14 @@ The order page may link to the transaction when an off-chain order record
 exists. Do not paste a mainnet hash into a testnet lookup or vice versa. A transaction
 that is still pending or not found may need more time; repeat the lookup before
 deciding it failed.
+
+For an RPC check, use only read operations for the configured network: look up
+the transaction by its existing hash and inspect its status, ledger, contract
+invocation, and emitted events. If the hash is not available, query the
+configured checkout contract's events for the expected order hash. Never submit,
+simulate as a substitute for a submitted transaction, retry, refund, dispatch,
+or change contract configuration while reconciling support cases. An explorer
+or RPC outage is an unknown result, not a failed payment.
 
 ## 3. Verify before changing order records
 
@@ -50,7 +63,28 @@ contracts/checkout/README.md documents their topics and data. An event from
 another contract, an unrelated transfer, or a create_order event alone does
 not prove that funds were paid into escrow.
 
-## 4. Decide what to do
+To match the order reference, hash the exact stored order ID as UTF-8 with
+SHA-256, render the 32 bytes as lowercase hexadecimal, and compare that value
+with the event's 64-character `order_id`. Compare the buyer, token, amount,
+and checkout contract as well; a matching hash with different payment terms is
+still a mismatch.
+
+## 4. Handle duplicate-looking submissions
+
+Treat each transaction hash as separate evidence. For every successful-looking
+submission, compare the decoded `pay` event's order hash, buyer, token, amount,
+and contract ID with the intended order. A second successful payment for the
+same order is not automatically a refund: preserve both hashes, stop further
+checkout attempts, and escalate to an authorized maintainer for a customer-safe
+resolution. Never refund, dispatch, or edit an order merely because two wallet
+prompts appeared.
+
+If one transaction is successful and another is pending, wait for the pending
+transaction's terminal result before calling it a duplicate. If one failed,
+record the failed hash separately and use only the verified successful event
+for reconciliation.
+
+## 5. Decide what to do
 
 | On-chain result | Action |
 | --- | --- |
@@ -65,11 +99,33 @@ Only an authorized maintainer should update off-chain order data, and only
 after the on-chain evidence has been recorded. Never submit dispatch or refund
 transactions merely to make a UI status match.
 
-## 5. Escalate with limited metadata
+## 6. Escalation thresholds
+
+Escalate immediately, without asking the buyer to retry, when any of these is
+true:
+
+- a successful matching `pay` event exists but the storefront order is missing
+  or has a conflicting status;
+- two different successful transaction hashes contain matching payment events
+  for the same order hash; or
+- a successful transaction has a contract, network, buyer, token, amount, or
+  order-hash mismatch.
+
+For a pending or not-found hash, repeat the same read-only lookup after the
+normal propagation/recovery window. If two read-only checks still cannot
+establish a terminal result, or the RPC/explorer is unavailable, escalate as
+**uncertain**. Do not label it failed and do not request another payment while
+it is uncertain. A terminal failed result may be treated as failed only after
+the hash is verified on the correct network and no separate successful
+matching transaction exists.
+
+## 7. Escalate with limited metadata
 
 Record only what is needed to investigate: order ID, transaction hash, network,
 checkout contract ID, token contract ID, expected and observed amount/status,
 ledger or timestamp, and the concise error or discrepancy. Do not include
 secret keys, seed phrases, full wallet exports, authentication tokens, or
-unrelated customer data. Store the record only in the approved support
-channel.
+unrelated customer data. Do not include card details or wallet screenshots
+that expose balances or unrelated activity. Store the record only in the
+approved support channel, and redact wallet addresses if the channel does not
+require them for matching.

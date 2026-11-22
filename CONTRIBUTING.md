@@ -92,6 +92,39 @@ Branch naming conventions:
 - Run the local checks below before committing. If they pass, commit.
 - Never commit secrets, `.env` files, or `node_modules`.
 
+### Examples by code domain
+
+Keep the change and its validation in the same domain:
+
+**React storefront change**
+
+```text
+app/checkout/page.tsx       # user-visible behavior
+tests/app/checkout.test.tsx # interaction and error-state coverage
+npm run test -- --run tests/app/checkout.test.tsx
+```
+
+**Soroban contract change**
+
+```text
+contracts/checkout/src/lib.rs  # entry point or state transition
+contracts/checkout/src/test.rs # mock-token regression coverage
+cd contracts/checkout && cargo test && cargo fmt -- --check
+```
+
+**Firebase rules change**
+
+```text
+firestore.rules               # authorization boundary
+tests/rules/firestore.rules.test.js # emulator-backed rule coverage
+npm run test:rules:firestore
+```
+
+If a contract interface, event schema, or environment variable changes, update
+the corresponding manifest or documentation in the same PR. Use emulator and
+Stellar testnet fixtures only; do not point a fixture, rule test, or local
+environment at production data or funds.
+
 ### Step 4 — Open a Pull Request (PR) for review
 
 ```bash

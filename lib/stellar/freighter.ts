@@ -28,6 +28,40 @@ export class WalletError extends Error {
   }
 }
 
+export type WalletProvider = "freighter" | "xbull";
+type XBullWallet = {
+  isConnected?: () => Promise<boolean> | boolean;
+  connect: () => Promise<string | { publicKey?: string }>;
+  getPublicKey?: () => Promise<string>;
+  getNetwork?: () => Promise<string>;
+  signTransaction: (xdr: string, options?: { networkPassphrase?: string; address?: string }) => Promise<string | { signedTxXdr?: string }>;
+};
+
+let activeProvider: WalletProvider = "freighter";
+
+function xBullWallet(): XBullWallet | null {
+  if (typeof window === "undefined") return null;
+  return (window as Window & { xBullWallet?: XBullWallet }).xBullWallet || null;
+}
+
+export function setWalletProvider(provider: WalletProvider): void {
+  activeProvider = provider;
+}
+
+export function selectedWalletProvider(): WalletProvider {
+  return activeProvider;
+}
+
+export async function xBullAvailable(): Promise<boolean> {
+  const wallet = xBullWallet();
+  if (!wallet) return false;
+  try {
+    return wallet.isConnected ? Boolean(await wallet.isConnected()) : true;
+  } catch {
+    return false;
+  }
+}
+
 /** Return whether the Freighter browser extension is connected and available. */
 export async function freighterAvailable(): Promise<boolean> {
   try {
@@ -39,7 +73,16 @@ export async function freighterAvailable(): Promise<boolean> {
 }
 
 /** Request wallet access and return the selected Stellar public key. */
-export async function connectWallet(): Promise<string> {
+export async function connectWallet(provider: WalletProvider = activeProvider): Promise<string> {
+  setWalletProvider(provider);
+  if (provider === "xbull") {
+    const wallet = xBullWallet();
+    if (!wallet) throw new WalletError("xBull Wallet is not installed.", "XBULL_NOT_FOUND");
+    const result = await wallet.connect();
+    const address = typeof result === "string" ? result : result.publicKey;
+    if (!address) throw new WalletError("xBull Wallet did not return an address.", "XBULL_CONNECT_ERROR");
+    return address;
+  }
   if (!(await freighterAvailable())) {
     throw new WalletError(
       "Freighter is not installed. Install the Freighter wallet extension to pay with USDC.",
@@ -55,6 +98,11 @@ export async function connectWallet(): Promise<string> {
 
 /** Read the currently authorized public key without opening a wallet prompt. */
 export async function currentAddress(): Promise<string | null> {
+  if (activeProvider === "xbull") {
+    const wallet = xBullWallet();
+    if (!wallet || !(await xBullAvailable())) return null;
+    return wallet.getPublicKey ? await wallet.getPublicKey() : null;
+  }
   if (!(await freighterAvailable())) return null;
   const res = await getAddress();
   if (res.error || !res.address) return null;
@@ -68,6 +116,13 @@ export async function ensureNetwork(): Promise<string> {
     throw new WalletError(configurationError, "NETWORK_CONFIG_ERROR");
   }
 
+  if (activeProvider === "xbull") {
+    const network = await xBullWallet()?.getNetwork?.();
+    if (!network) throw new WalletError("xBull Wallet network could not be verified.", "XBULL_NETWORK_ERROR");
+    const expected = NETWORK === "testnet" ? "TESTNET" : "PUBLIC";
+    if (network.toUpperCase() !== expected) throw new WalletError(`xBull Wallet is on "${network}" but this store expects "${NETWORK}".`, "WRONG_NETWORK");
+    return network;
+  }
   const res = await getNetwork();
   if (res.error) {
     throw new WalletError(res.error.toString(), "FREIGHTER_NETWORK_ERROR");
@@ -92,6 +147,14 @@ export async function signWithFreighter(
   transactionXdr: string,
   publicKey: string
 ): Promise<string> {
+  if (activeProvider === "xbull") {
+    const wallet = xBullWallet();
+    if (!wallet) throw new WalletError("xBull Wallet is not installed.", "XBULL_NOT_FOUND");
+    const result = await wallet.signTransaction(transactionXdr, { networkPassphrase: NETWORK_PASSPHRASE, address: publicKey });
+    const signedTxXdr = typeof result === "string" ? result : result.signedTxXdr;
+    if (!signedTxXdr) throw new WalletError("xBull Wallet did not return a signed transaction.", "XBULL_SIGN_ERROR");
+    return signedTxXdr;
+  }
   const res = await signTransaction(transactionXdr, {
     networkPassphrase: NETWORK_PASSPHRASE,
     address: publicKey,

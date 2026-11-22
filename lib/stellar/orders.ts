@@ -491,6 +491,7 @@ export interface OrderEvent {
   txHash: string;
   commerce?: {
     documentId: string;
+    orderReference?: string | null;
     customer?: {
       firstName?: string;
       lastName?: string;

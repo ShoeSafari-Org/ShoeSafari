@@ -6,7 +6,7 @@ import {
   assertFails,
   assertSucceeds,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 const projectId = "demo-shoesafari";
 let testEnv;
@@ -56,6 +56,8 @@ describe("Firestore admin claim rules", () => {
       )
     );
     await assertFails(updateDoc(ownerPath, { status: "Shipped" }));
+    await assertFails(updateDoc(ownerPath, { userId: "customer-2" }));
+    await assertFails(deleteDoc(ownerPath));
 
     const adminPath = doc(
       testEnv.authenticatedContext("admin", { admin: true }).firestore(),

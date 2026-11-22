@@ -1,5 +1,8 @@
 # Customer data retention and deletion
 
+The [customer, wallet, and transaction data map](PRIVACY_DATA_MAP.md) lists
+visibility, storage, access, retention, and redaction rules for each field.
+
 ## Retention period
 
 The merchant retains direct customer details in a Firestore order for one year

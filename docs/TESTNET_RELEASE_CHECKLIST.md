@@ -18,6 +18,7 @@ All payment checks below must use Stellar testnet accounts and test assets only.
 - [ ] Run `npm run validate:production-env`, `npm run type-check`, `npm run lint`, and `npm test -- --run` from the repository root.
 - [ ] Open the storefront using a clean browser profile; verify the network and token shown by the checkout before connecting a wallet.
 - [ ] Complete one low-value testnet order and verify its transaction hash, order record, and `Paid` status.
+- [ ] Run the opt-in smoke test with `RUN_TESTNET_SMOKE=1 npm run test:release:smoke`; review its log and confirm the disposable order was refunded.
 - [ ] On a separate test order, verify the merchant dispatch path and confirm escrow reaches the merchant.
 - [ ] On another test order, verify the refund path and confirm escrow returns to the buyer. Never dispatch and refund the same order.
 - [ ] Check browser and server logs for errors or accidentally exposed configuration, then remove test customer data from the demo environment.
@@ -28,3 +29,9 @@ All payment checks below must use Stellar testnet accounts and test assets only.
 - [ ] Record the contract ID, network, commit SHA, and test transaction hashes in the release notes. Do not record secret keys.
 - [ ] Keep the previous demo build available until the new deployment has passed its smoke checks.
 - [ ] If a check fails, disable the demo link, restore the previous build, and investigate using testnet data before re-enabling it.
+
+The smoke script refuses `STELLAR_NETWORK=mainnet`, requires an explicit
+testnet contract and token id, uses a fresh 32-byte order id, and refunds the
+order on exit. Keep the generated log, transaction hashes, and cleanup result
+for the release record, but never place secret keys in environment files or
+logs.

@@ -158,4 +158,57 @@ describe("Checkout Stellar payment", () => {
       }),
     );
   });
+
+  it("preserves the confirmed payment when order persistence fails", async () => {
+    mocks.saveStellarOrder.mockRejectedValueOnce(new Error("Firestore unavailable"));
+    render(<Checkout />);
+
+    fireEvent.change(screen.getByLabelText("First Name"), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByLabelText("Last Name"), { target: { value: "Lovelace" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ada@example.com" } });
+    fireEvent.change(screen.getByLabelText("Address line 1"), { target: { value: "1 Example Street" } });
+    fireEvent.change(screen.getByLabelText("City"), { target: { value: "London" } });
+    fireEvent.change(screen.getByLabelText("State / region"), { target: { value: "Greater London" } });
+    fireEvent.change(screen.getByLabelText("Postal code"), { target: { value: "SW1A 1AA" } });
+    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "United Kingdom" } });
+
+    const payButton = screen.getByRole("button", { name: "Pay with Stellar (USDC)" });
+    await waitFor(() => expect(payButton).toBeEnabled());
+    fireEvent.click(payButton);
+
+    expect(await screen.findByText("Order Completed.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("stellar-transaction-hash");
+    expect(screen.queryByRole("button", { name: "Pay with Stellar (USDC)" })).toBeNull();
+    expect(mocks.saveStellarOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists a server-quoted payment after the mocked ledger settles", async () => {
+    render(<Checkout />);
+    for (const [label, value] of [
+      ["First Name", "Ada"],
+      ["Last Name", "Lovelace"],
+      ["Email", "ada@example.com"],
+      ["Address line 1", "1 Example Street"],
+      ["City", "London"],
+      ["State / region", "Greater London"],
+      ["Postal code", "SW1A 1AA"],
+      ["Country", "United Kingdom"],
+    ]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    }
+
+    const payButton = screen.getByRole("button", { name: "Pay with Stellar (USDC)" });
+    await waitFor(() => expect(payButton).toBeEnabled());
+    fireEvent.click(payButton);
+
+    await waitFor(() => expect(mocks.saveStellarOrder).toHaveBeenCalled());
+    expect(mocks.saveStellarOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedPayment: expect.objectContaining({
+          tokenContract: USDC_CONTRACT_ID,
+          amountRaw: "799900000",
+        }),
+      }),
+    );
+  });
 });

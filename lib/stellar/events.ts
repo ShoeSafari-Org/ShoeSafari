@@ -23,6 +23,14 @@ export interface PaymentReceipt {
   ledger: number;
 }
 
+export interface PaymentEventExpectation {
+  contractId?: string;
+  token?: string;
+  buyer?: string;
+  orderId?: string;
+  amount?: string;
+}
+
 /**
  * Decode the checkout contract's order events using their event-specific
  * topic and data layouts. Invalid or incomplete events are ignored before
@@ -233,8 +241,10 @@ export async function checkTransactionStatus(hash: string) {
  * successful transaction's contract events.
  */
 export function decodePaymentEvent(
-  tx: rpc.Api.GetSuccessfulTransactionResponse
+  tx: rpc.Api.GetSuccessfulTransactionResponse,
+  expected: PaymentEventExpectation = {}
 ): PaymentReceipt | null {
+  if (tx.status !== rpc.Api.GetTransactionStatus.SUCCESS || !/^[a-f0-9]{64}$/i.test(tx.txHash) || !Number.isInteger(tx.ledger) || tx.ledger <= 0) return null;
   const contractEvents: xdr.ContractEvent[] = tx.events?.contractEventsXdr?.flat() ?? [];
   for (const event of contractEvents) {
     let v0: xdr.ContractEventV0;
@@ -244,12 +254,13 @@ export function decodePaymentEvent(
       continue;
     }
     const topics = v0.topics();
-    if (!topics || topics.length < 1) continue;
+    if (!topics || topics.length !== 5) continue;
     const first = topics[0];
     if (first.switch() !== xdr.ScValType.scvSymbol()) continue;
     if (first.sym().toString() !== "pay") continue;
 
     const data = v0.data();
+    if (!decodeOrderContractEventFields("pay", topics, data)) continue;
     const receipt: PaymentReceipt = {
       txHash: tx.txHash,
       ledger: tx.ledger,
@@ -295,6 +306,11 @@ export function decodePaymentEvent(
     } else {
       receipt.amount = scValToString(data);
     }
+    if (expected.contractId && receipt.contractId !== expected.contractId) continue;
+    if (expected.token && receipt.token !== expected.token) continue;
+    if (expected.buyer && receipt.buyer !== expected.buyer) continue;
+    if (expected.orderId && receipt.orderId?.toLowerCase() !== expected.orderId.toLowerCase()) continue;
+    if (expected.amount && receipt.amount !== expected.amount) continue;
     return receipt;
   }
   return null;

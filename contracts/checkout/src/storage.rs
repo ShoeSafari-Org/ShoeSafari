@@ -17,6 +17,10 @@ pub enum DataKey {
     TokenAllowed(Address),
     /// Optional high-value release approval threshold and second signer per token.
     ApprovalPolicy(Address),
+    /// Number of order ids appended to the bounded lookup index.
+    OrderIndexCount,
+    /// An order id in insertion order, keyed by its zero-based index.
+    OrderIndex(u32),
 }
 
 #[soroban_sdk::contracttype]
@@ -66,6 +70,31 @@ pub fn set_order(env: &Env, order_id: &BytesN<32>, order: &Order) {
     extend_ttl(env, &DataKey::Order(order_id.clone()));
 }
 
+pub fn append_order_index(env: &Env, order_id: &BytesN<32>) {
+    let count: u32 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::OrderIndexCount)
+        .unwrap_or(0);
+    env.storage()
+        .persistent()
+        .set(&DataKey::OrderIndex(count), order_id);
+    env.storage()
+        .persistent()
+        .set(&DataKey::OrderIndexCount, &(count + 1));
+}
+
+pub fn order_index_count(env: &Env) -> u32 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::OrderIndexCount)
+        .unwrap_or(0)
+}
+
+pub fn order_index_at(env: &Env, index: u32) -> Option<BytesN<32>> {
+    env.storage().persistent().get(&DataKey::OrderIndex(index))
+}
+
 pub fn is_token_allowed(env: &Env, token: &Address) -> bool {
     env.storage()
         .persistent()
@@ -77,6 +106,7 @@ pub fn set_token_allowed(env: &Env, token: &Address, allowed: bool) {
     let key = DataKey::TokenAllowed(token.clone());
     if allowed {
         env.storage().persistent().set(&key, &true);
+        extend_ttl(env, &key);
     } else {
         env.storage().persistent().remove(&key);
     }

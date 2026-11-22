@@ -1,0 +1,44 @@
+name: Dependency security
+
+on:
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "contracts/checkout/package.json"
+      - "contracts/checkout/package-lock.json"
+      - ".github/workflows/dependency-review.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Review dependency diff
+        uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
+        with:
+          fail-on-severity: high
+
+  npm-audit:
+    name: Audit production dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Block high and critical production vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+      - name: Record advisory findings
+        run: npm audit --omit=dev --json > npm-audit-production.json || true
+      - name: Upload advisory report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: npm-audit-production
+          path: npm-audit-production.json

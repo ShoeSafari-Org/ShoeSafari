@@ -13,13 +13,40 @@ import { useNotification } from "./Notification";
  * the moment the payment lands on-chain (independent of the classic
  * getTransaction polling used during submission).
  */
-const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
+const StellarOrderWatch = ({
+  orderId,
+  enabled = true,
+  onEvent = null,
+  paymentHash = "",
+  persistenceState = "pending",
+}) => {
   const { success, error: notifyError } = useNotification();
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
   const [matched, setMatched] = useState(null);
   const [waitingTooLong, setWaitingTooLong] = useState(false);
+  const [timeline, setTimeline] = useState({});
   const indexerRef = useRef(null);
+
+  const mark = (key, status) => {
+    setTimeline((current) =>
+      current[key]?.status === status
+        ? current
+        : { ...current, [key]: { status, at: new Date() } },
+    );
+  };
+
+  useEffect(() => {
+    if (paymentHash) {
+      mark("local", "complete");
+      mark("rpc", matched ? "complete" : "pending");
+    }
+    if (matched) mark("ledger", "complete");
+    if (persistenceState === "success" || persistenceState === "failed") {
+      mark("persistence", persistenceState);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentHash, matched, persistenceState]);
 
   useEffect(() => {
     if (!enabled || !orderId) return undefined;
@@ -121,6 +148,26 @@ const StellarOrderWatch = ({ orderId, enabled = true, onEvent = null }) => {
           {error}
         </div>
       )}
+
+      <ol aria-label="Checkout confirmation timeline" className="mt-3 space-y-1 border-t border-gray-200 pt-2">
+        {[
+          ["local", "Wallet submission"],
+          ["rpc", "RPC accepted / pending"],
+          ["ledger", "Ledger confirmation"],
+          ["persistence", "Order record saved"],
+        ].map(([key, label]) => {
+          const item = timeline[key];
+          const state = item?.status || "pending";
+          return (
+            <li key={key} className="flex items-center justify-between gap-2">
+              <span>{state === "complete" ? "✓" : state === "failed" ? "!" : "•"} {label}</span>
+              <time className="text-[10px] text-gray-500" dateTime={item?.at?.toISOString()}>
+                {item?.at ? item.at.toLocaleTimeString() : "waiting"}
+              </time>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 };

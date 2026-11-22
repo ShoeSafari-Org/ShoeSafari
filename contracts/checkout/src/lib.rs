@@ -7,7 +7,7 @@ mod storage;
 mod test;
 
 use soroban_sdk::token::TokenClient;
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, MuxedAddress};
+use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, MuxedAddress, Vec};
 
 use crate::errors::Error;
 use crate::events::{
@@ -16,13 +16,18 @@ use crate::events::{
 };
 use crate::order::{Order, Status};
 use crate::storage::{
-    get_admin, get_approval_policy, get_order, has_admin, is_token_allowed, remove_approval_policy,
-    set_admin, set_approval_policy as store_approval_policy, set_order, set_token_allowed,
-    ApprovalPolicy,
+    append_order_index, get_admin, get_approval_policy, get_order, has_admin, is_token_allowed,
+    order_index_at, order_index_count, remove_approval_policy, set_admin,
+    set_approval_policy as store_approval_policy, set_order, set_token_allowed, ApprovalPolicy,
 };
+
+/// Maximum number of records returned by a single merchant lookup.
+pub const MAX_ORDER_PAGE_SIZE: u32 = 50;
 
 #[contract]
 pub struct Checkout;
+
+pub const SUPPORTED_TOKEN_DECIMALS: u32 = 7;
 
 #[contractimpl]
 impl Checkout {
@@ -62,6 +67,13 @@ impl Checkout {
     pub fn add_token(env: Env, token: Address) -> Result<(), Error> {
         let admin = get_admin(&env)?;
         admin.require_auth();
+        // Checkout amounts use the seven-decimal precision of Stellar assets.
+        // Reject tokens with incompatible or malformed SEP-41 metadata before
+        // they can be used for escrow.
+        let decimals = TokenClient::new(&env, &token).decimals();
+        if decimals != SUPPORTED_TOKEN_DECIMALS {
+            return Err(Error::InvalidTokenMetadata);
+        }
         if !is_token_allowed(&env, &token) {
             set_token_allowed(&env, &token, true);
             TokenAllowlistChangedV1 {
@@ -167,6 +179,7 @@ impl Checkout {
             status: Status::Pending,
         };
         set_order(&env, &order_id, &order);
+        append_order_index(&env, &order_id);
 
         OrderCreated {
             token,
@@ -216,6 +229,7 @@ impl Checkout {
         }
 
         // Pending order terms are immutable once registered by the buyer.
+        let had_existing = get_order(&env, &order_id).is_some();
         if let Some(existing) = get_order(&env, &order_id) {
             if existing.status == Status::Pending {
                 if existing.buyer != buyer || existing.token != token || existing.amount != amount {
@@ -245,6 +259,9 @@ impl Checkout {
             status: Status::Paid,
         };
         set_order(&env, &order_id, &order);
+        if !had_existing {
+            append_order_index(&env, &order_id);
+        }
 
         PaymentReceived {
             token: token.clone(),
@@ -360,6 +377,38 @@ impl Checkout {
             Some(order) => order.is_paid(),
             None => false,
         }
+    }
+
+    /// Return a bounded insertion-ordered page of order ids.
+    /// `cursor` is the zero-based index to start at; the returned cursor is
+    /// suitable for the next call and is omitted on the final page.
+    pub fn orders_page(
+        env: Env,
+        cursor: u32,
+        limit: u32,
+    ) -> Result<(Vec<BytesN<32>>, Option<u32>), Error> {
+        if limit == 0 || limit > MAX_ORDER_PAGE_SIZE {
+            return Err(Error::InvalidPagination);
+        }
+        let count = order_index_count(&env);
+        if cursor > count {
+            return Err(Error::InvalidPagination);
+        }
+
+        let mut ids = Vec::new(&env);
+        let end = core::cmp::min(cursor.saturating_add(limit), count);
+        let mut index = cursor;
+        while index < end {
+            if let Some(order_id) = order_index_at(&env, index) {
+                // Reading through the canonical key extends its TTL.
+                if get_order(&env, &order_id).is_some() {
+                    ids.push_back(order_id);
+                }
+            }
+            index += 1;
+        }
+        let next = if end < count { Some(end) } else { None };
+        Ok((ids, next))
     }
 }
 

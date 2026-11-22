@@ -30,6 +30,13 @@ describe("development configuration page", () => {
     expect(screen.getAllByText("Missing")).toHaveLength(9);
     expect(screen.getByText(/Selected network:/)).toHaveTextContent("testnet");
     expect(screen.getByText(/not a deployment health endpoint/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Deployment metadata" })).toBeInTheDocument();
+    expect(
+      screen.getByText("CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526")
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("local-development")).toHaveLength(2);
+    expect(screen.queryByText("firebase-ci-placeholder")).not.toBeInTheDocument();
+    expect(document.body).toMatchSnapshot();
   });
 
   it("returns not found when directly requested in production", () => {

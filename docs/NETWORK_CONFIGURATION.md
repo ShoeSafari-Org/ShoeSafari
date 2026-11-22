@@ -58,3 +58,6 @@ both `lib/stellar/config.ts` and `lib/env.ts`, and check the README environment
 table and `.env.local.example`. Add or update a focused configuration test when
 the code changes a default or supported combination; reviewers should request
 those updates before merging a configuration change.
+
+For a new SEP-41 asset, follow the [token onboarding checklist](SEP41_TOKEN_ONBOARDING.md)
+before adding it to a supported network.

@@ -143,3 +143,11 @@ testnet assets. The contract must have the chosen token allowlisted or
 simulation will fail before Freighter asks for a signature.
 
 For a full deployment path, see the [checkout contract guide](../contracts/checkout/README.md).
+# Wallet providers
+
+Checkout uses a small adapter surface in `lib/stellar/freighter.ts` so the
+network check, public-key selection, and transaction signing stay identical
+across providers. Freighter remains the default; an xBull browser wallet is
+used only when its injected API is detected and its network can be verified.
+Provider-specific failures are normalized to `WalletError` before reaching the
+checkout UI.

@@ -6,12 +6,24 @@ export interface XlmSpotPrice {
   updatedAt: number;
 }
 
-/** Fetch an explicitly timestamped public XLM/USD quote from CoinGecko. */
-export async function fetchXlmSpotPrice(now = Date.now()): Promise<XlmSpotPrice> {
-  const response = await fetch(
-    "https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd&include_last_updated_at=true",
-    { cache: "no-store", signal: AbortSignal.timeout(5_000) }
-  );
+export interface XlmPriceProvider {
+  fetchSpotPrice(): Promise<{ ok: boolean; json(): Promise<unknown> }>;
+}
+
+export const coingeckoXlmPriceProvider: XlmPriceProvider = {
+  fetchSpotPrice: () =>
+    fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd&include_last_updated_at=true",
+      { cache: "no-store", signal: AbortSignal.timeout(5_000) }
+    ),
+};
+
+/** Fetch an explicitly timestamped public XLM/USD quote from a provider. */
+export async function fetchXlmSpotPrice(
+  now = Date.now(),
+  provider: XlmPriceProvider = coingeckoXlmPriceProvider
+): Promise<XlmSpotPrice> {
+  const response = await provider.fetchSpotPrice();
   if (!response.ok) throw new Error("The XLM/USD quote source is unavailable. Try USDC instead.");
 
   const body = await response.json();
