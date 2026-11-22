@@ -214,6 +214,30 @@ fn test_pay_escrows_then_dispatch_releases_to_merchant() {
 }
 
 #[test]
+fn test_order_lifecycle_preserves_escrow_invariants_for_boundary_amounts() {
+    for (index, amount) in [1_i128, 100_000, 999_999].iter().enumerate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, token, merchant, buyer) = setup_usdc(&env);
+        let checkout = client.address.clone();
+        let id = order_id(&env, (40 + index) as u8);
+        let initial_total = usdc_balance(&env, &token, &buyer);
+
+        client.pay(&token, &buyer, &id, amount);
+        assert_eq!(client.status(&id), Some(Status::Paid));
+        assert_eq!(
+            usdc_balance(&env, &token, &buyer) + usdc_balance(&env, &token, &checkout),
+            initial_total
+        );
+
+        client.dispatch(&id);
+        assert_eq!(client.status(&id), Some(Status::Shipped));
+        assert_eq!(usdc_balance(&env, &token, &checkout), 0);
+        assert_eq!(usdc_balance(&env, &token, &merchant), *amount);
+    }
+}
+
+#[test]
 fn test_high_value_dispatch_uses_configured_second_signer() {
     let env = Env::default();
     env.mock_all_auths();
