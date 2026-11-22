@@ -75,3 +75,9 @@ Record the testnet network, token, order reference, transaction hash, final
 status, and expected event fields in the PR. Redact wallet addresses if the
 account is shared. Do not include seed phrases, secret keys, access tokens, or
 production configuration values.
+# Checkout quote compatibility
+
+Signed checkout quotes carry `schemaVersion: 1`. Verification accepts older
+signed quotes that omit the field and normalizes them to version 1, while
+unsupported versions fail with an actionable request to return to checkout for
+a fresh quote. This allows staged rollouts without weakening HMAC validation.
