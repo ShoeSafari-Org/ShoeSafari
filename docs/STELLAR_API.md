@@ -8,6 +8,21 @@ It is the reference for contract method signatures, argument order, event
 names, and order status values. Run `npm run check:checkout-interface` when
 changing the frontend decoder or the contract interface.
 
+## Payment adapter boundary
+
+`lib/payments/adapter.ts` defines the rail-neutral `PaymentAdapter` contract.
+An adapter submits a `PaymentRequest` through `pay()` and reconciles the same
+provider reference through `getStatus()`. Implementations must preserve
+`pending` as a distinct state: an interrupted or uncertain submission must be
+checked by reference and must not be retried automatically. The contract also
+defines capabilities and a common `PaymentAdapterError` without exposing
+provider credentials or requiring callers to understand a specific rail.
+
+`lib/payments/stellar.ts` adapts the existing `payWithStellar` flow to this
+boundary. It is intentionally a thin compatibility layer; current storefront
+behavior and the Soroban contract remain unchanged. A future rail should add a
+similarly small adapter and keep provider-specific fields out of the shared
+types.
 Payment confirmation accepts only a successful transaction with a valid hash,
 ledger, five-topic `pay` event, positive amount, and the expected contract,
 buyer, token, order hash, and amount. Unrelated or malformed events are
