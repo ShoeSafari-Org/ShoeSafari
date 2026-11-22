@@ -26,7 +26,9 @@ import Link from "next/link";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../lib/firebaseConfig";
 import {
+  addOrderSupportNote,
   anonymizeStellarOrderPersonalData,
+  updateOrderSupportNote,
   updateStellarOrderStatus,
 } from "../../../lib/orderStore";
 import { isOrderRetentionDue } from "../../../lib/orderRetention";
@@ -95,18 +97,32 @@ const truncateAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
+type SupportNote = {
+  id: string;
+  orderIdHash: string;
+  note: string;
+  resolutionStatus: "open" | "resolved";
+  authorEmail?: string | null;
+};
+
 // Order row component
 const OrderRow = ({
   order,
   onDispatch,
   onRefund,
   onAnonymize,
+  supportNotes,
+  onAddSupportNote,
+  onUpdateSupportNote,
   isProcessing,
 }: {
   order: OrderEvent;
   onDispatch: (orderId: string) => void;
   onRefund: (orderId: string) => void;
   onAnonymize: (orderId: string, customerRequest: boolean) => void;
+  supportNotes: SupportNote[];
+  onAddSupportNote: (orderId: string) => void;
+  onUpdateSupportNote: (orderId: string, noteId: string, status: "open" | "resolved") => void;
   isProcessing: boolean;
 }) => {
   const canDispatch = order.status === "Paid";
@@ -141,6 +157,26 @@ const OrderRow = ({
               )}
             </div>
           )}
+        <div className="mt-2 max-w-sm space-y-1">
+          {supportNotes.map((supportNote) => (
+            <div key={supportNote.id} className="rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-600">
+              <div>{supportNote.note}</div>
+              <div className="mt-1 flex items-center justify-between gap-2 text-gray-500">
+                <span>{supportNote.resolutionStatus} · {supportNote.authorEmail || "admin"}</span>
+                <button
+                  type="button"
+                  className="text-blue-700 underline"
+                  onClick={() => onUpdateSupportNote(order.orderId, supportNote.id, supportNote.resolutionStatus === "open" ? "resolved" : "open")}
+                >
+                  {supportNote.resolutionStatus === "open" ? "Resolve" : "Reopen"}
+                </button>
+              </div>
+            </div>
+          ))}
+          <button type="button" className="text-xs text-blue-700 underline" onClick={() => onAddSupportNote(order.orderId)}>
+            Add support note
+          </button>
+        </div>
       </td>
       <td className="py-4 px-4">
         <div className="font-mono text-xs text-gray-600">
@@ -228,6 +264,7 @@ const OrderRow = ({
 // Main orders management content
 const OrdersManagementContent = () => {
   const [orders, setOrders] = useState<Map<string, OrderEvent>>(new Map());
+  const [supportNotes, setSupportNotes] = useState<Map<string, SupportNote[]>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(
     null
@@ -240,36 +277,60 @@ const OrdersManagementContent = () => {
   }>({ running: false, eventsSeen: 0 });
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => setSearchTerm(searchInput.trim().toLowerCase()),
-      250
-    );
+    const timer = window.setTimeout(() => setSearchTerm(searchInput.trim().toLowerCase()), 250);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
+  const [statusFilter, setStatusFilter] = useState(() =>
+    typeof window === "undefined"
+      ? "All"
+      : new URLSearchParams(window.location.search).get("status") || "All"
+  );
+  const [tokenFilter, setTokenFilter] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("token") || ""
+  );
+  const [fromDate, setFromDate] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("from") || ""
+  );
+  const [toDate, setToDate] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("to") || ""
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (statusFilter !== "All") params.set("status", statusFilter);
+    if (tokenFilter) params.set("token", tokenFilter);
+    if (fromDate) params.set("from", fromDate);
+    if (toDate) params.set("to", toDate);
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }, [statusFilter, tokenFilter, fromDate, toDate]);
 
   const mergeCommerceOrders = useCallback(async () => {
     if (!db) return;
-    const snapshot = await getDocs(collection(db, "ShoeSafariOrders"));
-    const commerceOrders = new Map<string, OrderEvent["commerce"]>();
-    snapshot.docs.forEach((orderDoc) => {
-      const data = orderDoc.data();
-      const commerce = {
+    const [snapshot, notesSnapshot] = await Promise.all([
+      getDocs(collection(db, "ShoeSafariOrders")),
+      getDocs(collection(db, "ShoeSafariOrderNotes")),
+    ]);
+    const commerceOrders = new Map(
+      snapshot.docs.map((orderDoc) => [orderDoc.data().orderId, {
         documentId: orderDoc.id,
-        orderReference: data.orderId,
-        customer: data.customer,
-        items: data.items,
-        userId: data.userId,
-        buyerWallet: data.buyerWallet,
-        status: data.status,
-        completedAt: data.completedAt,
-        updatedAt: data.updatedAt,
-        personalDataAnonymizedAt: data.personalDataAnonymizedAt,
-      };
-      if (data.orderId) commerceOrders.set(data.orderId, commerce);
-      if (data.orderIdHash) commerceOrders.set(data.orderIdHash, commerce);
-    });
+        customer: orderDoc.data().customer,
+        items: orderDoc.data().items,
+        userId: orderDoc.data().userId,
+        buyerWallet: orderDoc.data().buyerWallet,
+        status: orderDoc.data().status,
+        completedAt: orderDoc.data().completedAt,
+        updatedAt: orderDoc.data().updatedAt,
+        personalDataAnonymizedAt: orderDoc.data().personalDataAnonymizedAt,
+      }])
+    );
 
     setOrders((previous) => {
       const merged = new Map(previous);
@@ -279,6 +340,55 @@ const OrdersManagementContent = () => {
       }
       return merged;
     });
+    const notes = new Map<string, SupportNote[]>();
+    notesSnapshot.docs.forEach((noteDoc) => {
+      const data = noteDoc.data();
+      const status = data.resolutionStatus === "resolved" ? "resolved" : "open";
+      const note: SupportNote = {
+        id: noteDoc.id,
+        orderIdHash: data.orderIdHash,
+        note: data.note,
+        resolutionStatus: status,
+        authorEmail: data.authorEmail || null,
+      };
+      const existing = notes.get(note.orderIdHash) || [];
+      notes.set(note.orderIdHash, [...existing, note]);
+    });
+    setSupportNotes(notes);
+  }, []);
+
+  const handleAddSupportNote = useCallback(async (orderId: string) => {
+    const note = window.prompt("Add a non-sensitive support note for this order:");
+    if (!note?.trim()) return;
+    try {
+      const created = await addOrderSupportNote({ orderIdHash: orderId, note });
+      setSupportNotes((previous) => {
+        const updated = new Map(previous);
+        updated.set(orderId, [...(updated.get(orderId) || []), created]);
+        return updated;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save support note.");
+    }
+  }, []);
+
+  const handleUpdateSupportNote = useCallback(async (
+    orderId: string,
+    noteId: string,
+    status: "open" | "resolved"
+  ) => {
+    try {
+      await updateOrderSupportNote(noteId, status);
+      setSupportNotes((previous) => {
+        const updated = new Map(previous);
+        updated.set(orderId, (updated.get(orderId) || []).map((note) =>
+          note.id === noteId ? { ...note, resolutionStatus: status } : note
+        ));
+        return updated;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update support note.");
+    }
   }, []);
 
   // Initialize event indexer
@@ -337,6 +447,17 @@ const OrdersManagementContent = () => {
 
   // Handle dispatch order
   const handleDispatch = useCallback(async (orderId: string) => {
+    const order = orders.get(orderId);
+    if (!order) return;
+    if (!window.confirm([
+      "Confirm dispatch: release escrow to the merchant?",
+      `Order: ${order.orderId}`,
+      `Buyer: ${order.buyer}`,
+      `Token: ${order.token} (${order.tokenSymbol})`,
+      `Amount: ${order.amount}`,
+      `Current status: ${order.status}`,
+      "Destination: merchant wallet configured on-chain",
+    ].join("\n"))) return;
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -346,14 +467,19 @@ const OrdersManagementContent = () => {
 
       if (result.success) {
         setSuccessMessage(
-          `Order ${truncateAddress(orderId)} dispatched successfully!`
+          `Order ${truncateAddress(orderId)} dispatched successfully. Transaction: ${result.txHash || "confirmed"}`
         );
         // Update local state
         setOrders((prev) => {
           const newMap = new Map(prev);
           const existing = newMap.get(orderId);
           if (existing) {
-            newMap.set(orderId, { ...existing, status: "Shipped" });
+            newMap.set(orderId, {
+              ...existing,
+              status: "Shipped",
+              txHash: result.txHash || existing.txHash,
+              ledger: result.ledger || existing.ledger,
+            });
           }
           return newMap;
         });
@@ -419,6 +545,17 @@ const OrdersManagementContent = () => {
 
   // Handle refund order
   const handleRefund = useCallback(async (orderId: string) => {
+    const order = orders.get(orderId);
+    if (!order) return;
+    if (!window.confirm([
+      "Confirm refund: return escrow to the buyer?",
+      `Order: ${order.orderId}`,
+      `Buyer: ${order.buyer}`,
+      `Token: ${order.token} (${order.tokenSymbol})`,
+      `Amount: ${order.amount}`,
+      `Current status: ${order.status}`,
+      "This action cannot be undone.",
+    ].join("\n"))) return;
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -428,14 +565,19 @@ const OrdersManagementContent = () => {
 
       if (result.success) {
         setSuccessMessage(
-          `Order ${truncateAddress(orderId)} refunded successfully!`
+          `Order ${truncateAddress(orderId)} refunded successfully. Transaction: ${result.txHash || "confirmed"}`
         );
         // Update local state
         setOrders((prev) => {
           const newMap = new Map(prev);
           const existing = newMap.get(orderId);
           if (existing) {
-            newMap.set(orderId, { ...existing, status: "Refunded" });
+            newMap.set(orderId, {
+              ...existing,
+              status: "Refunded",
+              txHash: result.txHash || existing.txHash,
+              ledger: result.ledger || existing.ledger,
+            });
           }
           return newMap;
         });
@@ -461,16 +603,11 @@ const OrdersManagementContent = () => {
   );
 
   const visibleOrders = sortedOrders.filter((order) => {
-    if (
-      searchTerm &&
-      ![
-        order.orderId,
-        order.buyer,
-        order.txHash,
-        order.commerce?.orderReference || "",
-        order.commerce?.documentId || "",
-      ].some((value) => value.toLowerCase().includes(searchTerm))
-    ) return false;
+    if (searchTerm && ![order.orderId, order.buyer, order.txHash, order.commerce?.orderReference || "", order.commerce?.documentId || ""].some((value) => value.toLowerCase().includes(searchTerm))) return false;
+    if (statusFilter !== "All" && order.status !== statusFilter) return false;
+    if (tokenFilter && order.tokenSymbol.toLowerCase() !== tokenFilter.toLowerCase()) return false;
+    if (fromDate && order.timestamp < new Date(`${fromDate}T00:00:00`).getTime()) return false;
+    if (toDate && order.timestamp > new Date(`${toDate}T23:59:59.999`).getTime()) return false;
     return true;
   });
 
@@ -482,6 +619,7 @@ const OrdersManagementContent = () => {
     shipped: visibleOrders.filter((o) => o.status === "Shipped").length,
     refunded: visibleOrders.filter((o) => o.status === "Refunded").length,
   };
+  const tokenOptions = Array.from(new Set(sortedOrders.map((order) => order.tokenSymbol))).sort();
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -587,19 +725,57 @@ const OrdersManagementContent = () => {
             <MdRefresh /> Refresh
           </button>
         </div>
+
         <div className="px-6 py-4 border-b bg-gray-50">
           <label className="block max-w-xl text-sm text-gray-700">
             <span className="block mb-1 font-medium">Search reference, wallet, or transaction hash</span>
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search identifiers"
-              className="w-full rounded border border-gray-300 bg-white px-3 py-2"
-              aria-describedby="order-search-help"
-            />
+            <input type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search identifiers" className="w-full rounded border border-gray-300 bg-white px-3 py-2" aria-describedby="order-search-help" />
             <span id="order-search-help" className="sr-only">Search is applied after a short delay.</span>
           </label>
+        </div>
+        <div className="px-6 py-4 border-b bg-gray-50">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">Status</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2"
+              >
+                <option value="All">All statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Paid">Paid</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Refunded">Refunded</option>
+              </select>
+            </label>
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">Token</span>
+              <select
+                value={tokenFilter}
+                onChange={(event) => setTokenFilter(event.target.value)}
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2"
+              >
+                <option value="">All tokens</option>
+                {tokenOptions.map((token) => <option key={token} value={token}>{token}</option>)}
+              </select>
+            </label>
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">From</span>
+              <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="w-full rounded border border-gray-300 bg-white px-3 py-2" />
+            </label>
+            <label className="text-sm text-gray-700">
+              <span className="block mb-1 font-medium">To</span>
+              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="w-full rounded border border-gray-300 bg-white px-3 py-2" />
+            </label>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter("All"); setTokenFilter(""); setFromDate(""); setToDate(""); }}
+              className="rounded border border-gray-400 px-3 py-2 text-sm text-gray-700 hover:bg-white"
+            >
+              Clear filters
+            </button>
+          </div>
           <p className="mt-3 text-sm text-gray-600" role="status" aria-live="polite">
             Showing {visibleOrders.length} of {sortedOrders.length} orders
           </p>
@@ -613,9 +789,7 @@ const OrdersManagementContent = () => {
         ) : visibleOrders.length === 0 ? (
           <div className="p-12 text-center">
             <SiStellar className="text-6xl text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-2">
-              {sortedOrders.length === 0 ? "No orders found" : "No orders match the search"}
-            </p>
+            <p className="text-gray-500 mb-2">No orders found</p>
             <p className="text-gray-400 text-sm">
               Orders will appear here when customers pay with Stellar USDC
             </p>
@@ -656,6 +830,9 @@ const OrdersManagementContent = () => {
                     onDispatch={handleDispatch}
                     onRefund={handleRefund}
                     onAnonymize={handleAnonymize}
+                    supportNotes={supportNotes.get(order.orderId) || []}
+                    onAddSupportNote={handleAddSupportNote}
+                    onUpdateSupportNote={handleUpdateSupportNote}
                     isProcessing={processingOrderId === order.orderId}
                   />
                 ))}

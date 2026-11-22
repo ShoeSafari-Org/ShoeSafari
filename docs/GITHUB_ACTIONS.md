@@ -10,3 +10,13 @@ To update an action:
 4. Review the workflow diff and run the affected workflow checks before merging.
 
 Do not use branches or movable tags such as `main`, `stable`, or `v4` as the action reference. For `dtolnay/rust-toolchain`, the action code is pinned to its `v1` release; the `toolchain: stable` input intentionally continues to select Rust's stable compiler channel.
+
+## Supported CI toolchains
+
+The main CI workflow keeps the compatibility checks small and independent:
+
+- Frontend checks run on Node.js 18 and 20, matching the `engines.node` minimum and the versions currently used by the repository's workflows.
+- Accessibility checks run with Playwright's Chromium browser. The browser is installed from the matrix value so another supported browser can be added without multiplying frontend or contract jobs.
+- Soroban contract checks run on Rust's stable channel with the `wasm32v1-none` target, `rustfmt`, and `clippy`.
+
+Only the npm-backed jobs use dependency caching, keyed by `package-lock.json`; the contract job intentionally avoids an additional cache so Rust toolchain and target changes cannot reuse stale artifacts. Keep the matrices separate; do not create a cross-product of Node, browser, and Rust versions.
