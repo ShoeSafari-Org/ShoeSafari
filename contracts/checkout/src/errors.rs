@@ -23,5 +23,7 @@ pub enum Error {
     /// The optional high-value approval policy is invalid or has conflicting signers.
     InvalidApprovalPolicy = 9,
     /// Pagination cursor or page size is outside the supported bounds.
-    InvalidPagination = 10,
+    InvalidPagination = 11,
+    /// The allowlisted token does not expose the supported seven-decimal precision.
+    InvalidTokenMetadata = 10,
 }

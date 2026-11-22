@@ -1,5 +1,5 @@
 {
-  "interfaceVersion": "1.0.0",
+  "interfaceVersion": "1.1.0",
   "contract": "Checkout",
   "methods": [
     { "name": "initialize", "arguments": ["merchant: Address"], "returns": "Result<(), Error>" },
