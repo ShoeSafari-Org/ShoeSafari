@@ -104,7 +104,7 @@ export default function OrderDetailPage() {
     <main className="mx-auto mt-12 max-w-3xl px-4 pb-12">
       <Link href="/orders" className="text-sm text-red-700 underline">← Your orders</Link>
       <h1 className="mt-5 text-3xl font-bold">Order details</h1>
-      <p className="mt-2 text-gray-600">Order {order.orderId || order.id}</p>
+      <p className="mt-2 text-gray-600">Customer reference: {order.orderId || order.id}</p>
       <section className="mt-6 rounded-lg border bg-white p-5">
         <h2 className="font-semibold">Payment and fulfillment</h2>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">

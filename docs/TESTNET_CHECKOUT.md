@@ -1,5 +1,10 @@
 # Testnet checkout validation
 
+Customer-facing references use the non-secret format `SS-YYYYMMDD-XXXXXX`.
+The reference is separate from the 32-byte order hash used by the Soroban
+contract, so it can be read aloud or searched without exposing the internal
+identifier.
+
 Use this checklist before merging changes to the Stellar payment flow. It uses
 Stellar testnet and test assets only. Do not use a production wallet, contract,
 asset, credential, or customer order.

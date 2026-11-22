@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { isProductAvailable } from "./productAvailability";
+import { isCustomerOrderReference } from "./orderReference";
 
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
 const MAX_LINES = 50;
@@ -48,7 +49,7 @@ export function createCheckoutQuote(
   ) {
     throw new Error("Add between 1 and 50 products to checkout.");
   }
-  if (typeof orderId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(orderId)) {
+  if (!isCustomerOrderReference(orderId)) {
     throw new Error("Invalid order reference.");
   }
 
