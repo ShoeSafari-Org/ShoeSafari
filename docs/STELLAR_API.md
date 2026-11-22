@@ -12,6 +12,10 @@ Payment confirmation accepts only a successful transaction with a valid hash,
 ledger, five-topic `pay` event, positive amount, and the expected contract,
 buyer, token, order hash, and amount. Unrelated or malformed events are
 skipped, so a transaction cannot be credited from an ambiguous event.
+Pre-signing simulation errors are normalized into stable user-safe categories
+for token rejection, missing orders, invalid order state, RPC failures, and
+generic simulation failures. Raw RPC/contract diagnostics remain available to
+diagnostic logging only and are not rendered in the shopper-facing message.
 
 ## Payment
 
@@ -73,6 +77,45 @@ skipped, so a transaction cannot be credited from an ambiguous event.
 | `FRIENDBOT_URL`, `isFriendbotAllowed()` | Friendbot endpoint and network guard for testnet funding. |
 
 ## Transaction events and indexing
+
+### Event compatibility contract
+
+The checkout contract emits stable event symbols and topic order. Consumers
+must treat the symbol, topic addresses, order hash, and raw integer amount as
+the compatibility surface; unknown symbols or fields must be ignored without
+failing the rest of a page. Amounts are raw token units and must not be
+converted using a guessed decimal precision.
+
+| Symbol | Topics | Data |
+| --- | --- | --- |
+| `pay` | token, buyer, merchant, order id | `amount` (i128) |
+| `create_order` | token, buyer, order id | `amount`, `timestamp` |
+| `dispatch` | order id, merchant | `amount` (i128) |
+| `refund` | order id, buyer | `amount` (i128) |
+
+Event consumers should persist the opaque RPC cursor and deduplicate by the
+event ID. A cursor retry or overlapping page is expected; replaying a retained
+event must not duplicate a UI order transition. If the RPC retention window no
+longer includes the cursor, advance from a recent ledger and mark the gap in
+operational logs rather than fabricating events.
+
+New event variants are additive. Keep existing symbols and topic positions
+stable, introduce a suffixed symbol such as `merchant_changed_v1` for a new
+schema, and update the versioned interface manifest and decoder together.
+Consumers must preserve known fields when optional fields are absent and must
+show an unknown/degraded state instead of treating an unfamiliar event as a
+successful payment.
+
+Example decoded payload using non-production identifiers:
+
+```json
+{
+  "id": "fixture-event-0001",
+  "symbol": "pay",
+  "topics": ["C...fixture-token", "G...fixture-buyer", "G...fixture-merchant", "fixture-order-hash"],
+  "fields": { "amount": "799900000" }
+}
+```
 
 ### `lib/stellar/events.ts`
 
