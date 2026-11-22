@@ -26,7 +26,9 @@ import Link from "next/link";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../lib/firebaseConfig";
 import {
+  addOrderSupportNote,
   anonymizeStellarOrderPersonalData,
+  updateOrderSupportNote,
   updateStellarOrderStatus,
 } from "../../../lib/orderStore";
 import { isOrderRetentionDue } from "../../../lib/orderRetention";
@@ -95,18 +97,32 @@ const truncateAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
+type SupportNote = {
+  id: string;
+  orderIdHash: string;
+  note: string;
+  resolutionStatus: "open" | "resolved";
+  authorEmail?: string | null;
+};
+
 // Order row component
 const OrderRow = ({
   order,
   onDispatch,
   onRefund,
   onAnonymize,
+  supportNotes,
+  onAddSupportNote,
+  onUpdateSupportNote,
   isProcessing,
 }: {
   order: OrderEvent;
   onDispatch: (orderId: string) => void;
   onRefund: (orderId: string) => void;
   onAnonymize: (orderId: string, customerRequest: boolean) => void;
+  supportNotes: SupportNote[];
+  onAddSupportNote: (orderId: string) => void;
+  onUpdateSupportNote: (orderId: string, noteId: string, status: "open" | "resolved") => void;
   isProcessing: boolean;
 }) => {
   const canDispatch = order.status === "Paid";
@@ -141,6 +157,26 @@ const OrderRow = ({
               )}
             </div>
           )}
+        <div className="mt-2 max-w-sm space-y-1">
+          {supportNotes.map((supportNote) => (
+            <div key={supportNote.id} className="rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-600">
+              <div>{supportNote.note}</div>
+              <div className="mt-1 flex items-center justify-between gap-2 text-gray-500">
+                <span>{supportNote.resolutionStatus} · {supportNote.authorEmail || "admin"}</span>
+                <button
+                  type="button"
+                  className="text-blue-700 underline"
+                  onClick={() => onUpdateSupportNote(order.orderId, supportNote.id, supportNote.resolutionStatus === "open" ? "resolved" : "open")}
+                >
+                  {supportNote.resolutionStatus === "open" ? "Resolve" : "Reopen"}
+                </button>
+              </div>
+            </div>
+          ))}
+          <button type="button" className="text-xs text-blue-700 underline" onClick={() => onAddSupportNote(order.orderId)}>
+            Add support note
+          </button>
+        </div>
       </td>
       <td className="py-4 px-4">
         <div className="font-mono text-xs text-gray-600">
@@ -228,6 +264,7 @@ const OrderRow = ({
 // Main orders management content
 const OrdersManagementContent = () => {
   const [orders, setOrders] = useState<Map<string, OrderEvent>>(new Map());
+  const [supportNotes, setSupportNotes] = useState<Map<string, SupportNote[]>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(
     null
@@ -241,7 +278,10 @@ const OrdersManagementContent = () => {
 
   const mergeCommerceOrders = useCallback(async () => {
     if (!db) return;
-    const snapshot = await getDocs(collection(db, "ShoeSafariOrders"));
+    const [snapshot, notesSnapshot] = await Promise.all([
+      getDocs(collection(db, "ShoeSafariOrders")),
+      getDocs(collection(db, "ShoeSafariOrderNotes")),
+    ]);
     const commerceOrders = new Map(
       snapshot.docs.map((orderDoc) => [orderDoc.data().orderId, {
         documentId: orderDoc.id,
@@ -264,6 +304,55 @@ const OrdersManagementContent = () => {
       }
       return merged;
     });
+    const notes = new Map<string, SupportNote[]>();
+    notesSnapshot.docs.forEach((noteDoc) => {
+      const data = noteDoc.data();
+      const status = data.resolutionStatus === "resolved" ? "resolved" : "open";
+      const note: SupportNote = {
+        id: noteDoc.id,
+        orderIdHash: data.orderIdHash,
+        note: data.note,
+        resolutionStatus: status,
+        authorEmail: data.authorEmail || null,
+      };
+      const existing = notes.get(note.orderIdHash) || [];
+      notes.set(note.orderIdHash, [...existing, note]);
+    });
+    setSupportNotes(notes);
+  }, []);
+
+  const handleAddSupportNote = useCallback(async (orderId: string) => {
+    const note = window.prompt("Add a non-sensitive support note for this order:");
+    if (!note?.trim()) return;
+    try {
+      const created = await addOrderSupportNote({ orderIdHash: orderId, note });
+      setSupportNotes((previous) => {
+        const updated = new Map(previous);
+        updated.set(orderId, [...(updated.get(orderId) || []), created]);
+        return updated;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save support note.");
+    }
+  }, []);
+
+  const handleUpdateSupportNote = useCallback(async (
+    orderId: string,
+    noteId: string,
+    status: "open" | "resolved"
+  ) => {
+    try {
+      await updateOrderSupportNote(noteId, status);
+      setSupportNotes((previous) => {
+        const updated = new Map(previous);
+        updated.set(orderId, (updated.get(orderId) || []).map((note) =>
+          note.id === noteId ? { ...note, resolutionStatus: status } : note
+        ));
+        return updated;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update support note.");
+    }
   }, []);
 
   // Initialize event indexer
@@ -608,6 +697,9 @@ const OrdersManagementContent = () => {
                     onDispatch={handleDispatch}
                     onRefund={handleRefund}
                     onAnonymize={handleAnonymize}
+                    supportNotes={supportNotes.get(order.orderId) || []}
+                    onAddSupportNote={handleAddSupportNote}
+                    onUpdateSupportNote={handleUpdateSupportNote}
                     isProcessing={processingOrderId === order.orderId}
                   />
                 ))}
