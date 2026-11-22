@@ -1,0 +1,272 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`development configuration page > lists required variable names and safe statuses in development 1`] = `
+<body>
+  <div>
+    <main
+      class="mx-auto min-h-screen max-w-3xl space-y-6 px-6 py-12"
+    >
+      <div>
+        <p
+          class="text-sm font-semibold uppercase tracking-wide text-gray-500"
+        >
+          Development only
+        </p>
+        <h1
+          class="mt-2 text-3xl font-bold"
+        >
+          Configuration diagnostics
+        </h1>
+        <p
+          class="mt-3 text-gray-700"
+        >
+          This protected page reports safe, immutable deployment metadata and configuration presence. It never displays secrets and is not a deployment health endpoint.
+        </p>
+      </div>
+      <section
+        aria-labelledby="deployment-metadata-heading"
+      >
+        <h2
+          class="text-xl font-semibold"
+          id="deployment-metadata-heading"
+        >
+          Deployment metadata
+        </h2>
+        <dl
+          class="mt-4 divide-y rounded border"
+        >
+          <div
+            class="flex justify-between gap-4 px-4 py-3"
+          >
+            <dt>
+              Commit
+            </dt>
+            <dd
+              class="font-mono text-sm"
+            >
+              local-development
+            </dd>
+          </div>
+          <div
+            class="flex justify-between gap-4 px-4 py-3"
+          >
+            <dt>
+              Deployment
+            </dt>
+            <dd
+              class="font-mono text-sm"
+            >
+              local-development
+            </dd>
+          </div>
+          <div
+            class="flex justify-between gap-4 px-4 py-3"
+          >
+            <dt>
+              Environment
+            </dt>
+            <dd>
+              development
+            </dd>
+          </div>
+          <div
+            class="flex justify-between gap-4 px-4 py-3"
+          >
+            <dt>
+              RPC
+            </dt>
+            <dd
+              class="font-mono text-sm"
+            >
+              https://soroban-testnet.stellar.org/
+            </dd>
+          </div>
+          <div
+            class="flex justify-between gap-4 px-4 py-3"
+          >
+            <dt>
+              Checkout contract
+            </dt>
+            <dd
+              class="font-mono text-sm"
+            >
+              CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526
+            </dd>
+          </div>
+          <div
+            class="flex justify-between gap-4 px-4 py-3"
+          >
+            <dt>
+              USDC
+               token contract
+            </dt>
+            <dd
+              class="font-mono text-sm"
+            >
+              CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+            </dd>
+          </div>
+          <div
+            class="flex justify-between gap-4 px-4 py-3"
+          >
+            <dt>
+              XLM
+               token contract
+            </dt>
+            <dd
+              class="font-mono text-sm"
+            >
+              CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+            </dd>
+          </div>
+        </dl>
+      </section>
+      <section
+        aria-labelledby="stellar-network-heading"
+      >
+        <h2
+          class="text-xl font-semibold"
+          id="stellar-network-heading"
+        >
+          Stellar network
+        </h2>
+        <p
+          class="mt-2"
+        >
+          Selected network: 
+          <strong>
+            testnet
+          </strong>
+        </p>
+      </section>
+      <section
+        aria-labelledby="required-config-heading"
+      >
+        <h2
+          class="text-xl font-semibold"
+          id="required-config-heading"
+        >
+          Required configuration
+        </h2>
+        <p
+          class="mt-2 text-gray-700"
+        >
+          9 required variables are missing. Copy .env.local.example to .env.local and fill in the missing values.
+        </p>
+        <ul
+          class="mt-4 divide-y rounded border"
+        >
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_CHECKOUT_CONTRACT_ID
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_EMAILJS_SERVICE_ID
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_EMAILJS_TEMPLATE_ID
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_FIREBASE_API_KEY
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_FIREBASE_PROJECT_ID
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+          <li
+            class="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <code>
+              NEXT_PUBLIC_FIREBASE_APP_ID
+            </code>
+            <span
+              class="text-red-700"
+            >
+              Missing
+            </span>
+          </li>
+        </ul>
+      </section>
+    </main>
+  </div>
+</body>
+`;

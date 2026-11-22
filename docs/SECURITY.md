@@ -3,6 +3,8 @@
 For the checkout quote signing format, trust boundaries, expiry, replay
 handling, and secret rotation guidance, see
 [Checkout quote signing and verification](CHECKOUT_QUOTE_THREAT_MODEL.md).
+The [customer, wallet, and transaction data map](PRIVACY_DATA_MAP.md) lists
+visibility, storage, access, retention, and redaction rules for each field.
 
 ## Retention period
 
