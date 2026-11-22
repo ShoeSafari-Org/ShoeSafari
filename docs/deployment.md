@@ -224,6 +224,49 @@ stellar contract invoke \
 
 ## 6. Troubleshooting & Common Operational Errors
 
+### 6.5 Environment Promotion Checklist
+
+Use this checklist when promoting a deployment from local development to
+Testnet or from Testnet to Mainnet. Treat the network and asset checks as a
+release gate: do not enable payments until every value has been verified.
+
+### Preflight
+
+- [ ] Confirm the checkout WASM commit, toolchain, and release build hash.
+- [ ] Run the contract unit/integration tests and record the result.
+- [ ] Confirm the selected Stellar network passphrase and RPC URL match the
+      intended environment; never reuse a Testnet RPC URL for Mainnet.
+- [ ] Verify the contract ID, merchant/admin account, and every allowed token
+      contract on a trusted explorer and through a read-only contract call.
+- [ ] Confirm the token issuer, asset code, decimals, and network before adding
+      an asset to the allowlist. Do not infer Mainnet addresses from Testnet.
+
+### Secrets and smoke tests
+
+- [ ] Load deployment and quote secrets only from the environment or a secret
+      manager; do not put them in `.env` files, workflow inputs, logs, or PRs.
+- [ ] Use a dedicated deployer/merchant identity with the minimum required
+      permissions and verify its public address before signing.
+- [ ] On Testnet, run a small create/pay/dispatch and refund smoke test with
+      non-production funds. Verify the order, token, amount, and recipient on
+      the same network before enabling checkout.
+- [ ] Confirm frontend network, RPC, contract ID, explorer links, and API base
+      URL are all from the same environment.
+
+### Rollback and monitoring
+
+- [ ] Record the deployed commit, WASM hash, contract ID, network, token
+      allowlist, and configuration changes.
+- [ ] Define the rollback boundary before promotion: frontend/config rollback
+      is possible, but an on-chain deployment and submitted transaction cannot
+      be undone.
+- [ ] Monitor RPC health, transaction failures, quote expiry, payment
+      reconciliation, escrow balances, and duplicate-payment alerts after the
+      rollout.
+- [ ] Keep the prior frontend configuration and deployment record available;
+      pause checkout and escalate if network, asset, or contract identity
+      checks disagree.
+
 ### 6.1 `Error::AlreadyInitialized` (`Error(Contract, #1)`)
 - **Cause**: The contract has already been initialized with a merchant address. Calling `initialize` more than once is strictly prohibited by contract state invariants.
 - **Remedy**: If changing the merchant wallet address, invoke `set_merchant` using the current merchant wallet key rather than calling `initialize`.

@@ -14,20 +14,33 @@ describe("USD to native XLM quote conversion", () => {
     expect(() => usdToXlmRawUnits(1, Number.NaN)).toThrow();
     expect(() => usdToXlmRawUnits(1, 0.5, 19)).toThrow();
   });
+
+  it("supports explicit decimal precision without undercharging", () => {
+    expect(usdToXlmRawUnits(1, 0.25, 2)).toBe("400");
+    expect(usdToXlmRawUnits(1, 0.3, 2)).toBe("334");
+  });
 });
 
 describe("fresh XLM spot quotes", () => {
-  it("rejects stale source timestamps", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ stellar: { usd: 0.5, last_updated_at: 100 } }),
-      }),
-    );
+  const provider = (body: unknown, ok = true) => ({
+    fetchSpotPrice: vi.fn().mockResolvedValue({ ok, json: async () => body }),
+  });
 
-    await expect(fetchXlmSpotPrice(200_000)).rejects.toThrow(/stale/i);
+  it.each([
+    [{ stellar: { usd: 0.5, last_updated_at: 100 } }, 200_000, /stale/i],
+    [{ stellar: { usd: 0.5, last_updated_at: 206 } }, 200_000, /stale/i],
+    [{ stellar: { usd: "not-a-number", last_updated_at: 200 } }, 200_000, /invalid price/i],
+  ])("rejects unsafe quote payloads", async (body, now, message) => {
+    await expect(fetchXlmSpotPrice(now, provider(body))).rejects.toThrow(message);
+  });
 
-    vi.unstubAllGlobals();
+  it("reports provider outages without making a live request", async () => {
+    await expect(fetchXlmSpotPrice(Date.now(), provider({}, false))).rejects.toThrow(/unavailable/i);
+  });
+
+  it("accepts a fresh provider quote", async () => {
+    await expect(
+      fetchXlmSpotPrice(200_000, provider({ stellar: { usd: 0.5, last_updated_at: 200 } }))
+    ).resolves.toEqual({ usd: 0.5, updatedAt: 200_000 });
   });
 });
