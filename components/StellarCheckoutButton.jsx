@@ -312,6 +312,12 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
         )}
       </button>
 
+      {busy && (
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {message || "Processing Stellar payment."}
+        </p>
+      )}
+
       {message && !busy && (
         <p role="status" aria-live="polite" aria-atomic="true" className="text-sm text-gray-800">
           {message}
