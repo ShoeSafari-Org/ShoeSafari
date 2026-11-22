@@ -548,7 +548,14 @@ const Checkout = () => {
                       : "Complete your delivery details before signing the payment."
                   }
                 />
-                <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
+                <StellarOrderWatch
+                  orderId={orderId}
+                  enabled={stage === 1}
+                  paymentHash={paymentHash}
+                  persistenceState={
+                    orderSaveFailed ? "failed" : stage === 2 ? "success" : "pending"
+                  }
+                />
                 <p className="text-[11px] text-gray-700 text-center">
                   Customer reference {orderId} · {paymentAsset} (testnet) is escrowed by a Soroban smart contract
                   until we ship, then released to our merchant wallet. Refunds go straight back
