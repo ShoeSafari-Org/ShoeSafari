@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Toast from "../../components/Toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -7,6 +7,7 @@ import StellarCheckoutButton from "../../components/StellarCheckoutButton";
 import StellarWalletButton from "../../components/StellarWalletButton";
 import StellarOrderWatch from "../../components/StellarOrderWatch";
 import { SiStellar } from "react-icons/si";
+import CheckoutBadge from "../../components/CheckoutBadge";
 import { saveStellarOrder, validateStellarOrderReceipt } from "../../lib/orderStore";
 import { useAuth } from "../../lib/AuthContext";
 import {
@@ -17,6 +18,7 @@ import {
 } from "../../lib/stellar/config";
 import { logClientError } from "../../lib/safeLogging";
 import { isShippingAddressComplete } from "../../lib/shippingAddress";
+import { createCustomerOrderReference } from "../../lib/orderReference";
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -35,7 +37,10 @@ const Checkout = () => {
     priceUpdatedAt?: number;
   } | null>(null);
   const [quoteRefreshCount, setQuoteRefreshCount] = useState(0);
+  const [quoteRefreshNotice, setQuoteRefreshNotice] = useState("");
+  const lastQuoteTotal = useRef<number | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [isOnline, setIsOnline] = useState(true);
   const [paymentHash, setPaymentHash] = useState("");
   const [orderSaveFailed, setOrderSaveFailed] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "" });
@@ -54,11 +59,22 @@ const Checkout = () => {
     },
   });
 
+  useEffect(() => {
+    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    updateOnlineState();
+    window.addEventListener("online", updateOnlineState);
+    window.addEventListener("offline", updateOnlineState);
+    return () => {
+      window.removeEventListener("online", updateOnlineState);
+      window.removeEventListener("offline", updateOnlineState);
+    };
+  }, []);
+
   const showToast = (message: string) => {
     setToast({ show: true, message });
   };
 
-  const [orderId] = useState(() => `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
+  const [orderId] = useState(() => createCustomerOrderReference());
 
   const handleStellarSuccess = async (result: {
     amountUsd: number | string;
@@ -161,6 +177,7 @@ const Checkout = () => {
     const createQuote = async () => {
       setQuoteLoading(true);
       setQuoteError("");
+      setQuoteRefreshNotice("");
       setQuoteToken("");
       setQuoteExpiresAt(null);
       setPaymentQuote(null);
@@ -197,6 +214,10 @@ const Checkout = () => {
           throw new Error(body.error || "Could not confirm current product prices.");
         if (!active) return;
 
+        if (lastQuoteTotal.current !== null && lastQuoteTotal.current !== body.quote.totalUsd) {
+          setQuoteRefreshNotice("The catalog total changed. Review the updated amount before paying.");
+        }
+        lastQuoteTotal.current = body.quote.totalUsd;
         setTotalPrice(body.quote.totalUsd);
         setQuoteExpiresAt(body.quote.expiresAt);
         setQuoteToken(body.quoteToken);
@@ -231,6 +252,10 @@ const Checkout = () => {
       localStorage.removeItem("cartItems");
     }
   }, [stage]);
+
+  const quoteSecondsRemaining = quoteExpiresAt === null
+    ? null
+    : Math.max(0, Math.ceil((quoteExpiresAt - clockNow) / 1000));
 
   return (
     <>
@@ -276,6 +301,7 @@ const Checkout = () => {
           <div className="order-2 mb-2 flex w-full flex-col items-center justify-center gap-3 rounded-md p-3 text-center md:order-1 md:mb-0 md:w-1/2 md:p-4">
             <SiStellar className="h-12 w-12 text-red-700" aria-hidden="true" />
             <h2 className="text-lg font-semibold">Pay with Stellar</h2>
+            <CheckoutBadge asset={paymentAsset} />
             <p className="max-w-sm text-sm text-gray-800">
               Connect Freighter and pay in USDC or XLM. Card payments are not currently supported.
             </p>
@@ -426,8 +452,14 @@ const Checkout = () => {
             )}
             {stage === 1 && (
               <div className="mt-4 bg-white p-4 rounded shadow-md flex flex-col gap-3">
+                {!isOnline && (
+                  <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+                    You are offline. Reconnect before requesting a quote or signing a payment.
+                  </div>
+                )}
                 <fieldset className="flex flex-col gap-2" aria-describedby="payment-asset-help">
                   <legend className="font-semibold">Choose a payment asset</legend>
+                  <CheckoutBadge asset={paymentAsset} />
                   {(["USDC", "XLM"] as const).map((asset) => (
                     <label key={asset} className="flex min-h-11 items-center gap-2">
                       <input
@@ -455,6 +487,9 @@ const Checkout = () => {
                     </button>
                   </div>
                 )}
+                {quoteRefreshNotice && !quoteError && (
+                  <p className="text-amber-800" role="status">{quoteRefreshNotice}</p>
+                )}
                 {quoteExpiresAt !== null && quoteExpiresAt <= clockNow && (
                   <div className="text-red-700" role="alert">
                     <p>This payment quote expired. Request a fresh quote before signing.</p>
@@ -462,6 +497,11 @@ const Checkout = () => {
                       Refresh payment quote
                     </button>
                   </div>
+                )}
+                {quoteSecondsRemaining !== null && quoteSecondsRemaining > 0 && quoteToken && (
+                  <p className="text-xs text-gray-600" role="status">
+                    Quote expires in {quoteSecondsRemaining}s.
+                  </p>
                 )}
                 {quoteToken && quoteExpiresAt && (
                   <p
@@ -494,6 +534,7 @@ const Checkout = () => {
                   quoteToken={quoteToken}
                   paymentAsset={paymentAsset}
                   disabled={
+                    !isOnline ||
                     !customerDetailsComplete ||
                     totalPrice <= 0 ||
                     quoteLoading ||
@@ -507,9 +548,16 @@ const Checkout = () => {
                       : "Complete your delivery details before signing the payment."
                   }
                 />
-                <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
+                <StellarOrderWatch
+                  orderId={orderId}
+                  enabled={stage === 1}
+                  paymentHash={paymentHash}
+                  persistenceState={
+                    orderSaveFailed ? "failed" : stage === 2 ? "success" : "pending"
+                  }
+                />
                 <p className="text-[11px] text-gray-700 text-center">
-                  Order #{orderId} · {paymentAsset} (testnet) is escrowed by a Soroban smart contract
+                  Customer reference {orderId} · {paymentAsset} (testnet) is escrowed by a Soroban smart contract
                   until we ship, then released to our merchant wallet. Refunds go straight back
                   on-chain. Payment is completed through Freighter.
                 </p>
