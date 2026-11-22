@@ -34,6 +34,14 @@ describe("parseError", () => {
       code: "TX_REJECTED",
       transactionHash: TX_HASH,
     });
+    expect(parseError(new Error("simulation failed: token not allowed"))).toMatchObject({
+      code: "STELLAR_TOKEN_NOT_ALLOWED",
+      userMessage: expect.stringContaining("token"),
+    });
+    expect(parseError(new WalletError("malformed simulation response", "SIMULATION_RPC_ERROR"))).toMatchObject({
+      code: "RPC_UNAVAILABLE",
+      diagnosticMessage: expect.stringContaining("malformed"),
+    });
   });
 
   it("preserves a hash when confirmation times out or fails", () => {
