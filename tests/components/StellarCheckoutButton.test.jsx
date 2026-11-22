@@ -141,6 +141,21 @@ describe("StellarCheckoutButton", () => {
     expect(screen.getByRole("button", { name: /Pay with USDC/ })).toBeDisabled();
   });
 
+  it("keeps an uncertain RPC result recoverable without resubmitting", async () => {
+    mocks.pendingPayment = pending;
+    mocks.checkTransactionStatus.mockResolvedValue({ status: "PENDING", transaction: { ledger: 7 } });
+    render(
+      <StellarCheckoutButton amountUsd={1} orderId="order-1" quoteToken="quote-token" />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Check saved payment status" }));
+
+    await waitFor(() => expect(mocks.checkTransactionStatus).toHaveBeenCalledWith(HASH));
+    expect(screen.getByRole("button", { name: "Check saved payment status" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Pay with USDC/ })).toBeDisabled();
+    expect(mocks.payWithStellar).not.toHaveBeenCalled();
+  });
+
   it("allows a new payment only after recovery reports a terminal failure", async () => {
     mocks.pendingPayment = pending;
     mocks.checkTransactionStatus.mockResolvedValue({ status: "FAILED", transaction: {} });
@@ -159,5 +174,33 @@ describe("StellarCheckoutButton", () => {
     });
     expect(screen.getByRole("alert")).toHaveTextContent(/network confirmed.*failed/i);
     expect(mocks.payWithStellar).not.toHaveBeenCalled();
+  });
+
+  it("shows a safe error when the wallet rejects a payment", async () => {
+    mocks.payWithStellar.mockRejectedValue(new Error("User rejected the transaction"));
+    render(
+      <StellarCheckoutButton amountUsd={1} orderId="order-1" quoteToken="quote-token" />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Pay with USDC/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/user rejected/i);
+    expect(screen.queryByRole("button", { name: "Check saved payment status" })).toBeNull();
+  });
+
+  it("keeps the payment available after a wallet cancellation", async () => {
+    mocks.payWithStellar.mockRejectedValue(
+      Object.assign(new Error("The wallet request was cancelled."), { code: "USER_REJECTED" }),
+    );
+    render(
+      <StellarCheckoutButton amountUsd={1} orderId="order-1" quoteToken="quote-token" />,
+    );
+
+    const button = await screen.findByRole("button", { name: /Pay with USDC/ });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(screen.getByRole("alert")).toHaveTextContent(/cancelled|rejected/i);
+    expect(mocks.payWithStellar).toHaveBeenCalledTimes(1);
   });
 });

@@ -29,6 +29,15 @@ The current product fields are documented in the
 Firebase Storage accepts only admin uploads and image content types under
 5 MiB; see the [Storage rules guide](STORAGE.md).
 
+## Catalog search
+
+Search uses a deterministic client-side fallback over the loaded catalog page.
+It normalizes case and accents, matches name, description, and category tokens,
+and accepts a one-character typo for longer tokens. Products explicitly marked
+`available: false` are excluded from search results; the fallback requires no
+external search service and therefore remains safe during infrastructure
+outages.
+
 ## Recover from a failed save
 
 - **Image upload fails:** the Firestore product has not been written by the
@@ -48,3 +57,8 @@ Firebase Storage accepts only admin uploads and image content types under
 Never put service-account credentials, customer data, or payment secrets in a
 product record, image filename, or support report. Admin navigation in the UI
 does not replace the Firebase Firestore and Storage rules.
+
+Product surfaces use explicit image variants: 150px cards, 300px listing/detail
+images, and 500px large views. The Next.js image optimizer receives matching
+`width`, `sizes`, and quality hints, while the existing fallback image and alt
+text remain in effect when a source fails.
