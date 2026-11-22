@@ -75,7 +75,7 @@ const StellarCheckoutButton = ({ amountUsd, orderId, quoteToken, paymentAsset = 
     setFeeEstimate("");
     setTransactionHash("");
     setResult(null);
-    const validationMessage = validateBeforePay?.();
+    const validationMessage = await validateBeforePay?.();
     if (validationMessage) {
       setError(validationMessage);
       setBusy(false);

@@ -12,6 +12,7 @@ import { useAuth } from "../../lib/AuthContext";
 import {
   formatTokenAmount,
   tokenForContract,
+  type TokenConfig,
   tokenSymbolForContract,
   USDC_CONTRACT_ID,
 } from "../../lib/stellar/config";
@@ -27,7 +28,9 @@ const Checkout = () => {
   const [quoteExpiresAt, setQuoteExpiresAt] = useState<number | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(true);
   const [quoteError, setQuoteError] = useState("");
-  const [paymentAsset, setPaymentAsset] = useState<"USDC" | "XLM">("USDC");
+  const [acceptedAssets, setAcceptedAssets] = useState<TokenConfig[]>([]);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [paymentAsset, setPaymentAsset] = useState("USDC");
   const [paymentQuote, setPaymentQuote] = useState<{
     amountRaw: string;
     tokenContractId: string;
@@ -53,6 +56,35 @@ const Checkout = () => {
       country: "",
     },
   });
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/checkout/assets", { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok || !Array.isArray(body.assets) || body.assets.length === 0) {
+          throw new Error("No verified payment assets are currently available.");
+        }
+        if (!active) return;
+        const assets = body.assets as TokenConfig[];
+        setAcceptedAssets(assets);
+        setPaymentAsset((current) =>
+          assets.some((asset) => asset.symbol === current) ? current : assets[0].symbol
+        );
+      })
+      .catch((error) => {
+        if (active) {
+          setAcceptedAssets([]);
+          setQuoteError(error instanceof Error ? error.message : "Payment assets are unavailable.");
+        }
+      })
+      .finally(() => {
+        if (active) setAssetsLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const showToast = (message: string) => {
     setToast({ show: true, message });
@@ -156,6 +188,7 @@ const Checkout = () => {
     isShippingAddressComplete(formData.address);
 
   useEffect(() => {
+    if (!assetsLoaded || acceptedAssets.length === 0) return;
     let active = true;
 
     const createQuote = async () => {
@@ -217,7 +250,7 @@ const Checkout = () => {
     return () => {
       active = false;
     };
-  }, [orderId, paymentAsset, quoteRefreshCount]);
+  }, [acceptedAssets, assetsLoaded, orderId, paymentAsset, quoteRefreshCount]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
@@ -428,16 +461,16 @@ const Checkout = () => {
               <div className="mt-4 bg-white p-4 rounded shadow-md flex flex-col gap-3">
                 <fieldset className="flex flex-col gap-2" aria-describedby="payment-asset-help">
                   <legend className="font-semibold">Choose a payment asset</legend>
-                  {(["USDC", "XLM"] as const).map((asset) => (
+                  {acceptedAssets.map((asset) => (
                     <label key={asset} className="flex min-h-11 items-center gap-2">
                       <input
                         type="radio"
                         name="paymentAsset"
-                        value={asset}
-                        checked={paymentAsset === asset}
-                        onChange={() => setPaymentAsset(asset)}
+                        value={asset.symbol}
+                        checked={paymentAsset === asset.symbol}
+                        onChange={() => setPaymentAsset(asset.symbol)}
                       />
-                      <span>{asset === "USDC" ? "USDC (default)" : "Native XLM"}</span>
+                      <span>{asset.symbol}{asset === acceptedAssets[0] ? " (default)" : ""}</span>
                     </label>
                   ))}
                   <p id="payment-asset-help" className="text-xs text-gray-600">
@@ -501,11 +534,21 @@ const Checkout = () => {
                     Boolean(quoteExpiresAt && quoteExpiresAt <= clockNow)
                   }
                   onSuccess={handleStellarSuccess}
-                  validateBeforePay={() =>
-                    customerDetailsComplete
-                      ? ""
-                      : "Complete your delivery details before signing the payment."
-                  }
+                  validateBeforePay={async () => {
+                    if (!customerDetailsComplete) {
+                      return "Complete your delivery details before signing the payment.";
+                    }
+                    try {
+                      const response = await fetch("/api/checkout/assets", { cache: "no-store" });
+                      const body = await response.json();
+                      if (!response.ok || !body.assets?.some((asset: TokenConfig) => asset.symbol === paymentAsset)) {
+                        return "The merchant no longer accepts this payment asset. Refresh the quote before signing.";
+                      }
+                    } catch {
+                      return "Payment assets could not be refreshed. Try again before signing.";
+                    }
+                    return "";
+                  }}
                 />
                 <StellarOrderWatch orderId={orderId} enabled={stage === 1} />
                 <p className="text-[11px] text-gray-700 text-center">
