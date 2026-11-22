@@ -59,6 +59,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /ShoeSafariOrderActions/{actionId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

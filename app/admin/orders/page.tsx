@@ -10,6 +10,7 @@ import {
   eventToOrder,
   OrderStatus,
 } from "../../../lib/stellar/orders";
+import { currentAddress } from "../../../lib/stellar/freighter";
 import { CHECKOUT_CONTRACT_ID } from "../../../lib/stellar/config";
 import { transactionExplorerUrl } from "../../../lib/stellar/explorer";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
@@ -28,6 +29,7 @@ import { db } from "../../../lib/firebaseConfig";
 import {
   addOrderSupportNote,
   anonymizeStellarOrderPersonalData,
+  recordStellarOrderAction,
   updateOrderSupportNote,
   updateStellarOrderStatus,
 } from "../../../lib/orderStore";
@@ -452,6 +454,9 @@ const OrdersManagementContent = () => {
       `Current status: ${order.status}`,
       "Destination: merchant wallet configured on-chain",
     ].join("\n"))) return;
+    const operatorWallet = await currentAddress().catch(() => null);
+    void recordStellarOrderAction({ orderId, action: "dispatch", phase: "attempted", operatorWallet })
+      .catch((auditError) => logClientError("Could not record dispatch attempt", auditError));
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -460,6 +465,14 @@ const OrdersManagementContent = () => {
       const result = await dispatchOrder(orderId);
 
       if (result.success) {
+        void recordStellarOrderAction({
+          orderId,
+          action: "dispatch",
+          phase: "succeeded",
+          operatorWallet,
+          txHash: result.txHash,
+          ledger: result.ledger,
+        }).catch((auditError) => logClientError("Could not record dispatch success", auditError));
         setSuccessMessage(
           `Order ${truncateAddress(orderId)} dispatched successfully. Transaction: ${result.txHash || "confirmed"}`
         );
@@ -484,6 +497,13 @@ const OrdersManagementContent = () => {
           );
         }
       } else {
+        void recordStellarOrderAction({
+          orderId,
+          action: "dispatch",
+          phase: "failed",
+          operatorWallet,
+          reason: result.error,
+        }).catch((auditError) => logClientError("Could not record dispatch failure", auditError));
         setError(result.error || "Failed to dispatch order");
       }
     } catch (err) {
@@ -550,6 +570,9 @@ const OrdersManagementContent = () => {
       `Current status: ${order.status}`,
       "This action cannot be undone.",
     ].join("\n"))) return;
+    const operatorWallet = await currentAddress().catch(() => null);
+    void recordStellarOrderAction({ orderId, action: "refund", phase: "attempted", operatorWallet })
+      .catch((auditError) => logClientError("Could not record refund attempt", auditError));
     setProcessingOrderId(orderId);
     setError(null);
     setSuccessMessage(null);
@@ -558,6 +581,14 @@ const OrdersManagementContent = () => {
       const result = await refundOrder(orderId);
 
       if (result.success) {
+        void recordStellarOrderAction({
+          orderId,
+          action: "refund",
+          phase: "succeeded",
+          operatorWallet,
+          txHash: result.txHash,
+          ledger: result.ledger,
+        }).catch((auditError) => logClientError("Could not record refund success", auditError));
         setSuccessMessage(
           `Order ${truncateAddress(orderId)} refunded successfully. Transaction: ${result.txHash || "confirmed"}`
         );
@@ -582,6 +613,13 @@ const OrdersManagementContent = () => {
           );
         }
       } else {
+        void recordStellarOrderAction({
+          orderId,
+          action: "refund",
+          phase: "failed",
+          operatorWallet,
+          reason: result.error,
+        }).catch((auditError) => logClientError("Could not record refund failure", auditError));
         setError(result.error || "Failed to refund order");
       }
     } catch (err) {
