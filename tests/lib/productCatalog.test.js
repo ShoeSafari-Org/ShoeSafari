@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filterProductsByCategory,
+  getRelatedProducts,
   getProductCategories,
   isProductPurchasable,
   normalizeProduct,
@@ -69,6 +70,17 @@ describe("normalizeProduct", () => {
   it("rejects malformed top-level document values safely", () => {
     expect(normalizeProduct(null, "bad")).toBeNull();
     expect(normalizeProduct([], "bad")).toBeNull();
+  });
+});
+
+describe("related products", () => {
+  it("excludes the current and unavailable products and stays bounded", () => {
+    const products = [
+      { id: "current", category: "Running", available: true },
+      { id: "other", category: "running", available: true },
+      { id: "hidden", category: "Running", available: false },
+    ];
+    expect(getRelatedProducts(products, "current", "Running")).toEqual([products[1]]);
   });
 });
 
