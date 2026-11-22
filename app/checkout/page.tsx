@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Toast from "../../components/Toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,6 +37,8 @@ const Checkout = () => {
     priceUpdatedAt?: number;
   } | null>(null);
   const [quoteRefreshCount, setQuoteRefreshCount] = useState(0);
+  const [quoteRefreshNotice, setQuoteRefreshNotice] = useState("");
+  const lastQuoteTotal = useRef<number | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [isOnline, setIsOnline] = useState(true);
   const [paymentHash, setPaymentHash] = useState("");
@@ -175,6 +177,7 @@ const Checkout = () => {
     const createQuote = async () => {
       setQuoteLoading(true);
       setQuoteError("");
+      setQuoteRefreshNotice("");
       setQuoteToken("");
       setQuoteExpiresAt(null);
       setPaymentQuote(null);
@@ -211,6 +214,10 @@ const Checkout = () => {
           throw new Error(body.error || "Could not confirm current product prices.");
         if (!active) return;
 
+        if (lastQuoteTotal.current !== null && lastQuoteTotal.current !== body.quote.totalUsd) {
+          setQuoteRefreshNotice("The catalog total changed. Review the updated amount before paying.");
+        }
+        lastQuoteTotal.current = body.quote.totalUsd;
         setTotalPrice(body.quote.totalUsd);
         setQuoteExpiresAt(body.quote.expiresAt);
         setQuoteToken(body.quoteToken);
@@ -245,6 +252,10 @@ const Checkout = () => {
       localStorage.removeItem("cartItems");
     }
   }, [stage]);
+
+  const quoteSecondsRemaining = quoteExpiresAt === null
+    ? null
+    : Math.max(0, Math.ceil((quoteExpiresAt - clockNow) / 1000));
 
   return (
     <>
@@ -476,6 +487,9 @@ const Checkout = () => {
                     </button>
                   </div>
                 )}
+                {quoteRefreshNotice && !quoteError && (
+                  <p className="text-amber-800" role="status">{quoteRefreshNotice}</p>
+                )}
                 {quoteExpiresAt !== null && quoteExpiresAt <= clockNow && (
                   <div className="text-red-700" role="alert">
                     <p>This payment quote expired. Request a fresh quote before signing.</p>
@@ -483,6 +497,11 @@ const Checkout = () => {
                       Refresh payment quote
                     </button>
                   </div>
+                )}
+                {quoteSecondsRemaining !== null && quoteSecondsRemaining > 0 && quoteToken && (
+                  <p className="text-xs text-gray-600" role="status">
+                    Quote expires in {quoteSecondsRemaining}s.
+                  </p>
                 )}
                 {quoteToken && quoteExpiresAt && (
                   <p
