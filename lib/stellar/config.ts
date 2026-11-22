@@ -116,6 +116,22 @@ export const SUPPORTED_TOKENS: TokenConfig[] = [
   },
 ];
 
+/** Return the verified token registry selected by the server-side allowlist. */
+export function acceptedTokensFromConfig(
+  raw = process.env.CHECKOUT_ALLOWED_TOKEN_CONTRACT_IDS
+): TokenConfig[] {
+  if (!raw?.trim()) return SUPPORTED_TOKENS;
+  const seen = new Set<string>();
+  return raw
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id && !seen.has(id) && seen.add(id))
+    .flatMap((id) => {
+      const token = tokenForContract(id);
+      return token ? [token] : [];
+    });
+}
+
 export interface DeploymentMetadata {
   readonly commitSha: string;
   readonly deploymentId: string;
@@ -161,7 +177,6 @@ export const DEPLOYMENT_METADATA: DeploymentMetadata = Object.freeze({
     )
   ),
 });
-
 /** Default payment token (used by the checkout flow unless overridden). */
 export function defaultToken(): TokenConfig {
   return SUPPORTED_TOKENS[0];

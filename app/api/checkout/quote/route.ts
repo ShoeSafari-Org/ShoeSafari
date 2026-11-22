@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { createCheckoutQuote, signCheckoutQuote } from "../../../../lib/checkoutQuote";
 import { getFirebaseAdminDb } from "../../../../lib/firebaseAdmin";
-import {
-  NATIVE_ASSET_CONTRACT_ID,
-  tokenForContract,
-  USDC_CONTRACT_ID,
-} from "../../../../lib/stellar/config";
+import { acceptedTokensFromConfig } from "../../../../lib/stellar/config";
 import {
   fetchXlmSpotPrice,
   usdToXlmRawUnits,
@@ -46,18 +42,19 @@ export async function POST(request: Request) {
     );
     const quote = createCheckoutQuote(requestedItems, products, body?.orderId);
     const asset = body?.paymentAsset ?? "USDC";
-    if (asset !== "USDC" && asset !== "XLM") {
-      return NextResponse.json({ error: "Choose USDC or XLM to pay." }, { status: 400 });
+    const acceptedToken = acceptedTokensFromConfig().find((token) => token.symbol === asset);
+    if (!acceptedToken) {
+      return NextResponse.json({ error: "That payment asset is no longer accepted. Refresh and choose another." }, { status: 400 });
     }
     if (asset === "XLM") {
       const spot = await fetchXlmSpotPrice();
       quote.payment = {
         asset,
-        tokenContractId: NATIVE_ASSET_CONTRACT_ID,
+        tokenContractId: acceptedToken.contractId,
         amountRaw: usdToXlmRawUnits(
           quote.totalUsd,
           spot.usd,
-          tokenForContract(NATIVE_ASSET_CONTRACT_ID)?.decimals ?? 7
+          acceptedToken.decimals
         ),
         xlmUsdPrice: spot.usd,
         priceUpdatedAt: spot.updatedAt,
@@ -73,7 +70,7 @@ export async function POST(request: Request) {
     } else {
       quote.payment = {
         asset,
-        tokenContractId: USDC_CONTRACT_ID,
+        tokenContractId: acceptedToken.contractId,
         amountRaw: String(Math.round(quote.totalUsd * 10 ** 7)),
       };
     }
