@@ -1,8 +1,10 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { isProductAvailable } from "./productAvailability";
+import { isCustomerOrderReference } from "./orderReference";
 
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
 export const CHECKOUT_QUOTE_MAX_SECRET_OVERLAP_MS = 60 * 60 * 1000;
+export const CHECKOUT_QUOTE_SCHEMA_VERSION = 1;
 const MAX_LINES = 50;
 const MAX_QUANTITY_PER_PRODUCT = 99;
 
@@ -20,6 +22,7 @@ export interface QuotedItem {
 }
 
 export interface CheckoutQuote {
+  schemaVersion: number;
   quoteId: string;
   orderId: string;
   items: QuotedItem[];
@@ -49,7 +52,7 @@ export function createCheckoutQuote(
   ) {
     throw new Error("Add between 1 and 50 products to checkout.");
   }
-  if (typeof orderId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(orderId)) {
+  if (!isCustomerOrderReference(orderId)) {
     throw new Error("Invalid order reference.");
   }
 
@@ -103,6 +106,7 @@ export function createCheckoutQuote(
   }
 
   return {
+    schemaVersion: CHECKOUT_QUOTE_SCHEMA_VERSION,
     quoteId: randomUUID(),
     orderId,
     items,
