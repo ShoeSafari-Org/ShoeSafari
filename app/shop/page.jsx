@@ -96,9 +96,35 @@ export default function Products() {
   const categories = getProductCategories(products);
   const categoryProducts = filterProductsByCategory(products, selectedCategory);
   const filteredProducts = searchProducts(categoryProducts, searchTerm);
+  const productListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.map((product, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `/shop/${product.id}`,
+      item: {
+        "@type": "Product",
+        name: product.name,
+        image: product.img,
+        offers: product.price === null ? undefined : {
+          "@type": "Offer",
+          priceCurrency: "USD",
+          price: product.price,
+          availability: product.available === false
+            ? "https://schema.org/OutOfStock"
+            : "https://schema.org/InStock",
+        },
+      },
+    })),
+  };
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productListSchema) }}
+      />
       <div className="w-full max-w-screen-xl mx-auto py-8">
         <Cart itemCount={itemCount} onClick={openModal} />
         <section className="h-[70vh] overflow-auto">
