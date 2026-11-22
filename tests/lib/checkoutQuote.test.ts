@@ -42,6 +42,17 @@ describe("trusted checkout quotes", () => {
     ]);
     expect(quote.totalUsd).toBe(169.97);
     expect(quote.expiresAt).toBe(1000 + CHECKOUT_QUOTE_TTL_MS);
+    expect(quote.schemaVersion).toBe(1);
+  });
+
+  it("accepts legacy signed quotes without a version and rejects unsupported versions", () => {
+    const quote = createCheckoutQuote([{ productId: "boot", quantity: 1 }], products, "legacy");
+    const { schemaVersion, ...legacyQuote } = quote;
+    const legacyToken = signCheckoutQuote(legacyQuote as typeof quote, secret);
+    expect(verifyCheckoutQuote(legacyToken, secret).schemaVersion).toBe(1);
+
+    const unsupported = signCheckoutQuote({ ...quote, schemaVersion: 99 }, secret);
+    expect(() => verifyCheckoutQuote(unsupported, secret)).toThrow(/unsupported.*version/i);
   });
 
   it("keeps legacy products without availability purchasable", () => {
