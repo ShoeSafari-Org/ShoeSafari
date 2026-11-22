@@ -26,6 +26,8 @@ const ProductPage = ({ params }) => {
     cartRecoveryMessage,
   } = useCart();
   const [product, setProduct] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [isZoomed, setIsZoomed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -90,12 +92,47 @@ const ProductPage = ({ params }) => {
         {!loading && !error && product && (
           <>
             <h1 className="text-4xl font-bold mb-4">{product.name}</h1>
-            <ProductImage
-              src={product.img}
-              alt={product.name}
-              size="large"
-              containerClassName="max-w-[400px]"
-            />
+            {(() => {
+              const images = product.images?.length ? product.images : [product.img];
+              const image = images[Math.min(selectedImage, images.length - 1)];
+              return (
+                <div className="max-w-[520px]">
+                  <button
+                    type="button"
+                    className="block w-full cursor-zoom-in text-left"
+                    onClick={() => setIsZoomed((zoomed) => !zoomed)}
+                    aria-label={`${isZoomed ? "Leave" : "Open"} zoom view for ${product.name}`}
+                  >
+                    <ProductImage
+                      src={image}
+                      alt={`${product.name}, view ${selectedImage + 1} of ${images.length}`}
+                      size="large"
+                      containerClassName="max-w-[520px]"
+                      className={isZoomed ? "scale-125 object-contain" : ""}
+                    />
+                  </button>
+                  {images.length > 1 && (
+                    <div className="mt-3 flex flex-wrap gap-2" aria-label="Product image views">
+                      {images.map((src, index) => (
+                        <button
+                          type="button"
+                          key={src}
+                          onClick={() => {
+                            setSelectedImage(index);
+                            setIsZoomed(false);
+                          }}
+                          aria-label={`View ${index + 1} of ${images.length}`}
+                          aria-pressed={selectedImage === index}
+                          className={`w-16 rounded border-2 ${selectedImage === index ? "border-red-600" : "border-transparent"}`}
+                        >
+                          <ProductImage src={src} alt="" size="small" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div className="flex space-x-4 items-center my-4">
               <h2 className="text-4xl">
                 {product.price === null ? "Price unavailable" : <MoneyDisplay amount={product.price} />}
