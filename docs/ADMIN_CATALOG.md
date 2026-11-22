@@ -29,6 +29,15 @@ The current product fields are documented in the
 Firebase Storage accepts only admin uploads and image content types under
 5 MiB; see the [Storage rules guide](STORAGE.md).
 
+## Catalog search
+
+Search uses a deterministic client-side fallback over the loaded catalog page.
+It normalizes case and accents, matches name, description, and category tokens,
+and accepts a one-character typo for longer tokens. Products explicitly marked
+`available: false` are excluded from search results; the fallback requires no
+external search service and therefore remains safe during infrastructure
+outages.
+
 ## Recover from a failed save
 
 - **Image upload fails:** the Firestore product has not been written by the
