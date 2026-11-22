@@ -38,6 +38,7 @@ service cloud.firestore {
     }
 
     match /ShoeSafariOrders/{orderId} {
+      // Order ids are not secrets: ownership is checked against the document.
       allow read: if isAdmin() ||
         (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if (signedIn() && request.resource.data.userId == request.auth.uid) ||

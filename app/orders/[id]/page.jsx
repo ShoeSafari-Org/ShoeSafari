@@ -30,14 +30,22 @@ export default function OrderDetailPage() {
     }
 
     getDoc(doc(db, "ShoeSafariOrders", id))
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         if (!active) return;
         if (!snapshot.exists()) {
           setUnavailable(true);
           return;
         }
-        // Firestore rules permit this read only to the owner (or an admin).
-        setOrder({ id: snapshot.id, ...snapshot.data() });
+        const data = snapshot.data();
+        const tokenResult = await user.getIdTokenResult();
+        const isAdmin = tokenResult.claims.admin === true;
+        // Rules remain the boundary; this check prevents accidentally rendering
+        // a cross-user record if a client configuration is ever too permissive.
+        if (!isAdmin && data.userId !== user.uid) {
+          setUnavailable(true);
+          return;
+        }
+        setOrder({ id: snapshot.id, ...data });
       })
       .catch(() => {
         if (active) setUnavailable(true);
