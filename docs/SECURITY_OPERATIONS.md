@@ -41,6 +41,21 @@ treated as private credentials.
 - [ ] Relevant customers, providers, and stakeholders were notified when required, using approved channels.
 - [ ] Follow-up actions have owners and due dates; this runbook and monitoring were updated for lessons learned.
 
+## Escrow balance reconciliation
+
+The read-only `npm run report:escrow -- --orders paid-orders.json --balances
+contract-balances.json` command compares indexed orders whose status is
+`Paid` with independently observed contract balances, grouped by token. It
+reports the expected amount, observed amount, signed gap, oldest paid-order
+age, and `ok`, `gap`, or `token-mismatch` status. Supply `--now` when replaying
+an incident so the age calculation is reproducible.
+
+The orders input must come from the event indexer and the balances input must
+come from a read-only RPC query. The report never signs transactions, moves
+funds, or changes order state. A gap or token mismatch is owned by the on-call
+payments maintainer: preserve the two input snapshots and transaction hashes,
+then reconcile the contract events before making any off-chain correction.
+
 ## Safe handling reminders
 
 - Keep `.env.local` and production secret values outside version control. The
