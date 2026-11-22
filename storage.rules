@@ -3,6 +3,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function isAdmin() {
+      // Storage writes must use the same trusted Firebase custom claim.
       return request.auth != null && request.auth.token.admin == true;
     }
 
