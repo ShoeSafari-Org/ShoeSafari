@@ -63,8 +63,14 @@ test("login route meets the serious and critical accessibility baseline", async 
 
 test("cart dialog meets the serious and critical accessibility baseline", async ({ page }) => {
   await page.goto("/shop");
-  await page.getByRole("button", { name: "Open shopping cart, 0 items" }).click();
-  await expect(page.getByRole("heading", { name: "Cart Items" })).toBeVisible();
+  const cartTrigger = page.getByRole("button", { name: "Open shopping cart, 0 items" });
+  await cartTrigger.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close dialog" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(cartTrigger).toBeFocused();
   await expectAccessible(page);
 });
 
