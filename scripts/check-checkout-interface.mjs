@@ -54,7 +54,8 @@ function parseStructFields(source, type) {
   if (start < 0) return null;
   const open = source.indexOf("{", start);
   const close = source.indexOf("}", open);
-  return source.slice(open + 1, close).split(",").map((sourceField) => {
+  const body = source.slice(open + 1, close).replace(/^\s*\/\/.*$/gm, "");
+  return body.split(",").map((sourceField) => {
     const topic = sourceField.includes("#[topic]");
     const field = compact(sourceField.replace(/#\[topic\]/g, "").replace(/^\s*\/\/.*$/gm, "")).replace(/^pub\s+/, "");
     return field ? { field, topic } : null;
