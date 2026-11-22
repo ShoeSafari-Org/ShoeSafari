@@ -11,6 +11,20 @@ To update an action:
 
 Do not use branches or movable tags such as `main`, `stable`, or `v4` as the action reference. For `dtolnay/rust-toolchain`, the action code is pinned to its `v1` release; the `toolchain: stable` input intentionally continues to select Rust's stable compiler channel.
 
+## Dependency security checks
+
+Pull requests that change a JavaScript manifest run the dependency security
+workflow. GitHub's dependency review blocks newly introduced high or critical
+issues, while the production-only npm audit blocks the same severities in the
+resolved application dependency tree. Low and moderate findings remain
+advisory and are retained as an artifact so maintainers can triage them without
+silently weakening the merge gate.
+
+The workflow installs with lifecycle scripts disabled, uses only pinned GitHub
+Actions, and never includes development-only packages in the blocking audit.
+When an advisory is accepted, record the owner, rationale, affected package,
+and review date in the security issue or release notes; do not suppress the
+finding in the workflow.
 ## Supported CI toolchains
 
 The main CI workflow keeps the compatibility checks small and independent:

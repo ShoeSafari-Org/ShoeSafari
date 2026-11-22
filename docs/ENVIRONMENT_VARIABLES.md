@@ -38,9 +38,18 @@ and signing keys server-side without the `NEXT_PUBLIC_` prefix.
 | `CHECKOUT_QUOTE_PREVIOUS_EXPIRES_AT` | Optional during rotation | Unix timestamp in milliseconds for the bounded overlap window. Set it no more than one hour ahead; remove the previous secret after expiry. |
 | `FIREBASE_PROJECT_ID` | Only for admin script | Project ID used by `scripts/set-admin-claim.mjs`; set it in the trusted admin shell. |
 | `MONGO_DB_URI` | No | Optional MongoDB alternative; unused when the app uses Firestore. |
-
 `NODE_ENV` and `CI` are supplied by Node.js and the CI provider. They are not
 application settings to copy into `.env.local`.
+
+## Protected deployment diagnostics
+
+In development, `/dev/config` exposes an allowlisted, immutable deployment
+identity and public payment configuration for support troubleshooting. On
+Vercel, the commit, deployment, and environment fields use the platform's
+`VERCEL_GIT_COMMIT_SHA`, `VERCEL_DEPLOYMENT_ID`, and `VERCEL_ENV` values. Local
+builds use `local-development` when those values are unavailable. The view
+never enumerates environment variables or displays secrets; RPC query strings
+are stripped before display.
 
 ## Safe defaults
 
