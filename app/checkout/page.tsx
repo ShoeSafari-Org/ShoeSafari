@@ -36,6 +36,7 @@ const Checkout = () => {
   } | null>(null);
   const [quoteRefreshCount, setQuoteRefreshCount] = useState(0);
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [isOnline, setIsOnline] = useState(true);
   const [paymentHash, setPaymentHash] = useState("");
   const [orderSaveFailed, setOrderSaveFailed] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "" });
@@ -53,6 +54,17 @@ const Checkout = () => {
       country: "",
     },
   });
+
+  useEffect(() => {
+    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    updateOnlineState();
+    window.addEventListener("online", updateOnlineState);
+    window.addEventListener("offline", updateOnlineState);
+    return () => {
+      window.removeEventListener("online", updateOnlineState);
+      window.removeEventListener("offline", updateOnlineState);
+    };
+  }, []);
 
   const showToast = (message: string) => {
     setToast({ show: true, message });
@@ -426,6 +438,11 @@ const Checkout = () => {
             )}
             {stage === 1 && (
               <div className="mt-4 bg-white p-4 rounded shadow-md flex flex-col gap-3">
+                {!isOnline && (
+                  <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+                    You are offline. Reconnect before requesting a quote or signing a payment.
+                  </div>
+                )}
                 <fieldset className="flex flex-col gap-2" aria-describedby="payment-asset-help">
                   <legend className="font-semibold">Choose a payment asset</legend>
                   {(["USDC", "XLM"] as const).map((asset) => (
@@ -494,6 +511,7 @@ const Checkout = () => {
                   quoteToken={quoteToken}
                   paymentAsset={paymentAsset}
                   disabled={
+                    !isOnline ||
                     !customerDetailsComplete ||
                     totalPrice <= 0 ||
                     quoteLoading ||
