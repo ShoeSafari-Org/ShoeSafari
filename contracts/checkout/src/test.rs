@@ -8,6 +8,74 @@ use soroban_sdk::testutils::{Address as _, Events, Ledger as _, MockAuth, MockAu
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
 use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, IntoVal};
 
+#[test]
+fn test_shared_scval_fixtures_round_trip() {
+    use soroban_sdk::xdr::{Limits, ReadXdr, ScVal, ScValType, WriteXdr};
+
+    let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+        "../interface/scval-fixtures.json"
+    ))
+    .expect("shared ScVal fixture JSON must remain valid");
+
+    for name in [
+        "address",
+        "tokenAddress",
+        "bytes32",
+        "i128",
+        "i128Negative",
+        "optionNone",
+        "optionSomeAddress",
+        "map",
+    ] {
+        let hex = fixtures["values"][name]["xdr"]
+            .as_str()
+            .expect("fixture value must contain XDR hex");
+        let bytes = hex_bytes(hex);
+        let value = ScVal::from_xdr(bytes.as_slice(), Limits::none())
+            .expect("fixture XDR must decode as ScVal");
+        assert_eq!(value.to_xdr(Limits::none()).unwrap(), bytes);
+    }
+
+    assert_eq!(
+        ScVal::from_xdr(
+            hex_bytes(fixtures["values"]["optionNone"]["xdr"].as_str().unwrap()),
+            Limits::none()
+        )
+        .unwrap()
+        .switch(),
+        ScValType::ScvVec
+    );
+
+    for name in ["pay", "create_order"] {
+        let event = &fixtures["events"][name];
+        let topics = event["topics"].as_array().unwrap();
+        assert!(!topics.is_empty());
+        for topic_hex in topics {
+            let topic_hex = topic_hex.as_str().unwrap();
+            let topic = ScVal::from_xdr(
+                hex_bytes(topic_hex),
+                Limits::none(),
+            )
+            .expect("event topic fixture must decode as ScVal");
+            assert_eq!(topic.to_xdr(Limits::none()).unwrap(), hex_bytes(topic_hex));
+        }
+        let data = ScVal::from_xdr(
+            hex_bytes(event["data"].as_str().unwrap()),
+            Limits::none(),
+        )
+        .expect("event data fixture must decode as ScVal");
+        assert_eq!(data.switch(), ScValType::ScvMap);
+    }
+}
+
+fn hex_bytes(hex: &str) -> Vec<u8> {
+    assert!(hex.len() % 2 == 0, "fixture XDR hex must have even length");
+    (0..hex.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&hex[index..index + 2], 16).unwrap())
+        .collect()
+}
+
 use crate::errors::Error;
 use crate::order::Status;
 use crate::storage::{DataKey, LEDGER_THRESHOLD};
