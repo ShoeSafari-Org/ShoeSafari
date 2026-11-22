@@ -709,6 +709,38 @@ fn test_duplicate_payment_attempt_has_no_second_transfer_or_event() {
 }
 
 #[test]
+fn test_escrow_balance_invariant_across_dispatch_and_refund() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, merchant, buyer) = setup_usdc(&env);
+    let checkout = client.address.clone();
+    let dispatch_id = order_id(&env, 248);
+    let refund_id = order_id(&env, 249);
+
+    client.pay(&token, &buyer, &dispatch_id, &40_000);
+    assert_eq!(
+        (usdc_balance(&env, &token, &buyer), usdc_balance(&env, &token, &checkout), usdc_balance(&env, &token, &merchant)),
+        (960_000, 40_000, 0)
+    );
+    client.dispatch(&dispatch_id);
+    assert_eq!(
+        (usdc_balance(&env, &token, &buyer), usdc_balance(&env, &token, &checkout), usdc_balance(&env, &token, &merchant)),
+        (960_000, 0, 40_000)
+    );
+
+    client.pay(&token, &buyer, &refund_id, &25_000);
+    assert_eq!(usdc_balance(&env, &token, &checkout), 25_000);
+    client.refund(&refund_id);
+    assert_eq!(
+        (usdc_balance(&env, &token, &buyer), usdc_balance(&env, &token, &checkout), usdc_balance(&env, &token, &merchant)),
+        (1_000_000, 0, 40_000)
+    );
+    assert_eq!(client.try_dispatch(&dispatch_id), Err(Ok(Error::OrderAlreadyPaid)));
+    assert_eq!(client.try_refund(&refund_id), Err(Ok(Error::InvalidOrderStatus)));
+}
+
+#[test]
 fn test_duplicate_pay_after_dispatch_rejected() {
     let env = Env::default();
     env.mock_all_auths();
