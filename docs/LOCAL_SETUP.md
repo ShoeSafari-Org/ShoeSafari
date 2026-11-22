@@ -62,6 +62,28 @@ these optional flows, consult the
 [testnet walkthrough](TESTNET_WALLET_WALKTHROUGH.md), and
 [checkout validation guide](TESTNET_CHECKOUT.md).
 
+## Synthetic Firebase fixtures
+
+The checked-in fixture shape in `tests/fixtures/catalog.json` is deliberately
+synthetic: it uses `.test` email addresses, a fake transaction hash, and a
+non-production Stellar address. It must never be loaded into a production
+Firebase project.
+
+Run the Firebase emulator before using local catalog or order fixtures:
+
+```bash
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+firebase emulators:start --only firestore
+```
+
+Use a separate development Firebase project for browser features that need
+authentication. Keep `NEXT_PUBLIC_FIREBASE_PROJECT_ID` pointed at that project
+and never at a production project when loading fixture data. To reset local
+state, stop the emulator and restart it without `--import` or `--export-on-exit`;
+the emulator data is disposable. Do not copy fixture orders into production or
+use real wallet addresses, customer details, service-account JSON, or secrets
+in the fixture file.
+
 ## Useful commands
 
 The scripts below are defined in `package.json`:
