@@ -11,15 +11,16 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Mu
 
 use crate::errors::Error;
 use crate::events::{
-    MerchantChangedV1, OrderCreated, OrderRefunded, OrderShipped, PaymentReceived,
+    MerchantChangedV1, OrderCreated, OrderExpiredV1, OrderRefunded, OrderShipped, PaymentReceived,
     TokenAllowlistChangedV1,
 };
 use crate::order::{Order, Status};
 use crate::storage::{
     append_order_index, get_admin, get_approval_policy, get_order, has_admin, is_token_allowed,
-    order_index_at, order_index_count, remove_approval_policy, set_admin,
+    order_index_at, order_index_count, remove_order, remove_approval_policy, set_admin,
     set_approval_policy as store_approval_policy, set_order, set_token_allowed, ApprovalPolicy,
 };
+use crate::order::PENDING_ORDER_TTL_SECONDS;
 
 /// Maximum number of records returned by a single merchant lookup.
 pub const MAX_ORDER_PAGE_SIZE: u32 = 50;
@@ -193,8 +194,13 @@ impl Checkout {
         if !is_token_allowed(&env, &token) {
             return Err(Error::TokenNotAllowed);
         }
-        if get_order(&env, &order_id).is_some() {
-            return Err(Error::OrderAlreadyPaid);
+        let had_existing = get_order(&env, &order_id).is_some();
+        if let Some(existing) = get_order(&env, &order_id) {
+            if existing.status == Status::Pending && is_pending_expired(&env, &existing) {
+                expire_pending_order(&env, &order_id, &existing);
+            } else {
+                return Err(Error::OrderAlreadyPaid);
+            }
         }
 
         let timestamp = env.ledger().timestamp();
@@ -206,7 +212,9 @@ impl Checkout {
             status: Status::Pending,
         };
         set_order(&env, &order_id, &order);
-        append_order_index(&env, &order_id);
+        if !had_existing {
+            append_order_index(&env, &order_id);
+        }
 
         OrderCreated {
             token,
@@ -259,7 +267,12 @@ impl Checkout {
         let had_existing = get_order(&env, &order_id).is_some();
         if let Some(existing) = get_order(&env, &order_id) {
             if existing.status == Status::Pending {
-                if existing.buyer != buyer || existing.token != token || existing.amount != amount {
+                if is_pending_expired(&env, &existing) {
+                    expire_pending_order(&env, &order_id, &existing);
+                } else if existing.buyer != buyer
+                    || existing.token != token
+                    || existing.amount != amount
+                {
                     return Err(Error::OrderTermsMismatch);
                 }
             } else {
@@ -299,6 +312,17 @@ impl Checkout {
         }
         .publish(&env);
 
+        Ok(())
+    }
+
+    /// Remove an unpaid pending order after its ledger-timestamp expiry.
+    /// Anyone may call this cleanup method; paid escrow is never removed.
+    pub fn expire_order(env: Env, order_id: BytesN<32>) -> Result<(), Error> {
+        let order = get_order(&env, &order_id).ok_or(Error::OrderNotFound)?;
+        if !is_pending_expired(&env, &order) {
+            return Err(Error::PendingOrderExpired);
+        }
+        expire_pending_order(&env, &order_id, &order);
         Ok(())
     }
 
@@ -437,6 +461,21 @@ impl Checkout {
         let next = if end < count { Some(end) } else { None };
         Ok((ids, next))
     }
+}
+
+fn is_pending_expired(env: &Env, order: &Order) -> bool {
+    order.status == Status::Pending
+        && env.ledger().timestamp() >= order.timestamp + PENDING_ORDER_TTL_SECONDS
+}
+
+fn expire_pending_order(env: &Env, order_id: &BytesN<32>, order: &Order) {
+    remove_order(env, order_id);
+    OrderExpiredV1 {
+        order_id: order_id.clone(),
+        buyer: order.buyer.clone(),
+        amount: order.amount,
+    }
+    .publish(env);
 }
 
 fn require_high_value_approval(env: &Env, merchant: &Address, order: &Order) -> Result<(), Error> {

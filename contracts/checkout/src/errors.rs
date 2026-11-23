@@ -24,6 +24,8 @@ pub enum Error {
     InvalidApprovalPolicy = 9,
     /// Pagination cursor or page size is outside the supported bounds.
     InvalidPagination = 11,
+    /// A pending order has not reached its expiry yet, or is already paid.
+    PendingOrderExpired = 12,
     /// The allowlisted token does not expose the supported seven-decimal precision.
     InvalidTokenMetadata = 10,
 }

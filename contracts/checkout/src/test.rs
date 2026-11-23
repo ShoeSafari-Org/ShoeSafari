@@ -77,7 +77,7 @@ fn hex_bytes(hex: &str) -> Vec<u8> {
 }
 
 use crate::errors::Error;
-use crate::order::Status;
+use crate::order::{Status, PENDING_ORDER_TTL_SECONDS};
 use crate::storage::{DataKey, LEDGER_THRESHOLD};
 use crate::{Checkout, CheckoutClient, CONTRACT_VERSION, INTERFACE_VERSION, SUPPORTED_TOKEN_DECIMALS};
 
@@ -474,6 +474,38 @@ fn test_create_order_duplicate_rejected() {
 
     let result = client.try_create_order(&buyer, &id, &token, &50_000);
     assert_eq!(result, Err(Ok(Error::OrderAlreadyPaid)));
+}
+
+#[test]
+fn test_pending_order_expires_at_boundary_but_paid_order_does_not() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token, _, buyer) = setup_usdc(&env);
+    let pending_id = order_id(&env, 241);
+    client.create_order(&buyer, &pending_id, &token, &10_000);
+
+    env.ledger().set_timestamp(PENDING_ORDER_TTL_SECONDS - 1);
+    assert_eq!(
+        client.try_expire_order(&pending_id),
+        Err(Ok(Error::PendingOrderExpired))
+    );
+    env.ledger().set_timestamp(PENDING_ORDER_TTL_SECONDS);
+    client.expire_order(&pending_id);
+    assert_eq!(client.status(&pending_id), None);
+    assert_eq!(
+        client.try_expire_order(&pending_id),
+        Err(Ok(Error::OrderNotFound))
+    );
+
+    let paid_id = order_id(&env, 242);
+    client.pay(&token, &buyer, &paid_id, &10_000);
+    env.ledger().set_timestamp(PENDING_ORDER_TTL_SECONDS * 2);
+    assert_eq!(
+        client.try_expire_order(&paid_id),
+        Err(Ok(Error::PendingOrderExpired))
+    );
+    assert_eq!(client.status(&paid_id), Some(Status::Paid));
 }
 
 #[test]

@@ -43,6 +43,19 @@ pub struct OrderCreated {
     pub timestamp: u64,
 }
 
+/// Emitted when an unpaid pending order is cleaned up after its expiry.
+#[contractevent]
+pub struct OrderExpiredV1 {
+    /// The expired order.
+    #[topic]
+    pub order_id: BytesN<32>,
+    /// The buyer that originally registered the order.
+    #[topic]
+    pub buyer: Address,
+    /// The unpaid intended amount.
+    pub amount: i128,
+}
+
 /// Emitted when the merchant dispatches an order and the escrow is released.
 ///
 /// Topics: `dispatch`, order_id, merchant

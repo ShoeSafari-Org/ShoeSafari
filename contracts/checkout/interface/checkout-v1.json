@@ -19,6 +19,7 @@
     { "name": "order", "arguments": ["order_id: BytesN<32>"], "returns": "Option<Order>" },
     { "name": "status", "arguments": ["order_id: BytesN<32>"], "returns": "Option<Status>" },
     { "name": "is_paid", "arguments": ["order_id: BytesN<32>"], "returns": "bool" },
+    { "name": "expire_order", "arguments": ["order_id: BytesN<32>"], "returns": "Result<(), Error>" },
     { "name": "orders_page", "arguments": ["cursor: u32", "limit: u32"], "returns": "Result<(Vec<BytesN<32>>, Option<u32>), Error>" }
   ],
   "events": [
@@ -28,6 +29,7 @@
     { "type": "OrderRefunded", "name": "refund", "topics": ["order_id", "buyer"], "data": ["amount"] },
     { "type": "MerchantChangedV1", "name": "merchant_changed_v1", "topics": ["previous_merchant", "new_merchant"], "data": [] },
     { "type": "TokenAllowlistChangedV1", "name": "token_allowlist_changed_v1", "topics": ["token"], "data": ["allowed"] }
+    ,{ "type": "OrderExpiredV1", "name": "order_expired_v1", "topics": ["order_id", "buyer"], "data": ["amount"] }
   ],
   "statuses": [
     { "name": "Pending", "value": 0 },
