@@ -3,6 +3,7 @@ import { canReserveQuantity, isProductAvailable } from "./productAvailability";
 import { isCustomerOrderReference } from "./orderReference";
 
 export const CHECKOUT_QUOTE_TTL_MS = 10 * 60 * 1000;
+export const CHECKOUT_QUOTE_MAX_SECRET_OVERLAP_MS = 60 * 60 * 1000;
 export const CHECKOUT_QUOTE_SCHEMA_VERSION = 1;
 const MAX_LINES = 50;
 const MAX_QUANTITY_PER_PRODUCT = 99;
@@ -121,32 +122,37 @@ export function signCheckoutQuote(quote: CheckoutQuote, secret: string): string 
 
 export function verifyCheckoutQuote(
   token: unknown,
-  secret: string,
+  secret: string | { active: string; previous?: string; previousExpiresAt?: number },
   now = Date.now()
 ): CheckoutQuote {
   if (typeof token !== "string") throw new Error("Invalid checkout quote.");
   const [payload, signature, extra] = token.split(".");
   if (!payload || !signature || extra) throw new Error("Invalid checkout quote.");
 
-  const expected = Buffer.from(signatureFor(payload, secret));
   const supplied = Buffer.from(signature);
-  if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
+  const secrets = typeof secret === "string" ? { active: secret } : secret;
+  const candidates = [secrets.active];
+  if (
+    secrets.previous &&
+    Number.isFinite(secrets.previousExpiresAt) &&
+    secrets.previousExpiresAt! > now
+  ) {
+    candidates.push(secrets.previous);
+  }
+  const valid = candidates.some((candidate) => {
+    const expected = Buffer.from(signatureFor(payload, candidate));
+    return expected.length === supplied.length && timingSafeEqual(expected, supplied);
+  });
+  if (!valid) {
     throw new Error("Invalid checkout quote signature.");
   }
 
-  let parsed: Partial<CheckoutQuote>;
+  let quote: CheckoutQuote;
   try {
-    parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    quote = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
   } catch {
     throw new Error("Invalid checkout quote payload.");
   }
-  if (parsed.schemaVersion !== undefined && parsed.schemaVersion !== CHECKOUT_QUOTE_SCHEMA_VERSION) {
-    throw new Error("Unsupported checkout quote version. Return to checkout and request a new quote.");
-  }
-  if (!Array.isArray(parsed.items) || typeof parsed.orderId !== "string" || typeof parsed.quoteId !== "string") {
-    throw new Error("Invalid checkout quote schema. Return to checkout and request a new quote.");
-  }
-  const quote = { ...parsed, schemaVersion: CHECKOUT_QUOTE_SCHEMA_VERSION } as CheckoutQuote;
   if (!Number.isFinite(quote.expiresAt) || quote.expiresAt <= now) {
     throw new Error("This checkout quote has expired. Return to your cart and try again.");
   }
