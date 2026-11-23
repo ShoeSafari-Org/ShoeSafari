@@ -68,6 +68,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /ShoeSafariOrderExports/{exportId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
