@@ -12,9 +12,11 @@ import { saveStellarOrder, validateStellarOrderReceipt } from "../../lib/orderSt
 import { useAuth } from "../../lib/AuthContext";
 import {
   formatTokenAmount,
+  paymentAssetsForCheckout,
   tokenForContract,
   tokenSymbolForContract,
   USDC_CONTRACT_ID,
+  type PaymentAssetId,
 } from "../../lib/stellar/config";
 import { logClientError } from "../../lib/safeLogging";
 import { validateShippingAddress, isShippingAddressComplete } from "../../lib/shippingAddress";
@@ -29,7 +31,12 @@ const Checkout = () => {
   const [quoteExpiresAt, setQuoteExpiresAt] = useState<number | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(true);
   const [quoteError, setQuoteError] = useState("");
-  const [paymentAsset, setPaymentAsset] = useState<"USDC" | "XLM">("USDC");
+  const paymentAssets = paymentAssetsForCheckout();
+  const defaultPaymentAsset =
+    paymentAssets.find((asset) => asset.assetId === "USDC")?.assetId ??
+    paymentAssets[0]?.assetId ??
+    "USDC";
+  const [paymentAsset, setPaymentAsset] = useState<PaymentAssetId>(defaultPaymentAsset);
   const [paymentQuote, setPaymentQuote] = useState<{
     amountRaw: string;
     tokenContractId: string;
@@ -124,11 +131,7 @@ const Checkout = () => {
     } catch (error) {
       orderSaved = false;
       setOrderSaveFailed(true);
-      logClientError(
-        "Stellar payment succeeded but order persistence failed",
-        error,
-        result.hash
-      );
+      logClientError("Stellar payment succeeded but order persistence failed", error, result.hash);
     }
 
     const tokenContract = result.receipt?.token;
@@ -309,7 +312,10 @@ const Checkout = () => {
           </div>
           <div className="order-1 w-full rounded-md p-1 sm:p-4 md:order-2 md:w-1/2">
             {stage === 1 && (
-              <section aria-labelledby="checkout-details-title" className="bg-white p-4 rounded shadow-md">
+              <section
+                aria-labelledby="checkout-details-title"
+                className="bg-white p-4 rounded shadow-md"
+              >
                 <h2 id="checkout-details-title" className="text-2xl mb-4 text-center">
                   Delivery details
                 </h2>
@@ -386,7 +392,9 @@ const Checkout = () => {
                     />
                   </div>
                   <div className="mb-4">
-                    <label htmlFor="checkout-city" className="block text-gray-700">City</label>
+                    <label htmlFor="checkout-city" className="block text-gray-700">
+                      City
+                    </label>
                     <input
                       id="checkout-city"
                       type="text"
@@ -446,7 +454,8 @@ const Checkout = () => {
                 </div>
                 {!customerDetailsComplete && (
                   <p className="text-sm text-gray-600" role="status">
-                    Enter your name, email, street, city, region, postal code, and country to continue to payment.
+                    Enter your name, email, street, city, region, postal code, and country to
+                    continue to payment.
                   </p>
                 )}
                 {!shippingValidation.isValid && formData.address.country && (
@@ -466,29 +475,34 @@ const Checkout = () => {
                 <fieldset className="flex flex-col gap-2" aria-describedby="payment-asset-help">
                   <legend className="font-semibold">Choose a payment asset</legend>
                   <CheckoutBadge asset={paymentAsset} />
-                  {(["USDC", "XLM"] as const).map((asset) => (
-                    <label key={asset} className="flex min-h-11 items-center gap-2">
+                  {paymentAssets.map((asset) => (
+                    <label key={asset.assetId} className="flex min-h-11 items-center gap-2">
                       <input
                         type="radio"
                         name="paymentAsset"
-                        value={asset}
-                        checked={paymentAsset === asset}
-                        onChange={() => setPaymentAsset(asset)}
+                        value={asset.assetId}
+                        checked={paymentAsset === asset.assetId}
+                        onChange={() => setPaymentAsset(asset.assetId!)}
                       />
-                      <span>{asset === "USDC" ? "USDC (default)" : "Native XLM"}</span>
+                      <span>{asset.display?.label ?? asset.symbol}</span>
                     </label>
                   ))}
                   <p id="payment-asset-help" className="text-xs text-gray-600">
-                    {paymentAsset === "XLM"
-                      ? "XLM amount uses a time-limited USD quote from CoinGecko. The merchant must whitelist the native XLM Stellar Asset Contract; payment stays disabled if a fresh quote is unavailable."
-                      : "USDC is priced at one US dollar per token."}
+                    {
+                      paymentAssets.find((asset) => asset.assetId === paymentAsset)?.display
+                        ?.description
+                    }
                   </p>
                 </fieldset>
                 {quoteLoading && <p role="status">Confirming current catalog prices…</p>}
                 {quoteError && (
                   <div className="text-red-700" role="alert">
                     <p>{quoteError}</p>
-                    <button type="button" className="min-h-11 underline" onClick={() => setQuoteRefreshCount((count) => count + 1)}>
+                    <button
+                      type="button"
+                      className="min-h-11 underline"
+                      onClick={() => setQuoteRefreshCount((count) => count + 1)}
+                    >
                       Request a fresh quote
                     </button>
                   </div>
@@ -499,7 +513,11 @@ const Checkout = () => {
                 {quoteExpiresAt !== null && quoteExpiresAt <= clockNow && (
                   <div className="text-red-700" role="alert">
                     <p>This payment quote expired. Request a fresh quote before signing.</p>
-                    <button type="button" className="min-h-11 underline" onClick={() => setQuoteRefreshCount((count) => count + 1)}>
+                    <button
+                      type="button"
+                      className="min-h-11 underline"
+                      onClick={() => setQuoteRefreshCount((count) => count + 1)}
+                    >
                       Refresh payment quote
                     </button>
                   </div>
@@ -518,10 +536,16 @@ const Checkout = () => {
                   >
                     Server-confirmed checkout total: ${totalPrice.toFixed(2)} USD ·{" "}
                     {paymentQuote && tokenForContract(paymentQuote.tokenContractId)?.symbol}{" "}
-                    {paymentQuote && formatTokenAmount(paymentQuote.amountRaw, paymentQuote.tokenContractId)}.
-                    Quote expires at {new Date(quoteExpiresAt).toLocaleTimeString()}.
+                    {paymentQuote &&
+                      formatTokenAmount(paymentQuote.amountRaw, paymentQuote.tokenContractId)}
+                    . Quote expires at {new Date(quoteExpiresAt).toLocaleTimeString()}.
                     {paymentQuote?.priceUpdatedAt && (
-                      <> XLM/USD source updated at {new Date(paymentQuote.priceUpdatedAt).toLocaleTimeString()} (USD {paymentQuote.xlmUsdPrice?.toFixed(5)} per XLM).</>
+                      <>
+                        {" "}
+                        XLM/USD source updated at{" "}
+                        {new Date(paymentQuote.priceUpdatedAt).toLocaleTimeString()} (USD{" "}
+                        {paymentQuote.xlmUsdPrice?.toFixed(5)} per XLM).
+                      </>
                     )}
                   </p>
                 )}
@@ -574,7 +598,10 @@ const Checkout = () => {
                 <h2 className="text-6xl mb-4 text-center">Order Completed.</h2>
                 <p className="text-center">Your order has been placed successfully.</p>
                 {orderSaveFailed && paymentHash && (
-                  <p className="mt-3 max-w-xl break-all text-center text-sm text-red-800" role="alert">
+                  <p
+                    className="mt-3 max-w-xl break-all text-center text-sm text-red-800"
+                    role="alert"
+                  >
                     Payment was confirmed, but its order record could not be saved. Keep this
                     transaction hash for reconciliation: {paymentHash}
                   </p>
