@@ -30,12 +30,15 @@ import {
   addOrderSupportNote,
   anonymizeStellarOrderPersonalData,
   recordStellarOrderAction,
+  recordStellarOrderExport,
   updateOrderSupportNote,
   updateStellarOrderStatus,
 } from "../../../lib/orderStore";
 import { isOrderRetentionDue } from "../../../lib/orderRetention";
 import { logClientError } from "../../../lib/safeLogging";
 import { formatShippingAddress } from "../../../lib/shippingAddress";
+import { formatOrderExport, OrderExportFormat } from "../../../lib/orderExport";
+import { currentAddress } from "../../../lib/stellar/freighter";
 
 // Status badge component
 const StatusBadge = ({ status }: { status: OrderStatus }) => {
@@ -659,6 +662,30 @@ const OrdersManagementContent = () => {
   };
   const tokenOptions = Array.from(new Set(sortedOrders.map((order) => order.tokenSymbol))).sort();
 
+  const downloadExport = async (format: OrderExportFormat) => {
+    try {
+      const operatorWallet = await currentAddress().catch(() => null);
+      await recordStellarOrderExport({
+        format,
+        orderCount: visibleOrders.length,
+        operatorWallet,
+        filters: { status: statusFilter, token: tokenFilter, from: fromDate, to: toDate },
+      });
+      const blob = new Blob([formatOrderExport(visibleOrders, format)], {
+        type: format === "csv" ? "text/csv;charset=utf-8" : "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `shoesafari-orders-${new Date().toISOString().slice(0, 10)}.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setSuccessMessage(`Exported ${visibleOrders.length} privacy-safe orders as ${format.toUpperCase()}.`);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "Could not export orders.");
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -762,6 +789,14 @@ const OrdersManagementContent = () => {
           >
             <MdRefresh /> Refresh
           </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => void downloadExport("csv")} className="rounded border border-gray-400 px-3 py-1 text-sm text-gray-700 hover:bg-gray-100">
+              Export CSV
+            </button>
+            <button type="button" onClick={() => void downloadExport("json")} className="rounded border border-gray-400 px-3 py-1 text-sm text-gray-700 hover:bg-gray-100">
+              Export JSON
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-4 border-b bg-gray-50">
