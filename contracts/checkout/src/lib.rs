@@ -7,7 +7,7 @@ mod storage;
 mod test;
 
 use soroban_sdk::token::TokenClient;
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, MuxedAddress, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, MuxedAddress, Vec};
 
 use crate::errors::Error;
 use crate::events::{
@@ -28,9 +28,36 @@ pub const MAX_ORDER_PAGE_SIZE: u32 = 50;
 pub struct Checkout;
 
 pub const SUPPORTED_TOKEN_DECIMALS: u32 = 7;
+pub const CONTRACT_VERSION: u32 = 1;
+pub const INTERFACE_VERSION: u32 = 2;
+
+/// Read-only compatibility information for clients discovering a deployed
+/// checkout contract without relying on a static deployment manifest.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CapabilitiesV1 {
+    pub contract_version: u32,
+    pub interface_version: u32,
+    pub supported_token_decimals: u32,
+    pub supports_token_allowlist: bool,
+    pub supports_pause: bool,
+    pub supports_approval_policy: bool,
+}
 
 #[contractimpl]
 impl Checkout {
+    /// Return the versioned, read-only capability surface for this contract.
+    pub fn capabilities_v1(_env: Env) -> CapabilitiesV1 {
+        CapabilitiesV1 {
+            contract_version: CONTRACT_VERSION,
+            interface_version: INTERFACE_VERSION,
+            supported_token_decimals: SUPPORTED_TOKEN_DECIMALS,
+            supports_token_allowlist: true,
+            supports_pause: false,
+            supports_approval_policy: true,
+        }
+    }
+
     /// Initialize the contract with the merchant's Stellar public key.
     /// The merchant address must authorize this call (deployer signs).
     pub fn initialize(env: Env, merchant: Address) -> Result<(), Error> {

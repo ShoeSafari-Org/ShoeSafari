@@ -79,7 +79,7 @@ fn hex_bytes(hex: &str) -> Vec<u8> {
 use crate::errors::Error;
 use crate::order::Status;
 use crate::storage::{DataKey, LEDGER_THRESHOLD};
-use crate::{Checkout, CheckoutClient};
+use crate::{Checkout, CheckoutClient, CONTRACT_VERSION, INTERFACE_VERSION, SUPPORTED_TOKEN_DECIMALS};
 
 // ---------------------------------------------------------------------------
 // Minimal SEP-41-style mock token so tests don't depend on a real token
@@ -194,6 +194,25 @@ fn age_order_below_ttl_threshold(env: &Env, current_ttl: u32) {
 // ---------------------------------------------------------------------------
 // Core escrow lifecycle
 // ---------------------------------------------------------------------------
+
+#[test]
+fn test_capabilities_v1_describes_supported_contract_surface() {
+    let env = Env::default();
+    let contract = env.register(Checkout, ());
+    let client = CheckoutClient::new(&env, &contract);
+
+    let capabilities = client.capabilities_v1();
+
+    assert_eq!(capabilities.contract_version, CONTRACT_VERSION);
+    assert_eq!(capabilities.interface_version, INTERFACE_VERSION);
+    assert_eq!(
+        capabilities.supported_token_decimals,
+        SUPPORTED_TOKEN_DECIMALS
+    );
+    assert!(capabilities.supports_token_allowlist);
+    assert!(!capabilities.supports_pause);
+    assert!(capabilities.supports_approval_policy);
+}
 
 #[test]
 fn test_pay_escrows_then_dispatch_releases_to_merchant() {

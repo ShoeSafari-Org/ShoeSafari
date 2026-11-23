@@ -1,7 +1,8 @@
 {
-  "interfaceVersion": "1.1.0",
+  "interfaceVersion": "1.2.0",
   "contract": "Checkout",
   "methods": [
+    { "name": "capabilities_v1", "arguments": [], "returns": "CapabilitiesV1" },
     { "name": "initialize", "arguments": ["merchant: Address"], "returns": "Result<(), Error>" },
     { "name": "set_merchant", "arguments": ["new_merchant: Address"], "returns": "Result<(), Error>" },
     { "name": "merchant", "arguments": [], "returns": "Result<Address, Error>" },
