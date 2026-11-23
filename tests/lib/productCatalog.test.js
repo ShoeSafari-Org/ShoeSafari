@@ -5,7 +5,23 @@ import {
   getProductCategories,
   isProductPurchasable,
   normalizeProduct,
+  validateProductDocument,
 } from "../../lib/productCatalog";
+
+describe("validateProductDocument", () => {
+  it("returns structured errors for malformed fields and unknown keys", () => {
+    const result = validateProductDocument({ name: "Shoe", price: "1.234", img: "bad", extra: true });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors.price).toBeDefined();
+    expect(result.errors.img).toBeDefined();
+    expect(result.errors.unknown).toEqual(["Unsupported field: extra."]);
+  });
+
+  it("accepts the supported product shape", () => {
+    expect(validateProductDocument({ name: "Shoe", price: 19.99, img: "/images/shoe.png", available: true }).isValid).toBe(true);
+  });
+});
 
 describe("normalizeProduct", () => {
   it("uses safe display fallbacks for incomplete Firestore documents", () => {
