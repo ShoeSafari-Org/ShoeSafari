@@ -78,7 +78,7 @@ const ProductPage = ({ params }) => {
   return (
     <>
       <div className="container max-w-screen-xl mx-auto py-8 mt-10">
-        <Cart itemCount={itemCount} onClick={openModal} />
+        <Cart itemCount={itemCount} onClick={openModal} isOpen={showModal} />
 
         {loading && <LoadingSpinner />}
         {error && (
@@ -134,6 +134,13 @@ const ProductPage = ({ params }) => {
       />
       <Modal show={showModal} onClose={closeModal} ariaLabel="Shopping cart">
         <h2 className="text-2xl mb-4">Cart Items</h2>
+        {/* Always-mounted live region: screen readers announce a text swap in
+            an existing node, but often miss a newly inserted one. */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {cartItems.length === 0
+            ? "Your cart is empty"
+            : `${cartItems.length} ${cartItems.length === 1 ? "item" : "items"} in cart`}
+        </p>
         {cartRecoveryMessage && (
           <p role="status" className="mb-3 text-amber-800">
             {cartRecoveryMessage}
@@ -142,11 +149,11 @@ const ProductPage = ({ params }) => {
         {cartItems.length === 0 ? (
           <p>Your cart is empty.</p>
         ) : (
-          <div>
+          <ul aria-label="Cart items" className="divide-y divide-gray-200">
             {cartItems.map((item) => (
-              <div
+              <li
                 key={item.id}
-                className="flex justify-between items-center mb-2"
+                className="flex justify-between items-center mb-2 py-2"
               >
                 <div className="w-16 h-16 flex-shrink-0">
                   <Image
@@ -162,15 +169,19 @@ const ProductPage = ({ params }) => {
                 <span className="ml-4 text-sm" aria-label="Cart item availability">
                   {item.available === false ? "Unavailable" : "Available"}
                 </span>
+                {/* Every row renders "Remove"; the item name makes each
+                    accessible name unique in a control list. */}
                 <button
+                  type="button"
                   className="ml-4 bg-red-500 text-white px-2 py-1 rounded"
                   onClick={() => removeFromCart(item)}
+                  aria-label={`Remove ${item.name} from cart`}
                 >
                   Remove
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
         <div className="flex justify-between items-center mt-4 mx-5 sm:mx-10">
           <div>
