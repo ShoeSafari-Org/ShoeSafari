@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createCheckoutQuote, signCheckoutQuote } from "../../../../lib/checkoutQuote";
+import {
+  checkCheckoutOrigin,
+  checkJsonContentType,
+} from "../../../../lib/checkout/requestGuards";
 import { getFirebaseAdminDb } from "../../../../lib/firebaseAdmin";
 import { validateProductDocument } from "../../../../lib/productCatalog";
 import {
@@ -18,6 +22,21 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    const originCheck = checkCheckoutOrigin(request);
+    if (!originCheck.ok) {
+      return NextResponse.json(
+        { error: originCheck.error },
+        { status: originCheck.status, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    const contentTypeCheck = checkJsonContentType(request);
+    if (!contentTypeCheck.ok) {
+      return NextResponse.json(
+        { error: contentTypeCheck.error },
+        { status: contentTypeCheck.status, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const body = await request.json();
     const secret = process.env.CHECKOUT_QUOTE_SECRET;
     if (!secret || secret.length < 32) {
