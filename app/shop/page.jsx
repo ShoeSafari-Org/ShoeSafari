@@ -166,7 +166,7 @@ export default function Products() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productListSchema) }}
       />
       <div className="w-full max-w-screen-xl mx-auto py-8">
-        <Cart itemCount={itemCount} onClick={openModal} />
+        <Cart itemCount={itemCount} onClick={openModal} isOpen={showModal} />
         <section className="h-[70vh] overflow-auto">
           <span className="text-4xl sm:text-6xl py-4 flex justify-center items-center font-extrabold">
             Welcome to Our Store!
@@ -312,6 +312,14 @@ export default function Products() {
       />
       <Modal show={showModal} onClose={closeModal} ariaLabel="Shopping cart">
         <h2 className="text-2xl mb-4">Cart Items</h2>
+        {/* Announces cart changes to screen readers. The region is always
+            mounted so assistive tech observes the text swap rather than a new
+            node appearing, which some readers do not announce. */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {cartItems.length === 0
+            ? "Your cart is empty"
+            : `${cartItems.length} ${cartItems.length === 1 ? "item" : "items"} in cart`}
+        </p>
         {cartRecoveryMessage && (
           <p role="status" className="mb-3 text-amber-800">
             {cartRecoveryMessage}
@@ -333,9 +341,9 @@ export default function Products() {
             </button>
           </EmptyState>
         ) : (
-          <div>
+          <ul aria-label="Cart items" className="divide-y divide-gray-200">
             {cartItems.map((item) => (
-              <div key={item.id} className="flex justify-between items-center mb-2">
+              <li key={item.id} className="flex justify-between items-center mb-2 py-2">
                 <div className="w-16 h-16 flex-shrink-0">
                   <Image
                     src={item.img} // Ensure this URL is correct
@@ -350,15 +358,20 @@ export default function Products() {
                 <span className="ml-4 text-sm" aria-label="Cart item availability">
                   {item.available === false ? "Unavailable" : "Available"}
                 </span>
+                {/* The visible label is "Remove" for every row, so screen
+                    readers would otherwise hear identical buttons. The item
+                    name makes each name distinguishable in a control list. */}
                 <button
+                  type="button"
                   className="ml-4 bg-red-500 text-white px-2 py-1 rounded"
                   onClick={() => removeFromCart(item)}
+                  aria-label={`Remove ${item.name} from cart`}
                 >
                   Remove
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
         <div className="flex justify-between items-center mt-4 mx-5 sm:mx-10">
           <div>
